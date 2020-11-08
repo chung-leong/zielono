@@ -16,20 +16,13 @@ async function parseExcelFile(buffer) {
   const description = trim(workbook.description);
   const subject = trim(workbook.subject);
   const sheets = [];
-  const languages = [];
   for (let worksheet of workbook.worksheets) {
     const sheet = await parseExcelWorksheet(worksheet);
     if (sheet) {
       sheets.push(sheet);
-
-      // add language codes to list
-      addLanguages(languages, sheet.flags);
-      for (let column of sheet.columns) {
-        addLanguages(languages, column.flags);
-      }
     }
   }
-  return { title, subject, description, keywords, sheets, languages };
+  return { title, subject, description, keywords, sheets };
 }
 
 /**
@@ -180,26 +173,8 @@ const defaultAlignment = { vertical: 'top', horizontal: 'left' };
 const defaultFill = { type: 'pattern', pattern: 'none' };
 const defaultBorder = {};
 
-/**
- * Attach language codes to a list
- *
- * @param {array} languages
- * @param {(array|undefined)} flags
- */
-function addLanguages(languages, flags) {
-  if (flags) {
-    for (let flag of flags) {
-      const m = /^([a-z]{2})(-[a-z]{2})?$/i.exec(flag);
-      if (m) {
-        const code = toLower(m[1]);
-        if (!includes(languages, code) && code !== 'zz') {
-          languages.push(code);
-        }
-      }
-    }
-  }
-}
-
 export {
   parseExcelFile,
+  extractKeywords,
+  extractNameFlags,
 };

@@ -6,8 +6,8 @@
   "license": "MIT",
   "main": "index.js",
   "scripts": {
-    "test": "./node_modules/mocha/bin/mocha -- src/lib/**/test/*.js",
-    "test:start": "./node_modules/mocha/bin/mocha --watch -- src/lib/**/test/*.js"
+    "test": "./node_modules/mocha/bin/mocha -- test/*.mjs",
+    "test:watch": "./node_modules/mocha/bin/mocha --parallel --watch -- test/*.mjs"
   },
   "dependencies": {
     "body-parser": "^1.19.0",
