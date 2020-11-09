@@ -1,4 +1,9 @@
 import Chai from 'chai'; const { expect } = Chai;
+import FS from 'fs'; const { readFile } = FS.promises;
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 import {
   parseExcelFile,
@@ -7,9 +12,6 @@ import {
 } from '../src/excel-parsing.mjs';
 
 describe('Excel parsing', function() {
-  describe('#parseExcelFile', function() {
-    
-  })
   describe('#extractKeywords()', function() {
     it('should handle null input', function() {
       const keywords1 = extractKeywords(undefined);
@@ -40,6 +42,41 @@ describe('Excel parsing', function() {
     it('should handle names with multiple flags correctly', function() {
       const nameFlags = extractNameFlags(' Hello (EN-US, EN-GB)');
       expect(nameFlags).to.eql({ name: 'Hello', flags: [ 'en-us', 'en-gb' ] });
+    })
+  })
+  describe('#parseExcelFile', function() {
+    it('should correctly extract metadata', async function() {
+      const data = await readFile(`${__dirname}/assets/sample.xlsx`);
+      const json = await parseExcelFile(data);
+      expect(json.title).to.eql('This is a title');
+      expect(json.subject).to.eql('This is the subject');
+      expect(json.description).to.eql('This is a description!');
+      expect(json.keywords).to.eql([ 'chicken', 'duck', 'morons' ]);
+    })
+    it('should ignore empty and hidden sheets', async function() {
+      const data = await readFile(`${__dirname}/assets/sample.xlsx`);
+      const json = await parseExcelFile(data);
+      expect(json.sheets).to.have.lengthOf(3);
+    })
+    it('should extract flags from sheet names', async function() {
+      const data = await readFile(`${__dirname}/assets/sample.xlsx`);
+      const json = await parseExcelFile(data);
+      const [ sheet1, sheet2 ] = json.sheets;
+      expect(sheet1.name).to.eql('Sushi');
+      expect(sheet2.name).to.eql('Text');
+      expect(sheet2.flags).to.eql([ 'with styles' ]);
+    })
+    it('should extract flags from column names', async function() {
+      const data = await readFile(`${__dirname}/assets/sample.xlsx`);
+      const json = await parseExcelFile(data);
+      const [ sheet1 ] = json.sheets;
+      const [ col1, col2, col3, col4 ] = sheet1.columns;
+      expect(col1.name).to.eql('Name');
+      expect(col2.name).to.eql('Description');
+      expect(col2.flags).to.eql([ 'en' ]);
+      expect(col3.name).to.eql('Description');
+      expect(col3.flags).to.eql([ 'pl' ]);
+      expect(col4.name).to.eql('Picture');
     })
   })
 })
