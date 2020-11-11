@@ -1,6 +1,8 @@
 import Chai from 'chai'; const { expect } = Chai;
 
 import {
+  formatValue,
+  formatNumber,
   findFraction,
 } from '../src/data-formatting.mjs';
 
@@ -26,6 +28,60 @@ describe('Excel parsing', function() {
     it('should handles negative numbers correctly', function() {
       expect(findFraction(-1.95, 2)).to.eql({ whole: -1, nom: 19, dem: 20 });
       expect(findFraction(-0.006, 3)).to.eql({ whole: -0, nom: 3, dem: 500 });
+    })
+  })
+  describe('#formatNumber()', function() {
+    it('should handle patterns with no decimal point', function() {
+      expect(formatNumber(0.123, '0', 'en-us', false)).to.eql('0');
+      expect(formatNumber(100.123, '0', 'en-us', false)).to.eql('100');
+      expect(formatNumber(1.59, '0', 'en-us', false)).to.eql('2');
+    })
+    it('should handle patterns with decimal digits', function() {
+      expect(formatNumber(0.123, '0.00', 'en-us', false)).to.eql('0.12');
+      expect(formatNumber(100.123, '0.00##', 'en-us', false)).to.eql('100.123');
+      expect(formatNumber(1.59, '0.0', 'en-us', false)).to.eql('1.6');
+    })
+    it('should add leading zeros', function() {
+      expect(formatNumber(0.123, '0000.00', 'en-us', false)).to.eql('0000.12');
+      expect(formatNumber(100.123, '0000.00#', 'en-us', false)).to.eql('0100.123');
+      expect(formatNumber(-1.59, '0000', 'en-us', false)).to.eql('-0002');
+    })
+    it('should omit sign when directed', function() {
+      expect(formatNumber(-1.59, '0000', 'en-us', true)).to.eql('0002');
+    })
+    it('should handle zero integer digit pattern', function() {
+      expect(formatNumber(0.123, '#.00', 'en-us', false)).to.eql('.12');
+      expect(formatNumber(-0.123, '#.00', 'en-us', false)).to.eql('-.12');
+      expect(formatNumber(0.123, '#', 'en-us', false)).to.eql('');
+      expect(formatNumber(-0.123, '#', 'en-us', false)).to.eql('');
+    })
+    it('should handle pattern with digit grouping', function() {
+      console.log(formatNumber(1000000, '#,##0', 'pl-pl', false));
+      expect(formatNumber(1000000, '#,##0', 'en-us', false)).to.eql('1,000,000');
+      expect(formatNumber(1000000, '#,##0', 'pl-pl', false)).to.eql('1\u00a0000\u00a0000');
+      expect(formatNumber(1000000, '#,##0', 'de-de', false)).to.eql('1.000.000');
+      expect(formatNumber(1000000, '#,##0', 'fr-fr', false)).to.eql('1\u202f000\u202f000');
+    })
+
+  })
+  describe('#formatValue()', function() {
+    it('should handle conditional color', function() {
+      const value = -15;
+      const format = '0;[RED]-0';
+      const result = formatValue(value, format);
+      expect(result).to.eql({ text: '-15', color: '#ff0000' });
+    })
+    it('should handle currency format', function() {
+      const value = 500;
+      const format = '#,##0.00 [$zł-415];[RED]-#,##0.00 [$zł-415]';
+      const result = formatValue(value, format);
+      expect(result).to.eql({ text: '500.00 zł', color: undefined });
+    })
+    it('should handle negative currency value', function() {
+      const value = -500;
+      const format = '#,##0.00 [$zł-415];[RED]-#,##0.00 [$zł-415]';
+      const result = formatValue(value, format);
+      expect(result).to.eql({ text: '-500.00 zł', color: '#ff0000' });
     })
   })
 })

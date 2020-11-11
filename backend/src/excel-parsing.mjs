@@ -55,6 +55,9 @@ async function parseExcelWorksheet(worksheet) {
     const isUsing = {};
     for (let r = 1; r <= rowCount; r++) {
       const worksheetRow = worksheet.getRow(r);
+      if (!worksheetRow.hasValues) {
+        continue;
+      }
       if (r === 1) {
         // use first row as column names
         for (let c = 1; c <= columnCount; c++) {
@@ -67,12 +70,15 @@ async function parseExcelWorksheet(worksheet) {
           }
         }
       } else {
+        if (columns.length === 0) {
+          break;
+        }
         // all the remaining rows as treated as data rows
         const row = [];
         for (let c = 1; c <= columnCount; c++) {
           if (isUsing[c]) {
             const worksheetCell = worksheetRow.getCell(c);
-            const value = extractCellValue(worksheetCell, media[`${c}:${r}`]);
+            const value = extractCellContents(worksheetCell, media[`${c}:${r}`]);
             row.push(value);
           }
         }
@@ -130,8 +136,8 @@ function extractNameFlags(text) {
  *
  * @return {(object|string)}
  */
-function extractCellValue(worksheetCell, media) {
-  const { alignment, border, fill, font, text, value } = worksheetCell;
+function extractCellContents(worksheetCell, media) {
+  const { alignment, border, fill, font, text, value, type, numFmt } = worksheetCell;
   const attrs = {};
   if (alignment && !isEqual(alignment, defaultAlignment)) {
     attrs.alignment = alignment;
