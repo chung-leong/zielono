@@ -86,5 +86,11 @@ describe('Excel parsing', function() {
       const result = formatValue(value, format);
       expect(result).to.eql({ text: '-500.00 zł', color: '#ff0000' });
     })
+    it('should handle percentage', function() {
+      const value = 0.5;
+      const format = '0 %';
+      const result = formatValue(value, format);
+      expect(result).to.eql({ text: '50 %', color: undefined });
+    })
   })
 })

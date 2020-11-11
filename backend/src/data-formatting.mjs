@@ -32,7 +32,12 @@ function formatValue(value, formatString, locale) {
   });
   // replace numerial pattern
   replace(/[#0](.*[#0])?/, (m0) => {
-    return formatNumber(value, m0, locale, usingNegFormat);
+    // deal with percentage
+    let effectiveValue = value;
+    if (text.includes('%')) {
+      effectiveValue *= 100;
+    }
+    return formatNumber(effectiveValue, m0, locale, usingNegFormat);
   });
 
   return { text, color };
