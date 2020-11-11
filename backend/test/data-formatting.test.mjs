@@ -56,13 +56,16 @@ describe('Excel parsing', function() {
       expect(formatNumber(-0.123, '#', 'en-us', false)).to.eql('');
     })
     it('should handle pattern with digit grouping', function() {
-      console.log(formatNumber(1000000, '#,##0', 'pl-pl', false));
       expect(formatNumber(1000000, '#,##0', 'en-us', false)).to.eql('1,000,000');
       expect(formatNumber(1000000, '#,##0', 'pl-pl', false)).to.eql('1\u00a0000\u00a0000');
       expect(formatNumber(1000000, '#,##0', 'de-de', false)).to.eql('1.000.000');
       expect(formatNumber(1000000, '#,##0', 'fr-fr', false)).to.eql('1\u202f000\u202f000');
     })
-
+    it('should handle irregular patterns', function() {
+      expect(formatNumber(123456789, '000-000-000', 'en-us', false)).to.eql('123-456-789');
+      expect(formatNumber(789, '000-000-000', 'en-us', false)).to.eql('000-000-789');
+      expect(formatNumber(789, '###-###-000', 'en-us', false)).to.eql('--789');
+    });
   })
   describe('#formatValue()', function() {
     it('should handle conditional color', function() {

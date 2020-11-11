@@ -101,7 +101,73 @@ function formatNumber(number, formatString, locale, omitSign) {
     }
     return res;
   } else {
-    // TODO
+    // handle irregular patterns by first converting the number to string
+    // and get the integer and fractional parts
+    let numberString = number.toString();
+    let addSign = false;
+    if (numberString.charAt(0) === '-') {
+      numberString = numberString.substr(1);
+      addSign = true;
+    }
+    const numberParts = split(numberString, '.');
+    const intPart = numberParts[0], fraPart = numberParts[1] || '';
+    // break the format string into characters and count how many
+    // digits are needed for the integer part and the fraction part
+    const lastPeriodIndex = formatString.lastIndexOf('.');
+    const chars = [];
+    let intDigitCount = 0, fraDigitCount = 0;
+    for (let i = 0; i < formatString.length; i++) {
+      const c = formatString.charAt(i);
+      chars.push(c);
+      if (c === '#' || c === '0') {
+        if (i < lastPeriodIndex || lastPeriodIndex === -1) {
+          intDigitCount++;
+        } else {
+          fraDigitCount++;
+        }
+      }
+    }
+    // replace # or 0 in the pattern with digits, starting with the fractional part
+    let intDigitUsed = 0, fraDigitUsed = 0;
+    if (lastPeriodIndex !== -1) {
+      for (let i = lastPeriodIndex + 1; i < formatString.length; i++) {
+        const c = chars[i];
+        if (c === '#' || c === '0') {
+          let replacement = '';
+          if (fraDigitUsed < fraPart.length) {
+            replacement = fraPart.charAt(fraDigitUsed);
+            fraDigitUsed++;
+          } else if (c === '0') {
+            replacement = '0';
+          }
+          chars[i] = replacement;
+        }
+      }
+    }
+    // handle the integer part, replacing from the decimal point if there's one
+    for (let i = (lastPeriodIndex !== -1) ? lastPeriodIndex - 1 : formatString.length; i >= 0; i--) {
+      const c = chars[i];
+      if (c === '#' || c === '0') {
+        let replacement = '';
+        if (intDigitUsed < intPart.length) {
+          if (intDigitUsed + 1 < intDigitCount) {
+            replacement = intPart.charAt(intPart.length - intDigitUsed - 1);
+          } else {
+            // the last digit--include all remaining digits
+            replacement = intPart.substr(0, intPart.length - intDigitUsed);
+            // include sign as well unless it's begin omitted
+            if (!omitSign && addSign) {
+              replacement = '-' + replacement;
+            }
+          }
+          intDigitUsed++;
+        } else if (c === '0') {
+          replacement = '0';
+        }
+        chars[i] = replacement;
+      }
+    }
+    return chars.join('');
   }
 }
 
