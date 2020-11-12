@@ -4,6 +4,7 @@ import {
   formatValue,
   formatNumber,
   formatFraction,
+  formatTimeComponent,
   findFraction,
 } from '../src/data-formatting.mjs';
 
@@ -96,6 +97,34 @@ describe('Excel parsing', function() {
       expect(formatNumber(150000, '##0.0   E+0', { locale: 'en-us', omitSign: false })).to.eql('150.0   E+3');
       expect(formatNumber(150000, '##0.00   E+00', { locale: 'en-us', omitSign: false })).to.eql('150.00   E+03');
     });
+  })
+  describe('#formatTimeComponent()', function() {
+    it('should handle year', function() {
+      const date = new Date('2017-07-04T21:58:22.234Z')
+      expect(formatTimeComponent(date, 'YY', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('17');
+      expect(formatTimeComponent(date, 'YYYY', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('2017');
+    })
+    it('should handle month', function() {
+      const date = new Date('2017-07-04T21:58:22.234Z')
+      expect(formatTimeComponent(date, 'M', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('7');
+      expect(formatTimeComponent(date, 'MM', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('07');
+      expect(formatTimeComponent(date, 'MMM', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('Jul');
+      expect(formatTimeComponent(date, 'MMMM', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('July');
+      expect(formatTimeComponent(date, 'MMM', { locale: 'pl-pl', timeZone: 'Europe/Warsaw' })).to.eql('lip');
+      expect(formatTimeComponent(date, 'MMMM', { locale: 'pl-pl', timeZone: 'Europe/Warsaw' })).to.eql('lipiec');
+    })
+    it('should handle day', function() {
+      const date = new Date('2017-07-04T21:58:22.234Z')
+      expect(formatTimeComponent(date, 'D', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('4');
+      expect(formatTimeComponent(date, 'DD', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('04');
+    })
+    it('should handle weekday', function() {
+      const date = new Date('2017-07-04T21:58:22.234Z')
+      expect(formatTimeComponent(date, 'NN', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('Tue');
+      expect(formatTimeComponent(date, 'NNNN', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('Tuesday');
+      expect(formatTimeComponent(date, 'NN', { locale: 'pl-pl', timeZone: 'Europe/Warsaw' })).to.eql('wt.');
+      expect(formatTimeComponent(date, 'NNNN', { locale: 'pl-pl', timeZone: 'Europe/Warsaw' })).to.eql('wtorek');
+    })
   })
   describe('#formatValue()', function() {
     it('should handle conditional color', function() {

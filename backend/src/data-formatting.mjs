@@ -1,4 +1,4 @@
-import Lodash from 'lodash'; const { split, toLower } = Lodash;
+import Lodash from 'lodash'; const { split, toLower, toUpper } = Lodash;
 import { getExcelColor } from './excel-colors.mjs';
 const { floor, round, abs } = Math;
 
@@ -22,9 +22,9 @@ function formatValue(value, formatString, options) {
   let removeFraction = false;
   let remaining = applicablePart;
   const replacements = [];
-  const find = (pattern, callback) => {
+  const find = (regExp, callback) => {
     if (remaining) {
-      const m = pattern.exec(remaining);
+      const m = regExp.exec(remaining);
       if (m) {
         // invoke callback, store the result, and take out the matching part
         const { index } = m;
@@ -64,29 +64,62 @@ function formatValue(value, formatString, options) {
     color = getExcelColor(m[1] || m[0]);
     return '';
   });
-  // find fraction
-  find(/\?+\/[\?0-9]*/, (m) => {
-    removeFraction = true;
-    return formatFraction(value, m[0], options);
-  });
-  // find numeric
-  find(/[#0](.*[#0])?/, (m) => {
-    let effectiveValue = value;
-    // remove fractional part if it's shown already
-    if (removeFraction) {
-      effectiveValue = floor(effectiveValue);
-    }
-    // deal with percentage
-    if (applicablePart.includes('%')) {
-      effectiveValue *= 100;
-    }
-    return formatNumber(effectiveValue, m[0], { omitSign: usingNegFormat, ...options });
-  });
-  // find quoted string
-  find(/"(.*)"/, (m) => {
-    return m[1];
-  });
+
+  if(value instanceof Date) {
+    // find year
+    find(/YY|YYYY/, (m) => formatTimeComponent(value, m[0], options));
+    // find month
+    find(/M{1,4}/, (m) => formatTimeComponent(value, m[0], options));
+    // find day
+    find(/D{1,2}/, (m) => formatTimeComponent(value, m[0], options));
+    // find weekday
+    find(/NN|NNNN/, (m) => formatTimeComponent(value, m[0], options));
+  } else if (typeof(value) === 'number') {
+    // find fraction
+    find(/\?+\/[\?0-9]*/, (m) => {
+      removeFraction = true;
+      return formatFraction(value, m[0], options);
+    });
+    // find numeric
+    find(/[#0](.*[#0])?/, (m) => {
+      let effectiveValue = value;
+      // remove fractional part if it's shown already
+      if (removeFraction) {
+        effectiveValue = floor(effectiveValue);
+      }
+      // deal with percentage
+      if (applicablePart.includes('%')) {
+        effectiveValue *= 100;
+      }
+      return formatNumber(effectiveValue, m[0], { omitSign: usingNegFormat, ...options });
+    });
+    // find quoted string
+    find(/"(.*)"/, (m) => {
+      return m[1];
+    });
+  }
   return apply();
+}
+
+const dateTimeOptions = {
+  'YY': { year: '2-digit' },
+  'YYYY': { year: 'numeric'},
+  'M': { month: 'numeric' },
+  'MM': { month: '2-digit' },
+  'MMM': { month: 'short' },
+  'MMMM': { month: 'long' },
+  'D': { day: 'numeric' },
+  'DD': { day: '2-digit'},
+  'NN': { weekday: 'short' },
+  'NNNN': { weekday: 'long'},
+};
+
+function formatTimeComponent(date, symbol, options) {
+  // TODO: handle calendar type
+  const { locale, timeZone, hour12 } = options;
+  const component = dateTimeOptions[toUpper(symbol)];
+  const stringifyOptions = { timeZone, hour12, ...component };
+  return date.toLocaleDateString(locale, stringifyOptions);
 }
 
 /**
@@ -463,5 +496,6 @@ export {
   formatValue,
   formatNumber,
   formatFraction,
+  formatTimeComponent,
   findFraction,
 };
