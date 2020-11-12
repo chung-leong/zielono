@@ -32,64 +32,69 @@ describe('Excel parsing', function() {
   })
   describe('#formatNumber()', function() {
     it('should handle patterns with no decimal point', function() {
-      expect(formatNumber(0.123, '0', 'en-us', false)).to.eql('0');
-      expect(formatNumber(100.123, '0', 'en-us', false)).to.eql('100');
-      expect(formatNumber(1.59, '0', 'en-us', false)).to.eql('2');
+      expect(formatNumber(0.123, '0', { locale: 'en-us', omitSign: false })).to.eql('0');
+      expect(formatNumber(100.123, '0', { locale: 'en-us', omitSign: false })).to.eql('100');
+      expect(formatNumber(1.59, '0', { locale: 'en-us', omitSign: false })).to.eql('2');
     })
     it('should handle patterns with decimal digits', function() {
-      expect(formatNumber(0.123, '0.00', 'en-us', false)).to.eql('0.12');
-      expect(formatNumber(100.123, '0.00##', 'en-us', false)).to.eql('100.123');
-      expect(formatNumber(1.59, '0.0', 'en-us', false)).to.eql('1.6');
+      expect(formatNumber(0.123, '0.00', { locale: 'en-us', omitSign: false })).to.eql('0.12');
+      expect(formatNumber(100.123, '0.00##', { locale: 'en-us', omitSign: false })).to.eql('100.123');
+      expect(formatNumber(1.59, '0.0', { locale: 'en-us', omitSign: false })).to.eql('1.6');
     })
     it('should add leading zeros', function() {
-      expect(formatNumber(0.123, '0000.00', 'en-us', false)).to.eql('0000.12');
-      expect(formatNumber(100.123, '0000.00#', 'en-us', false)).to.eql('0100.123');
-      expect(formatNumber(-1.59, '0000', 'en-us', false)).to.eql('-0002');
+      expect(formatNumber(0.123, '0000.00', { locale: 'en-us', omitSign: false })).to.eql('0000.12');
+      expect(formatNumber(100.123, '0000.00#', { locale: 'en-us', omitSign: false })).to.eql('0100.123');
+      expect(formatNumber(-1.59, '0000', { locale: 'en-us', omitSign: false })).to.eql('-0002');
     })
     it('should omit sign when directed', function() {
-      expect(formatNumber(-1.59, '0000', 'en-us', true)).to.eql('0002');
+      expect(formatNumber(-1.59, '0000', { locale: 'en-us', omitSign: true })).to.eql('0002');
     })
     it('should handle zero integer digit pattern', function() {
-      expect(formatNumber(0.123, '#.00', 'en-us', false)).to.eql('.12');
-      expect(formatNumber(-0.123, '#.00', 'en-us', false)).to.eql('-.12');
-      expect(formatNumber(0.123, '#', 'en-us', false)).to.eql('');
-      expect(formatNumber(-0.123, '#', 'en-us', false)).to.eql('');
+      expect(formatNumber(0.123, '#.00', { locale: 'en-us', omitSign: false })).to.eql('.12');
+      expect(formatNumber(-0.123, '#.00', { locale: 'en-us', omitSign: false })).to.eql('-.12');
+      expect(formatNumber(0.123, '#', { locale: 'en-us', omitSign: false })).to.eql('');
+      expect(formatNumber(-0.123, '#', { locale: 'en-us', omitSign: false })).to.eql('');
     })
     it('should handle pattern with digit grouping', function() {
-      expect(formatNumber(1000000, '#,##0', 'en-us', false)).to.eql('1,000,000');
-      expect(formatNumber(1000000, '#,##0', 'pl-pl', false)).to.eql('1\u00a0000\u00a0000');
-      expect(formatNumber(1000000, '#,##0', 'de-de', false)).to.eql('1.000.000');
-      expect(formatNumber(1000000, '#,##0', 'fr-fr', false)).to.eql('1\u202f000\u202f000');
+      expect(formatNumber(1000000, '#,##0', { locale: 'en-us', omitSign: false })).to.eql('1,000,000');
+      expect(formatNumber(1000000, '#,##0', { locale: 'pl-pl', omitSign: false })).to.eql('1\u00a0000\u00a0000');
+      expect(formatNumber(1000000, '#,##0', { locale: 'de-de', omitSign: false })).to.eql('1.000.000');
+      expect(formatNumber(1000000, '#,##0', { locale: 'fr-fr', omitSign: false })).to.eql('1\u202f000\u202f000');
     })
     it('should handle irregular patterns', function() {
-      expect(formatNumber(123456789, '000-000-000', 'en-us', false)).to.eql('123-456-789');
-      expect(formatNumber(789, '000-000-000', 'en-us', false)).to.eql('000-000-789');
-      expect(formatNumber(789, '###-###-000', 'en-us', false)).to.eql('--789');
+      expect(formatNumber(123456789, '000-000-000', { locale: 'en-us', omitSign: false })).to.eql('123-456-789');
+      expect(formatNumber(789123456789, '000-000-000', { locale: 'en-us', omitSign: false })).to.eql('789123-456-789');
+      expect(formatNumber(-789123456789, '000-000-000', { locale: 'en-us', omitSign: false })).to.eql('-789123-456-789');
+      expect(formatNumber(789, '000-000-000', { locale: 'en-us', omitSign: false })).to.eql('000-000-789');
+      expect(formatNumber(789, '###-###-000', { locale: 'en-us', omitSign: false })).to.eql('--789');
+      expect(formatNumber(12.3456, '0.00 h 000', { locale: 'en-us', omitSign: false })).to.eql('12.34 h 560');
     });
   })
   describe('#formatValue()', function() {
     it('should handle conditional color', function() {
       const value = -15;
       const format = '0;[RED]-0';
-      const result = formatValue(value, format);
+      const result = formatValue(value, format, { locale: 'en-us' });
       expect(result).to.eql({ text: '-15', color: '#ff0000' });
     })
     it('should handle currency format', function() {
       const value = 500;
       const format = '#,##0.00 [$zł-415];[RED]-#,##0.00 [$zł-415]';
-      const result = formatValue(value, format);
-      expect(result).to.eql({ text: '500.00 zł', color: undefined });
+      const result1 = formatValue(value, format, { locale: 'en-us' });
+      const result2 = formatValue(value, format, { locale: 'pl-pl' });
+      expect(result1).to.eql({ text: '500.00 zł', color: undefined });
+      expect(result2).to.eql({ text: '500,00 zł', color: undefined });
     })
     it('should handle negative currency value', function() {
       const value = -500;
       const format = '#,##0.00 [$zł-415];[RED]-#,##0.00 [$zł-415]';
-      const result = formatValue(value, format);
+      const result = formatValue(value, format, { locale: 'en-us' });
       expect(result).to.eql({ text: '-500.00 zł', color: '#ff0000' });
     })
     it('should handle percentage', function() {
       const value = 0.5;
       const format = '0 %';
-      const result = formatValue(value, format);
+      const result = formatValue(value, format, { locale: 'en-us' });
       expect(result).to.eql({ text: '50 %', color: undefined });
     })
   })

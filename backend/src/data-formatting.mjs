@@ -3,7 +3,7 @@ import Lodash from 'lodash'; const { split, toLower } = Lodash;
 import { getExcelColor } from './excel-colors.mjs';
 const { floor, abs } = Math;
 
-function formatValue(value, formatString, locale) {
+function formatValue(value, formatString, options) {
   // handle conditional formatting
   const parts = split(formatString, /;/);
   let applicablePart = parts[0];
@@ -37,14 +37,15 @@ function formatValue(value, formatString, locale) {
     if (text.includes('%')) {
       effectiveValue *= 100;
     }
-    return formatNumber(effectiveValue, m0, locale, usingNegFormat);
+    return formatNumber(effectiveValue, m0, { omitSign: usingNegFormat, ...options });
   });
 
   return { text, color };
 }
 
-function formatNumber(number, formatString, locale, omitSign) {
-  const options = {
+function formatNumber(number, formatString, options) {
+  const { omitSign, locale } = options;
+  const stringifyOptions = {
     signDisplay: (omitSign) ? 'never' : 'auto',
     useGrouping: false,
     minimumIntegerDigits: 0,
@@ -59,14 +60,14 @@ function formatNumber(number, formatString, locale, omitSign) {
     const c = formatString.charAt(i);
     if (!periodEncountered) {
       if (c === '0') {
-        options.minimumIntegerDigits++;
+        stringifyOptions.minimumIntegerDigits++;
         zeroEncountered1 = true;
       } else if (c === '#' && !zeroEncountered1) {
         poundEncountered1 = true;
       } else if (c === '.') {
         periodEncountered = true;
       } else if (c === ',' && !commaEncountered) {
-        options.useGrouping = true;
+        stringifyOptions.useGrouping = true;
         commaEncountered = true;
       } else {
         irregular = true;
@@ -74,11 +75,11 @@ function formatNumber(number, formatString, locale, omitSign) {
       }
     } else {
       if (c === '0' && !poundEncountered2) {
-        options.minimumFractionDigits++;
-        options.maximumFractionDigits++;
+        stringifyOptions.minimumFractionDigits++;
+        stringifyOptions.maximumFractionDigits++;
         zeroEncountered2 = true;
       } else if (c === '#') {
-        options.maximumFractionDigits++;
+        stringifyOptions.maximumFractionDigits++;
         poundEncountered2 = true;
       } else {
         irregular = true;
@@ -92,11 +93,11 @@ function formatNumber(number, formatString, locale, omitSign) {
     // function doesn't allow minimumIntegerDigits to be zero
     // we need to bump it to 1 and strip out the zero afterward
     let stripLeadingZero = false;
-    if (options.minimumIntegerDigits === 0) {
-      options.minimumIntegerDigits = 1;
+    if (stringifyOptions.minimumIntegerDigits === 0) {
+      stringifyOptions.minimumIntegerDigits = 1;
       stripLeadingZero = true;
     }
-    let res = number.toLocaleString(locale, options);
+    let res = number.toLocaleString(locale, stringifyOptions);
     if (stripLeadingZero) {
       if (res.substr(0, 1) === '0') {
         res = res.substr(1);
