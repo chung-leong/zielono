@@ -1,7 +1,6 @@
 import Lodash from 'lodash'; const { split, toLower } = Lodash;
-
 import { getExcelColor } from './excel-colors.mjs';
-const { floor, abs } = Math;
+const { floor, round, abs } = Math;
 
 function formatValue(value, formatString, options) {
   // handle conditional formatting
@@ -20,6 +19,7 @@ function formatValue(value, formatString, options) {
 
   // create a closure for replacing matching patterns
   let color;
+  let removeFraction = false;
   let remaining = applicablePart;
   const replacements = [];
   const find = (pattern, callback) => {
@@ -56,27 +56,44 @@ function formatValue(value, formatString, options) {
   };
 
   // find currency symbol/locale
-  find(/\[\$([^-\]]*)-([0-9]+)]/g, (m) => {
+  find(/\[\$([^-\]]*)-([0-9]+)]/, (m) => {
     return m[1];
   });
   // find color
-  find(/\[(BLACK|BLUE|CYAN|GREEN|MAGENTA|RED|WHITE|YELLOW|COLOR\s*(\d\d?))\]/gi, (m) => {
+  find(/\[(BLACK|BLUE|CYAN|GREEN|MAGENTA|RED|WHITE|YELLOW|COLOR\s*(\d\d?))\]/i, (m) => {
     color = getExcelColor(m[1] || m[0]);
     return '';
   });
-  // replace numerial pattern
+  // find fraction
+  find(/\?+\/[\?0-9]*/, (m) => {
+    removeFraction = true;
+    return formatFraction(value, m[0], options);
+  });
+  // find numeric
   find(/[#0](.*[#0])?/, (m) => {
-    // deal with percentage
     let effectiveValue = value;
+    // remove fractional part if it's shown already
+    if (removeFraction) {
+      effectiveValue = floor(effectiveValue);
+    }
+    // deal with percentage
     if (applicablePart.includes('%')) {
       effectiveValue *= 100;
     }
     return formatNumber(effectiveValue, m[0], { omitSign: usingNegFormat, ...options });
   });
-
   return apply();
 }
 
+/**
+ * Format a number in accordance to format string
+ *
+ * @param  {number} number
+ * @param  {string} formatString
+ * @param  {object} options
+ *
+ * @return {string}
+ */
 function formatNumber(number, formatString, options) {
   const { omitSign, locale } = options;
   const stringifyOptions = {
@@ -212,6 +229,29 @@ function formatNumber(number, formatString, options) {
 }
 
 /**
+ * Format the fractional part of number as a fraction
+ *
+ * @param  {number} number
+ * @param  {string} formatString
+ * @param  {object} options
+ *
+ * @return {string}
+ */
+function formatFraction(number, formatString) {
+  const [ nomPart, demPart ] = split(formatString, '/');
+  const dem = parseInt(demPart);
+  if (dem > 0) {
+    const whole = floor(number);
+    const x = number - whole;
+    const nom = round(x * dem);
+    return (nom) ? `${nom}/${dem}` : '';
+  } else {
+    const { nom, dem } = findFraction(number, demPart.length);
+    return (dem) ? `${nom}/${dem}` : '';
+  }
+}
+
+/**
  * Find fractional representation of a number, limited by width of denominator
  *
  * @param  {number} number
@@ -228,13 +268,11 @@ function findFraction(number, width) {
   }
   const whole = floor(number);
   const x = number - whole;
-  // the cutoff and error shrinks increasing width
-  let error = 0.0001, cutoff = 0.1, limit = 10;
-  for (let w = 1; w < width; w++) {
-    cutoff *= 0.1;
-    error *= 0.1;
-    limit *= 10;
-  }
+  // the cutoff and error shrinks with increasing width
+  const range = Math.pow(10, width - 1);
+  const error = 0.0001 / range;
+  const cutoff = 0.1 / range;
+  const limit = 10 * range;
   if (x <= cutoff) {
     return { whole };
   } else if (1 - cutoff < x) {
@@ -282,5 +320,6 @@ function findFraction(number, width) {
 export {
   formatValue,
   formatNumber,
+  formatFraction,
   findFraction,
 };

@@ -3,6 +3,7 @@ import Chai from 'chai'; const { expect } = Chai;
 import {
   formatValue,
   formatNumber,
+  formatFraction,
   findFraction,
 } from '../src/data-formatting.mjs';
 
@@ -28,6 +29,19 @@ describe('Excel parsing', function() {
     it('should handles negative numbers correctly', function() {
       expect(findFraction(-1.95, 2)).to.eql({ whole: -1, nom: 19, dem: 20 });
       expect(findFraction(-0.006, 3)).to.eql({ whole: -0, nom: 3, dem: 500 });
+    })
+  })
+  describe('#formatFraction()', function() {
+    it('should handle fixed denominator', function() {
+      expect(formatFraction(1.95, '?/100', {})).to.eql('95/100');
+      expect(formatFraction(1.24, '?/4', {})).to.eql('1/4');
+      expect(formatFraction(1.10, '?/4', {})).to.eql('');
+      expect(formatFraction(1.30, '?/3', {})).to.eql('1/3');
+    })
+    it('should handle variable denominator', function() {
+      expect(formatFraction(1.95, '?/?', {})).to.eql('');
+      expect(formatFraction(1.95, '??/??', {})).to.eql('19/20');
+      expect(formatFraction(1.272, '??/???', {})).to.eql('34/125');
     })
   })
   describe('#formatNumber()', function() {
@@ -96,6 +110,12 @@ describe('Excel parsing', function() {
       const format = '0 %';
       const result = formatValue(value, format, { locale: 'en-us' });
       expect(result).to.eql({ text: '50 %', color: undefined });
+    })
+    it('should handle fraction', function() {
+      const value = 100.5;
+      const format = '# ?/?';
+      const result = formatValue(value, format, { locale: 'en-us' });
+      expect(result).to.eql({ text: '100 1/2', color: undefined });
     })
   })
 })
