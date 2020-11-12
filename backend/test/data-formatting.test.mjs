@@ -117,5 +117,12 @@ describe('Excel parsing', function() {
       const result = formatValue(value, format, { locale: 'en-us' });
       expect(result).to.eql({ text: '100 1/2', color: undefined });
     })
+    it('should handle boolean', function() {
+      const format = '"TRUE";"TRUE";"FALSE"';
+      const result1 = formatValue(0, format, { locale: 'en-us' });
+      const result2 = formatValue(1, format, { locale: 'en-us' });
+      expect(result1).to.eql({ text: 'FALSE', color: undefined });
+      expect(result2).to.eql({ text: 'TRUE', color: undefined });
+    })
   })
 })

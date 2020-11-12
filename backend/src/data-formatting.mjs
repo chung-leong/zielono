@@ -82,6 +82,10 @@ function formatValue(value, formatString, options) {
     }
     return formatNumber(effectiveValue, m[0], { omitSign: usingNegFormat, ...options });
   });
+  // find quoted string
+  find(/"(.*)"/, (m) => {
+    return m[1];
+  });
   return apply();
 }
 
