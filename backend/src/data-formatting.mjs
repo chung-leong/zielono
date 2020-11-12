@@ -17,30 +17,64 @@ function formatValue(value, formatString, options) {
       usingNegFormat = true;
     }
   }
+
   // create a closure for replacing matching patterns
-  let text = applicablePart;
-  const replace = (pattern, f) => { text = text.replace(pattern, f); };
-  // replace currency symbol/locale pattern
-  replace(/\[\$([^-\]]*)-([0-9]+)]/g, (m0, m1, m2) => {
-    return m1;
-  });
-  // replace color pattern
   let color;
-  replace(/\[(BLACK|BLUE|CYAN|GREEN|MAGENTA|RED|WHITE|YELLOW|COLOR\s*(\d\d?))\]/gi, (m0, m1) => {
-    color = getExcelColor(m1 || m0);
+  let remaining = applicablePart;
+  const replacements = [];
+  const find = (pattern, callback) => {
+    if (remaining) {
+      const m = pattern.exec(remaining);
+      if (m) {
+        // invoke callback, store the result, and take out the matching part
+        const { index } = m;
+        const result = callback(m);
+        const offset = result.length - m[0].length;
+        replacements.unshift({ index, offset, result });
+        remaining = remaining.substr(0, index) + remaining.substr(index + m[0].length);
+      }
+    }
+  };
+  const apply = () => {
+    let text = remaining;
+    for (let i = 0; i < replacements.length; i++) {
+      const { index, offset, result } = replacements[i];
+      if (result) {
+        text = text.substr(0, index) + result + text.substr(index);
+      }
+      if (offset !== 0) {
+        // adjust changes that are behind this one
+        for (let j = i + 1; j < replacements.length; j++) {
+          const prev = replacements[j];
+          if (prev.index > index) {
+            prev.index += offset;
+          }
+        }
+      }
+    }
+    return { text, color };
+  };
+
+  // find currency symbol/locale
+  find(/\[\$([^-\]]*)-([0-9]+)]/g, (m) => {
+    return m[1];
+  });
+  // find color
+  find(/\[(BLACK|BLUE|CYAN|GREEN|MAGENTA|RED|WHITE|YELLOW|COLOR\s*(\d\d?))\]/gi, (m) => {
+    color = getExcelColor(m[1] || m[0]);
     return '';
   });
   // replace numerial pattern
-  replace(/[#0](.*[#0])?/, (m0) => {
+  find(/[#0](.*[#0])?/, (m) => {
     // deal with percentage
     let effectiveValue = value;
-    if (text.includes('%')) {
+    if (applicablePart.includes('%')) {
       effectiveValue *= 100;
     }
-    return formatNumber(effectiveValue, m0, { omitSign: usingNegFormat, ...options });
+    return formatNumber(effectiveValue, m[0], { omitSign: usingNegFormat, ...options });
   });
 
-  return { text, color };
+  return apply();
 }
 
 function formatNumber(number, formatString, options) {
