@@ -75,13 +75,26 @@ describe('Excel parsing', function() {
       expect(formatNumber(1000000, '#,##0', { locale: 'de-de', omitSign: false })).to.eql('1.000.000');
       expect(formatNumber(1000000, '#,##0', { locale: 'fr-fr', omitSign: false })).to.eql('1\u202f000\u202f000');
     })
+    it('should handle scientific notation', function() {
+      expect(formatNumber(1500000, '0.00E+0', { locale: 'en-us', omitSign: false })).to.eql('1.50E+6');
+      expect(formatNumber(1500000, '0.00E+00', { locale: 'en-us', omitSign: false })).to.eql('1.50E+06');
+      expect(formatNumber(1500000, '0.00e+0', { locale: 'en-us', omitSign: false })).to.eql('1.50e+6');
+      expect(formatNumber(1500000, '0.00e+00', { locale: 'en-us', omitSign: false })).to.eql('1.50e+06');
+    })
+    it('should handle scientific notation', function() {
+      expect(formatNumber(150000, '##0.0E+0', { locale: 'en-us', omitSign: false })).to.eql('150.0E+3');
+      expect(formatNumber(150000, '##0.00E+00', { locale: 'en-us', omitSign: false })).to.eql('150.00E+03');
+    })
     it('should handle irregular patterns', function() {
       expect(formatNumber(123456789, '000-000-000', { locale: 'en-us', omitSign: false })).to.eql('123-456-789');
       expect(formatNumber(789123456789, '000-000-000', { locale: 'en-us', omitSign: false })).to.eql('789123-456-789');
       expect(formatNumber(-789123456789, '000-000-000', { locale: 'en-us', omitSign: false })).to.eql('-789123-456-789');
+      expect(formatNumber(1234567890.123, '000.000.000.000', { locale: 'en-us', omitSign: false })).to.eql('1234567890.123.000.000');
       expect(formatNumber(789, '000-000-000', { locale: 'en-us', omitSign: false })).to.eql('000-000-789');
       expect(formatNumber(789, '###-###-000', { locale: 'en-us', omitSign: false })).to.eql('--789');
       expect(formatNumber(12.3456, '0.00 h 000', { locale: 'en-us', omitSign: false })).to.eql('12.34 h 560');
+      expect(formatNumber(150000, '##0.0   E+0', { locale: 'en-us', omitSign: false })).to.eql('150.0   E+3');
+      expect(formatNumber(150000, '##0.00   E+00', { locale: 'en-us', omitSign: false })).to.eql('150.00   E+03');
     });
   })
   describe('#formatValue()', function() {
