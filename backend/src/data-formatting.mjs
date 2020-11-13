@@ -1,4 +1,4 @@
-import Lodash from 'lodash'; const { split, toLower, toUpper } = Lodash;
+import Lodash from 'lodash'; const { split, toLower } = Lodash;
 import { getExcelColor } from './excel-colors.mjs';
 const { floor, round, abs } = Math;
 
@@ -24,14 +24,17 @@ function formatValue(value, formatString, options) {
   const replacements = [];
   const find = (regExp, callback) => {
     if (remaining) {
-      const m = regExp.exec(remaining);
-      if (m) {
+      let m;
+      while (m = regExp.exec(remaining)) {
         // invoke callback, store the result, and take out the matching part
         const { index } = m;
         const result = callback(m);
         const offset = result.length - m[0].length;
         replacements.unshift({ index, offset, result });
         remaining = remaining.substr(0, index) + remaining.substr(index + m[0].length);
+        if (!regExp.global) {
+          break;
+        }
       }
     }
   };
@@ -54,9 +57,16 @@ function formatValue(value, formatString, options) {
     }
     return { text, color };
   };
-
+  // find escaped sequences
+  find(/\\(.)/g, (m) => {
+    return m[1];
+  });
   // find currency symbol/locale
-  find(/\[\$([^-\]]*)-([0-9]+)]/, (m) => {
+  find(/\[\$([^-\]]*)-([0-9a-f]+)]/, (m) => {
+    return m[1];
+  });
+  // find quoted string
+  find(/"(.*)"/, (m) => {
     return m[1];
   });
   // find color
@@ -66,14 +76,73 @@ function formatValue(value, formatString, options) {
   });
 
   if(value instanceof Date) {
+    // find AM/PM
+    let hour12 = false;
+    find(/\bAM\/PM\b/, (m) => {
+      hour12 = true;
+      return (value.getHours() < 12) ? 'AM' : 'PM';
+    });
+    // find hour (minute, second) count
+    find(/\[(h+|m+|s+)\]/g, (m) => {
+      const unit = toLower(m[1].charAt(0));
+      let count = (value.getTime() / 1000) + (25569 * 24 * 3600);
+      if (unit == 'h') {
+        count /= 3600;
+      } else if (unit === 'm') {
+        count /= 60;
+      }
+      return formatNumber(count, format, options);
+    });
+    // find hour
+    find(/h{1,2}/, (m) => {
+      let hours = value.getHours();
+      if (hour12 && hours > 12) {
+        hours -= 12;
+      }
+      return hours.toLocaleString(options.locale, { minimumIntegerDigits: m[0].length });
+    });
+    // find minute
+    find(/m{1,2}(?=:)|(?<=:)m{1,2}/, (m) => {
+      const minutes = value.getMinutes()
+      return minutes.toLocaleString(options.locale, { minimumIntegerDigits: m[0].length });
+    });
+    // find second
+    find(/(s{1,2})(\.([#0]+))?/, (m) => {
+      const stringifyOptions = { minimumIntegerDigits: m[1].length };
+      let seconds = value.getSeconds;
+      if (m[3]) {
+        // attach decimal part
+        seconds += value.getMilliseconds() / 1000;
+        stringifyOptions.maximumFractionDigits = m[3].length;
+      }
+      return seconds.toLocaleString(options.locale, stringifyOptions);
+    });
+
     // find year
-    find(/YY|YYYY/, (m) => formatTimeComponent(value, m[0], options));
+    find(/yyyy|yy/, (m) => {
+      const year = chooseComponent(m, { 2: '2-digit', 4: 'numeric' });
+      return formatDateComponent(value, { year }, options);
+    });
+    // find month (initial)
+    find(/m{5}/, (m) => {
+      return formatDateComponent(value, { month: 'long' }, options).charAt(0);
+    });
     // find month
-    find(/M{1,4}/, (m) => formatTimeComponent(value, m[0], options));
-    // find day
-    find(/D{1,2}/, (m) => formatTimeComponent(value, m[0], options));
+    find(/m{1,4}/, (m) => {
+      const month = chooseComponent(m, { 1: 'numeric', 2: '2-digit', 3: 'short', 4: 'long' });
+      return formatDateComponent(value, { month }, options);
+    });
     // find weekday
-    find(/NN|NNNN/, (m) => formatTimeComponent(value, m[0], options));
+    find(/d{3,4}/, (m) => {
+      const weekday = chooseComponent(m, { 3: 'short', 4: 'long' });
+      return formatDateComponent(value, { weekday }, options);
+    });
+    // find day
+    find(/d{1,2}/, (m) => {
+      const types = { 1: 'numeric', 2: '2-digit' };
+      const day = types[m[0].length];
+      return formatDateComponent(value, { day }, options);
+    });
   } else if (typeof(value) === 'number') {
     // find fraction
     find(/\?+\/[\?0-9]*/, (m) => {
@@ -93,32 +162,17 @@ function formatValue(value, formatString, options) {
       }
       return formatNumber(effectiveValue, m[0], { omitSign: usingNegFormat, ...options });
     });
-    // find quoted string
-    find(/"(.*)"/, (m) => {
-      return m[1];
-    });
   }
   return apply();
 }
 
-const dateTimeOptions = {
-  'YY': { year: '2-digit' },
-  'YYYY': { year: 'numeric'},
-  'M': { month: 'numeric' },
-  'MM': { month: '2-digit' },
-  'MMM': { month: 'short' },
-  'MMMM': { month: 'long' },
-  'D': { day: 'numeric' },
-  'DD': { day: '2-digit'},
-  'NN': { weekday: 'short' },
-  'NNNN': { weekday: 'long'},
-};
+function chooseComponent(match, options) {
+  return options[match[0].length];
+}
 
-function formatTimeComponent(date, symbol, options) {
-  // TODO: handle calendar type
-  const { locale, timeZone, hour12 } = options;
-  const component = dateTimeOptions[toUpper(symbol)];
-  const stringifyOptions = { timeZone, hour12, ...component };
+function formatDateComponent(date, components, options) {
+  const { locale, timeZone } = options;
+  const stringifyOptions = { timeZone, ...components };
   return date.toLocaleDateString(locale, stringifyOptions);
 }
 
@@ -155,15 +209,15 @@ function formatNumber(number, formatString, options) {
     // use engineering notation when the pattern is something like ##0.00E+00
     stringifyOptions.notation = (intCounts.total === 3) ? 'engineering' : 'scientific';
   }
+  // toLocaleString() doesn't allow minimumIntegerDigits to be zero
+  // we need to bump it to 1 and strip out the zero afterward
+  let stripLeadingZero = false;
+  if (stringifyOptions.minimumIntegerDigits === 0) {
+    stringifyOptions.minimumIntegerDigits = 1;
+    stripLeadingZero = true;
+  }
   if (!irregular) {
     // we can use toLocaleString() to handle the regular case
-    // function doesn't allow minimumIntegerDigits to be zero
-    // we need to bump it to 1 and strip out the zero afterward
-    let stripLeadingZero = false;
-    if (stringifyOptions.minimumIntegerDigits === 0) {
-      stringifyOptions.minimumIntegerDigits = 1;
-      stripLeadingZero = true;
-    }
     let res = number.toLocaleString(locale, stringifyOptions);
     if (stripLeadingZero) {
       res = removeLeadingZero(res);
@@ -496,6 +550,6 @@ export {
   formatValue,
   formatNumber,
   formatFraction,
-  formatTimeComponent,
+  formatDateComponent,
   findFraction,
 };

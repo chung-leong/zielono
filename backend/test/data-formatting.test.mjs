@@ -1,10 +1,16 @@
 import Chai from 'chai'; const { expect } = Chai;
+import FS from 'fs'; const { readFile } = FS.promises;
+import { dirname } from 'path';
+import { fileURLToPath } from 'url';
+import ExcelJS from 'exceljs'; const { Workbook } = ExcelJS;
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
 
 import {
   formatValue,
   formatNumber,
   formatFraction,
-  formatTimeComponent,
+  formatDateComponent,
   findFraction,
 } from '../src/data-formatting.mjs';
 
@@ -98,32 +104,32 @@ describe('Excel parsing', function() {
       expect(formatNumber(150000, '##0.00   E+00', { locale: 'en-us', omitSign: false })).to.eql('150.00   E+03');
     });
   })
-  describe('#formatTimeComponent()', function() {
+  describe('#formatDateComponent()', function() {
     it('should handle year', function() {
       const date = new Date('2017-07-04T21:58:22.234Z')
-      expect(formatTimeComponent(date, 'YY', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('17');
-      expect(formatTimeComponent(date, 'YYYY', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('2017');
+      expect(formatDateComponent(date, { year: '2-digit' }, { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('17');
+      expect(formatDateComponent(date, { year: 'numeric' }, { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('2017');
     })
     it('should handle month', function() {
       const date = new Date('2017-07-04T21:58:22.234Z')
-      expect(formatTimeComponent(date, 'M', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('7');
-      expect(formatTimeComponent(date, 'MM', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('07');
-      expect(formatTimeComponent(date, 'MMM', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('Jul');
-      expect(formatTimeComponent(date, 'MMMM', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('July');
-      expect(formatTimeComponent(date, 'MMM', { locale: 'pl-pl', timeZone: 'Europe/Warsaw' })).to.eql('lip');
-      expect(formatTimeComponent(date, 'MMMM', { locale: 'pl-pl', timeZone: 'Europe/Warsaw' })).to.eql('lipiec');
+      expect(formatDateComponent(date, { month: 'numeric' }, { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('7');
+      expect(formatDateComponent(date, { month: '2-digit' }, { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('07');
+      expect(formatDateComponent(date, { month: 'short' }, { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('Jul');
+      expect(formatDateComponent(date, { month: 'long' }, { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('July');
+      expect(formatDateComponent(date, { month: 'short' }, { locale: 'pl-pl', timeZone: 'Europe/Warsaw' })).to.eql('lip');
+      expect(formatDateComponent(date, { month: 'long' }, { locale: 'pl-pl', timeZone: 'Europe/Warsaw' })).to.eql('lipiec');
     })
     it('should handle day', function() {
       const date = new Date('2017-07-04T21:58:22.234Z')
-      expect(formatTimeComponent(date, 'D', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('4');
-      expect(formatTimeComponent(date, 'DD', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('04');
+      expect(formatDateComponent(date, { day: 'numeric' }, { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('4');
+      expect(formatDateComponent(date, { day: '2-digit' }, { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('04');
     })
     it('should handle weekday', function() {
       const date = new Date('2017-07-04T21:58:22.234Z')
-      expect(formatTimeComponent(date, 'NN', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('Tue');
-      expect(formatTimeComponent(date, 'NNNN', { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('Tuesday');
-      expect(formatTimeComponent(date, 'NN', { locale: 'pl-pl', timeZone: 'Europe/Warsaw' })).to.eql('wt.');
-      expect(formatTimeComponent(date, 'NNNN', { locale: 'pl-pl', timeZone: 'Europe/Warsaw' })).to.eql('wtorek');
+      expect(formatDateComponent(date, { weekday: 'short' }, { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('Tue');
+      expect(formatDateComponent(date, { weekday: 'long' }, { locale: 'en-us', timeZone: 'Europe/Warsaw' })).to.eql('Tuesday');
+      expect(formatDateComponent(date, { weekday: 'short' }, { locale: 'pl-pl', timeZone: 'Europe/Warsaw' })).to.eql('wt.');
+      expect(formatDateComponent(date, { weekday: 'long' }, { locale: 'pl-pl', timeZone: 'Europe/Warsaw' })).to.eql('wtorek');
     })
   })
   describe('#formatValue()', function() {
@@ -166,5 +172,45 @@ describe('Excel parsing', function() {
       expect(result1).to.eql({ text: 'FALSE', color: undefined });
       expect(result2).to.eql({ text: 'TRUE', color: undefined });
     })
+    it('should be able to correctly process items in sheet "normal"', async function() {
+      await testSheet('normal', { locale: 'en-us', timeZone: 'Europe/Warsaw' });
+    })
+    it('should be able to correctly process items in sheet "special"', async function() {
+      await testSheet('special', { locale: 'en-us', timeZone: 'Europe/Warsaw' });
+    })
   })
 })
+
+async function testSheet(name, options) {
+  const buffer = await readFile(`${__dirname}/assets/formatting.xlsx`);
+  const workbook = new Workbook();
+  await workbook.xlsx.load(buffer);
+  for (let worksheet of workbook.worksheets) {
+    if (worksheet.name === name) {
+      const { rowCount } = worksheet;
+      for (let r = 2; r <= rowCount; r++) {
+        const worksheetRow = worksheet.getRow(r);
+        const patternCell = worksheetRow.getCell(1);
+        const valueCell = worksheetRow.getCell(2);
+        const targetCell = worksheetRow.getCell(3);
+        const resultCell = worksheetRow.getCell(4);
+        const pattern = patternCell.text;
+        const value = valueCell.value;
+        const format = targetCell.numFmt;
+        const result = resultCell.text;
+        if (format !== pattern) {
+          throw new Error(`Mismatch on row ${r}: '${format}' != '${pattern}'`);
+        }
+        const ours = formatValue(value, format, options);
+        try {
+          expect(ours.text).to.eql(result);
+        } catch (e) {
+          e.message += ` on row ${r}`;
+          throw e;
+        }
+      }
+      return items;
+    }
+  }
+  throw new Error(`Unable to find sheet "${name}"`);
+}
