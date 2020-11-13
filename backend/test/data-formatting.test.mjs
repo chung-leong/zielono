@@ -172,11 +172,20 @@ describe('Excel parsing', function() {
       expect(result1).to.eql({ text: 'FALSE', color: undefined });
       expect(result2).to.eql({ text: 'TRUE', color: undefined });
     })
+    it('should handle time', function() {
+      const value = new Date(500);
+      const format = 'hh:mm:ss.0 AM/PM';
+      const result = formatValue(value, format, { locale: 'en-us', timeZone: 'GMT' });
+      expect(result).to.eql({ text: '12:00:00.5 AM', color: undefined });
+    })
     it('should be able to correctly process items in sheet "normal"', async function() {
-      await testSheet('normal', { locale: 'en-us', timeZone: 'Europe/Warsaw' });
+      await testSheet('normal', { locale: 'en-us', timeZone: 'GMT' });
     })
     it('should be able to correctly process items in sheet "special"', async function() {
-      await testSheet('special', { locale: 'en-us', timeZone: 'Europe/Warsaw' });
+      await testSheet('special', { locale: 'en-us', timeZone: 'GMT' });
+    })
+    it('should be able to correctly process items in sheet "datetime"', async function() {
+      await testSheet('datetime', { locale: 'en-us', timeZone: 'GMT' });
     })
   })
 })
@@ -209,7 +218,7 @@ async function testSheet(name, options) {
           throw e;
         }
       }
-      return items;
+      return;
     }
   }
   throw new Error(`Unable to find sheet "${name}"`);

@@ -1,25 +1,28 @@
-import Lodash from 'lodash'; const { split, toLower } = Lodash;
+import Lodash from 'lodash'; const { split, repeat, toLower } = Lodash;
+import Lcid from 'lcid';
 import { getExcelColor } from './excel-colors.mjs';
 const { floor, round, abs } = Math;
 
 function formatValue(value, formatString, options) {
+  const { locale, timeZone } = options;
   // handle conditional formatting
   const parts = split(formatString, /;/);
-  let applicablePart = parts[0];
-  let usingNegFormat = false, usingZeroFormat = false;
+  let applicablePartIndex = 0;
+  let omitSign = false;
   if (typeof(value) === 'number') {
     if (value === 0 && parts.length >= 3) {
-      applicablePart = parts[2];
-      usingZeroFormat = true;
+      applicablePartIndex = 2;
     } else if (value < 0 && parts.length >= 2) {
-      applicablePart = parts[1];
-      usingNegFormat = true;
+      applicablePartIndex = 1;
+      omitSign = true;
     }
   }
 
   // create a closure for replacing matching patterns
+  let formatLocale;
   let color;
-  let removeFraction = false;
+  let removeFraction = false, emptyFraction = false;
+  let applicablePart = parts[applicablePartIndex];
   let remaining = applicablePart;
   const replacements = [];
   const find = (regExp, callback) => {
@@ -28,7 +31,12 @@ function formatValue(value, formatString, options) {
       while (m = regExp.exec(remaining)) {
         // invoke callback, store the result, and take out the matching part
         const { index } = m;
-        const result = callback(m);
+        const currentPartIndex = applicablePartIndex;
+        const result = callback(m) || '';
+        if (currentPartIndex !== applicablePartIndex) {
+          // the callback called skip()
+          break;
+        }
         const offset = result.length - m[0].length;
         replacements.unshift({ index, offset, result });
         remaining = remaining.substr(0, index) + remaining.substr(index + m[0].length);
@@ -57,12 +65,33 @@ function formatValue(value, formatString, options) {
     }
     return { text, color };
   };
+  const skip = () => {
+    applicablePart = parts[++applicablePartIndex] || '';
+    remaining = applicablePart;
+    replacements.splice(0)
+  };
+
   // find escaped sequences
   find(/\\(.)/g, (m) => {
     return m[1];
   });
+  // find condition (e.g. [<=9999999])
+  find(/\[(<=?|>=?|=)\s*(\d+)\s*\]/, (m) => {
+    const op = m[1], operand = parseInt(m[2]);
+    const result = compareValues(op, value, operand);
+    if (!result) {
+      skip();
+    }
+  });
   // find currency symbol/locale
-  find(/\[\$([^-\]]*)-([0-9a-f]+)]/, (m) => {
+  find(/\[\$([^-\]]*)(-([0-9a-f]+))?]/i, (m) => {
+    if (m[3]) {
+      const lcid = parseInt(m[3], 16);
+      const locale = Lcid.from(lcid);
+      if (locale) {
+        formatLocale = toLower(locale).replace(/_/g, '-');
+      }
+    }
     return m[1];
   });
   // find quoted string
@@ -72,15 +101,21 @@ function formatValue(value, formatString, options) {
   // find color
   find(/\[(BLACK|BLUE|CYAN|GREEN|MAGENTA|RED|WHITE|YELLOW|COLOR\s*(\d\d?))\]/i, (m) => {
     color = getExcelColor(m[1] || m[0]);
-    return '';
+  });
+  // find spacer
+  find(/(_+)\)/, (m) => {
+    return repeat(' ', m[1].length);
   });
 
   if(value instanceof Date) {
+    // the locale can be overridden
+    const locale = formatLocale || options.locale;
+
     // find AM/PM
-    let hour12 = false;
+    const time = new TimeParser(value, { locale, timeZone });
     find(/\bAM\/PM\b/, (m) => {
-      hour12 = true;
-      return (value.getHours() < 12) ? 'AM' : 'PM';
+      time.hour12 = true;
+      return time.period;
     });
     // find hour (minute, second) count
     find(/\[(h+|m+|s+)\]/g, (m) => {
@@ -91,63 +126,64 @@ function formatValue(value, formatString, options) {
       } else if (unit === 'm') {
         count /= 60;
       }
-      return formatNumber(count, format, options);
+      count = floor(count);
+      return count.toLocaleString(locale, { minimumIntegerDigits: m[1].length, useGrouping: false });
     });
     // find hour
     find(/h{1,2}/, (m) => {
-      let hours = value.getHours();
-      if (hour12 && hours > 12) {
-        hours -= 12;
-      }
-      return hours.toLocaleString(options.locale, { minimumIntegerDigits: m[0].length });
+      return time.hours.toLocaleString(locale, { minimumIntegerDigits: m[0].length });
     });
     // find minute
     find(/m{1,2}(?=:)|(?<=:)m{1,2}/, (m) => {
-      const minutes = value.getMinutes()
-      return minutes.toLocaleString(options.locale, { minimumIntegerDigits: m[0].length });
+      return time.minutes.toLocaleString(locale, { minimumIntegerDigits: m[0].length });
     });
     // find second
     find(/(s{1,2})(\.([#0]+))?/, (m) => {
-      const stringifyOptions = { minimumIntegerDigits: m[1].length };
-      let seconds = value.getSeconds;
+      const strOptions = { minimumIntegerDigits: m[1].length };
+      let seconds = time.seconds;
       if (m[3]) {
         // attach decimal part
         seconds += value.getMilliseconds() / 1000;
-        stringifyOptions.maximumFractionDigits = m[3].length;
+        strOptions.maximumFractionDigits = m[3].length;
       }
-      return seconds.toLocaleString(options.locale, stringifyOptions);
+      return seconds.toLocaleString(locale, strOptions);
     });
 
     // find year
     find(/yyyy|yy/, (m) => {
       const year = chooseComponent(m, { 2: '2-digit', 4: 'numeric' });
-      return formatDateComponent(value, { year }, options);
+      return formatDateComponent(value, { year }, { locale, timeZone });
     });
     // find month (initial)
     find(/m{5}/, (m) => {
-      return formatDateComponent(value, { month: 'long' }, options).charAt(0);
+      return formatDateComponent(value, { month: 'long' }, { locale, timeZone }).charAt(0);
     });
     // find month
     find(/m{1,4}/, (m) => {
       const month = chooseComponent(m, { 1: 'numeric', 2: '2-digit', 3: 'short', 4: 'long' });
-      return formatDateComponent(value, { month }, options);
+      return formatDateComponent(value, { month }, { locale, timeZone });
     });
     // find weekday
     find(/d{3,4}/, (m) => {
       const weekday = chooseComponent(m, { 3: 'short', 4: 'long' });
-      return formatDateComponent(value, { weekday }, options);
+      return formatDateComponent(value, { weekday }, { locale, timeZone });
     });
     // find day
     find(/d{1,2}/, (m) => {
-      const types = { 1: 'numeric', 2: '2-digit' };
-      const day = types[m[0].length];
-      return formatDateComponent(value, { day }, options);
+      const day = chooseComponent(m, { 1: 'numeric', 2: '2-digit' });
+      return formatDateComponent(value, { day }, { locale, timeZone });
     });
   } else if (typeof(value) === 'number') {
     // find fraction
     find(/\?+\/[\?0-9]*/, (m) => {
       removeFraction = true;
-      return formatFraction(value, m[0], options);
+      let text = formatFraction(value, m[0], { locale });
+      if (!text) {
+        // put in a spacer
+        text = repeat(' ', m[0].length);
+        emptyFraction = true;
+      }
+      return text;
     });
     // find numeric
     find(/[#0](.*[#0])?/, (m) => {
@@ -160,20 +196,37 @@ function formatValue(value, formatString, options) {
       if (applicablePart.includes('%')) {
         effectiveValue *= 100;
       }
-      return formatNumber(effectiveValue, m[0], { omitSign: usingNegFormat, ...options });
+      let text = formatNumber(effectiveValue, m[0], { locale, omitSign });
+      if (removeFraction) {
+        if (!text && emptyFraction) {
+          // put in a zero when the fraction is also empty
+          text = '0';
+        }
+      }
+      return text;
     });
   }
   return apply();
 }
 
-function chooseComponent(match, options) {
-  return options[match[0].length];
-}
-
-function formatDateComponent(date, components, options) {
-  const { locale, timeZone } = options;
-  const stringifyOptions = { timeZone, ...components };
-  return date.toLocaleDateString(locale, stringifyOptions);
+/**
+ * Helper function that performs a comparison between two values
+ *
+ * @param  {String} op
+ * @param  {number} v1
+ * @param  {number} v2
+ *
+ * @return {boolean}
+ */
+function compareValues(op, v1, v2) {
+  switch(op) {
+    case '=': return (v1 == v2);
+    case '>': return (v1 > v2);
+    case '>=': return (v1 >= v2);
+    case '<': return (v1 < v2);
+    case '<=': return (v1 <= v2);
+    default: return false;
+  }
 }
 
 /**
@@ -198,7 +251,7 @@ function formatNumber(number, formatString, options) {
   const fraValid = validateNumericFormatString(fsParts.fraction, 'fraction');
   const expValid = validateNumericFormatString(fsParts.exponent, 'exponent');
   const irregular = !(intValid && fraValid && expValid);
-  const stringifyOptions = {
+  const strOptions = {
     signDisplay: !omitSign ? 'auto' : 'never',
     useGrouping: !irregular ? fsParts.integer.includes(',') : false,
     minimumIntegerDigits: intCounts.required,
@@ -207,18 +260,18 @@ function formatNumber(number, formatString, options) {
   };
   if (expCounts.total > 0) {
     // use engineering notation when the pattern is something like ##0.00E+00
-    stringifyOptions.notation = (intCounts.total === 3) ? 'engineering' : 'scientific';
+    strOptions.notation = (intCounts.total === 3) ? 'engineering' : 'scientific';
   }
   // toLocaleString() doesn't allow minimumIntegerDigits to be zero
   // we need to bump it to 1 and strip out the zero afterward
   let stripLeadingZero = false;
-  if (stringifyOptions.minimumIntegerDigits === 0) {
-    stringifyOptions.minimumIntegerDigits = 1;
+  if (strOptions.minimumIntegerDigits === 0) {
+    strOptions.minimumIntegerDigits = 1;
     stripLeadingZero = true;
   }
   if (!irregular) {
     // we can use toLocaleString() to handle the regular case
-    let res = number.toLocaleString(locale, stringifyOptions);
+    let res = number.toLocaleString(locale, strOptions);
     if (stripLeadingZero) {
       res = removeLeadingZero(res);
     }
@@ -229,7 +282,7 @@ function formatNumber(number, formatString, options) {
   } else {
     // handle irregular patterns by first converting the number to string
     // and get the integer, fractional, and exponent parts
-    const numString = number.toLocaleString('en-us', stringifyOptions);
+    const numString = number.toLocaleString('en-us', strOptions);
     const numParts = separateNumericString(numString, 'value');
     // then we stick the digits into the pattern manually
     const intPart = replaceDigitPlaceholders(fsParts.integer, numParts.integer, 'integer');
@@ -241,7 +294,7 @@ function formatNumber(number, formatString, options) {
       text += '.' + fraPart;
     }
     if (expPart) {
-      text += (fsParts.exponentLC ? 'e+' : 'E+') + expPart;
+      text += (fsParts.exponentLC ? 'e' : 'E') + expPart;
     }
     return text;
   }
@@ -276,12 +329,17 @@ function removeLeadingZero(string) {
 function normalizeExponent(string, width, lowercase) {
   const expIndex = string.lastIndexOf('E');
   if (expIndex !== -1) {
-    const expSymbol = (lowercase) ? 'e+' : 'E+';
+    const expSymbol = (lowercase) ? 'e' : 'E';
+    let sign = '+';
     let exp = string.substr(expIndex + 1);
+    if (exp.charAt(0) === '-') {
+      exp = exp.substr(1);
+      sign = '-';
+    }
     while (exp.length < width) {
       exp = '0' + exp;
     }
-    return string.substr(0, expIndex) + expSymbol + exp;
+    return string.substr(0, expIndex) + expSymbol + sign + exp;
   } else {
     return string;
   }
@@ -425,13 +483,16 @@ function replaceDigitPlaceholders(formatString, digits, type) {
       digits = digits.substr(1);
       sign = fc;
     }
-    if (type === 'integer' && digits === '0') {
+    if (type === 'exponent' && !sign) {
+      // always use sign for exponent
+      sign = '+';
+    } else if (type === 'integer' && digits === '0') {
       // the integer part can be completely empty when it's 0
       // meanwhile, the exponent always has at least one digit
       digits = '';
     }
     // replace from right-to-left
-    for (let i = chars.length; i >= 0; i--) {
+    for (let i = chars.length - 1; i >= 0; i--) {
       const c = chars[i];
       if (c === '#' || c === '0') {
         let replacement = '';
@@ -441,14 +502,14 @@ function replaceDigitPlaceholders(formatString, digits, type) {
           } else {
             // the last digit--include all remaining digits
             replacement = digits.substr(0, digits.length - used);
-            if (sign) {
-              // include sign as well
-              replacement = sign + replacement;
-            }
           }
-          used++;
         } else if (c === '0') {
           replacement = '0';
+        }
+        used++;
+        if (used === count && sign) {
+          // include sign as well
+          replacement = sign + replacement;
         }
         chars[i] = replacement;
       }
@@ -544,6 +605,70 @@ function findFraction(number, width) {
     }
   }
   return { whole, nom, dem };
+}
+
+/**
+ * Helper function that picks a value based on the length of the regexp match
+ *
+ * @param  {array} match
+ * @param  {object} chooses
+ *
+ * @return {string}
+ */
+function chooseComponent(match, chooses) {
+  return chooses[match[0].length];
+}
+
+/**
+ * Helper function that format a date component
+ *
+ * @param  {Date} date
+ * @param  {object} components
+ * @param  {object} options
+ *
+ * @return {string}
+ */
+function formatDateComponent(date, component, options) {
+  const { locale, timeZone } = options;
+  const strOptions = { timeZone, ...component };
+  return date.toLocaleDateString(locale, strOptions);
+}
+
+/**
+ * Helper class that extract time values in accordance with specified time zone
+ */
+class TimeParser {
+  constructor(date, options) {
+    this._date = date;
+    this._options = options;
+    this._hour12 = false;
+    this._values = null;
+  }
+
+  get(name) {
+    if (!this._values) {
+      this._values = {};
+      const { locale, timeZone } = this._options;
+      const hourCycle = (this._hour12) ? 'h12' : 'h23';
+      const text = this._date.toLocaleTimeString(locale, { timeZone, hourCycle });
+      const m = /(\d+)\D(\d+)\D(\d+)\s*(\S+)?/.exec(text);
+      this._values.hours = parseInt(m[1]);
+      this._values.minutes = parseInt(m[2]);
+      this._values.seconds = parseInt(m[3]);
+      this._values.period = m[4];
+    }
+    return this._values[name];
+  }
+
+  get period() { return this.get('period') }
+  get hours() { return this.get('hours') }
+  get minutes() { return this.get('minutes') }
+  get seconds() { return this.get('seconds') }
+
+  set hour12(value) {
+    this._hour12 = value;
+    this._values = null;
+  };
 }
 
 export {

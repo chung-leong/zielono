@@ -19,6 +19,7 @@
     "express": "^4.17.1",
     "file-type": "^16.0.1",
     "js-yaml": "^3.14.0",
+    "lcid": "^3.1.1",
     "lodash": "^4.17.20",
     "moment": "^2.29.1",
     "moment-timezone": "^0.5.31",
