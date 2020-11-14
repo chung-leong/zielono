@@ -21,8 +21,6 @@
     "js-yaml": "^3.14.0",
     "lcid": "^3.1.1",
     "lodash": "^4.17.20",
-    "moment": "^2.29.1",
-    "moment-timezone": "^0.5.31",
     "piexifjs": "^1.0.6",
     "prismjs": "^1.22.0",
     "sharp": "0.26.2",
