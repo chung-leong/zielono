@@ -4,7 +4,6 @@ import { getExcelColor } from './excel-colors.mjs';
 const { floor, round, abs } = Math;
 
 function formatValue(value, formatString, options) {
-  const { locale } = options;
   // handle conditional formatting
   const parts = split(formatString, /;/);
   let applicablePartIndex = 0;
@@ -19,16 +18,21 @@ function formatValue(value, formatString, options) {
   }
 
   // create a closure for replacing matching patterns
-  let formatLocale;
+  let locale = options.locale;
   let color;
   let removeFraction = false, emptyFraction = false;
   let applicablePart = parts[applicablePartIndex];
   let remaining = applicablePart;
   const replacements = [];
-  const find = (regExp, callback) => {
+  const find = (regExp, callback, type) => {
     if (remaining) {
       let m;
       while (m = regExp.exec(remaining)) {
+        // check type
+        if (!matchType(value, type)) {
+          throw new Error(`Type mismatch`);
+        }
+
         // invoke callback, store the result, and take out the matching part
         const { index } = m;
         const currentPartIndex = applicablePartIndex;
@@ -86,16 +90,19 @@ function formatValue(value, formatString, options) {
   // find currency symbol/locale
   find(/\[\$([^-\]]*)(-([0-9a-f]+))?]/i, (m) => {
     if (m[3]) {
-      const lcid = parseInt(m[3], 16);
-      const locale = Lcid.from(lcid);
-      if (locale) {
-        formatLocale = toLower(locale).replace(/_/g, '-');
+      // locale can be overridden only for dates
+      if (value instanceof Date) {
+        const lcid = parseInt(m[3], 16);
+        const formatLocale = Lcid.from(lcid);
+        if (formatLocale) {
+          locale = toLower(formatLocale).replace(/_/g, '-');
+        }
       }
     }
     return m[1];
   });
   // find quoted string
-  find(/"(.*)"/, (m) => {
+  find(/"(.*?)"/, (m) => {
     return m[1];
   });
   // find color
@@ -106,107 +113,120 @@ function formatValue(value, formatString, options) {
   find(/(_+)\)/, (m) => {
     return repeat(' ', m[1].length);
   });
-
-  if(value instanceof Date) {
-    // the locale can be overridden
-    const locale = formatLocale || options.locale;
-
-    // find AM/PM
-    const time = new TimeParser(value, { locale });
-    find(/\bAM\/PM\b/, (m) => {
-      time.hour12 = true;
-      return time.period;
-    });
-    // find hour (minute, second) count
-    find(/\[(h+|m+|s+)\]/g, (m) => {
-      const unit = toLower(m[1].charAt(0));
-      let count = (value.getTime() / 1000) + (25569 * 24 * 3600);
-      if (unit == 'h') {
-        count /= 3600;
-      } else if (unit === 'm') {
-        count /= 60;
+  // find string placeholder
+  find(/@/g, (m) => {
+    return value + '';
+  }, String);
+  // find AM/PM
+  const time = new TimeParser(value, { locale });
+  find(/\bAM\/PM\b/, (m) => {
+    time.hour12 = true;
+    return time.period;
+  }, Date);
+  // find hour (minute, second) count
+  find(/\[(h+|m+|s+)\]/ig, (m) => {
+    // need to remove timezone offset
+    const tzOffset = value.getTimezoneOffset() * 60 * 1000;
+    let count = ((value.getTime() - tzOffset) / 1000) + (25569 * 24 * 3600);
+    const unit = toLower(m[1].charAt(0));
+    if (unit == 'h') {
+      count /= 3600;
+    } else if (unit === 'm') {
+      count /= 60;
+    }
+    count = floor(count);
+    return count.toLocaleString(locale, { minimumIntegerDigits: m[1].length, useGrouping: false });
+  }, Date);
+  // find hour
+  find(/h{1,2}/i, (m) => {
+    return time.hours.toLocaleString(locale, { minimumIntegerDigits: m[0].length });
+  }, Date);
+  // find minute
+  find(/m{1,2}(?=:)|(?<=:)m{1,2}/i, (m) => {
+    return time.minutes.toLocaleString(locale, { minimumIntegerDigits: m[0].length });
+  }, Date);
+  // find second
+  find(/(s{1,2})(\.([#0]+))?/i, (m) => {
+    const strOptions = { minimumIntegerDigits: m[1].length };
+    let seconds = time.seconds;
+    if (m[3]) {
+      // attach decimal part
+      seconds += value.getMilliseconds() / 1000;
+      strOptions.maximumFractionDigits = m[3].length;
+    }
+    return seconds.toLocaleString(locale, strOptions);
+  }, Date);
+  // find year
+  find(/yyyy|yy/i, (m) => {
+    const year = chooseComponent(m, { 2: '2-digit', 4: 'numeric' });
+    return value.toLocaleDateString(locale, { year });
+  }, Date);
+  // find month (initial)
+  find(/m{5}/i, (m) => {
+    return value.toLocaleDateString(locale, { month: 'long' }).charAt(0);
+  }, Date);
+  // find month
+  find(/m{1,4}/i, (m) => {
+    const month = chooseComponent(m, { 1: 'numeric', 2: '2-digit', 3: 'short', 4: 'long' });
+    return value.toLocaleDateString(locale, { month });
+  }, Date);
+  // find weekday
+  find(/d{3,4}/i, (m) => {
+    const weekday = chooseComponent(m, { 3: 'short', 4: 'long' });
+    return value.toLocaleDateString(locale, { weekday });
+  }, Date);
+  // find day
+  find(/d{1,2}/i, (m) => {
+    const day = chooseComponent(m, { 1: 'numeric', 2: '2-digit' });
+    return value.toLocaleDateString(locale, { day });
+  }, Date);
+  // find fraction
+  find(/\?+\/[\?0-9]*/, (m) => {
+    removeFraction = true;
+    let text = formatFraction(value, m[0], { locale });
+    if (!text) {
+      // put in a spacer
+      text = repeat(' ', m[0].length);
+      emptyFraction = true;
+    }
+    return text;
+  }, Number);
+  // find numeric
+  find(/[#0](.*[#0])?/, (m) => {
+    let effectiveValue = value;
+    // remove fractional part if it's shown already
+    if (removeFraction) {
+      effectiveValue = floor(effectiveValue);
+    }
+    // deal with percentage
+    if (applicablePart.includes('%')) {
+      effectiveValue *= 100;
+    }
+    let text = formatNumber(effectiveValue, m[0], { locale, omitSign });
+    if (removeFraction) {
+      if (!text && emptyFraction) {
+        // put in a zero when the fraction is also empty
+        text = '0';
       }
-      count = floor(count);
-      return count.toLocaleString(locale, { minimumIntegerDigits: m[1].length, useGrouping: false });
-    });
-    // find hour
-    find(/h{1,2}/, (m) => {
-      return time.hours.toLocaleString(locale, { minimumIntegerDigits: m[0].length });
-    });
-    // find minute
-    find(/m{1,2}(?=:)|(?<=:)m{1,2}/, (m) => {
-      return time.minutes.toLocaleString(locale, { minimumIntegerDigits: m[0].length });
-    });
-    // find second
-    find(/(s{1,2})(\.([#0]+))?/, (m) => {
-      const strOptions = { minimumIntegerDigits: m[1].length };
-      let seconds = time.seconds;
-      if (m[3]) {
-        // attach decimal part
-        seconds += value.getMilliseconds() / 1000;
-        strOptions.maximumFractionDigits = m[3].length;
-      }
-      return seconds.toLocaleString(locale, strOptions);
-    });
-
-    // find year
-    find(/yyyy|yy/, (m) => {
-      const year = chooseComponent(m, { 2: '2-digit', 4: 'numeric' });
-      return value.toLocaleDateString(locale, { year });
-    });
-    // find month (initial)
-    find(/m{5}/, (m) => {
-      return value.toLocaleDateString(locale, { month: 'long' }).charAt(0);
-    });
-    // find month
-    find(/m{1,4}/, (m) => {
-      const month = chooseComponent(m, { 1: 'numeric', 2: '2-digit', 3: 'short', 4: 'long' });
-      return value.toLocaleDateString(locale, { month });
-    });
-    // find weekday
-    find(/d{3,4}/, (m) => {
-      const weekday = chooseComponent(m, { 3: 'short', 4: 'long' });
-      return value.toLocaleDateString(locale, { weekday });
-    });
-    // find day
-    find(/d{1,2}/, (m) => {
-      const day = chooseComponent(m, { 1: 'numeric', 2: '2-digit' });
-      return value.toLocaleDateString(locale, { day });
-    });
-  } else if (typeof(value) === 'number') {
-    // find fraction
-    find(/\?+\/[\?0-9]*/, (m) => {
-      removeFraction = true;
-      let text = formatFraction(value, m[0], { locale });
-      if (!text) {
-        // put in a spacer
-        text = repeat(' ', m[0].length);
-        emptyFraction = true;
-      }
-      return text;
-    });
-    // find numeric
-    find(/[#0](.*[#0])?/, (m) => {
-      let effectiveValue = value;
-      // remove fractional part if it's shown already
-      if (removeFraction) {
-        effectiveValue = floor(effectiveValue);
-      }
-      // deal with percentage
-      if (applicablePart.includes('%')) {
-        effectiveValue *= 100;
-      }
-      let text = formatNumber(effectiveValue, m[0], { locale, omitSign });
-      if (removeFraction) {
-        if (!text && emptyFraction) {
-          // put in a zero when the fraction is also empty
-          text = '0';
-        }
-      }
-      return text;
-    });
-  }
+    }
+    return text;
+  }, Number);
   return apply();
+}
+
+/**
+ * Helper function that checks a value's type
+ *
+ * @param  {*} value
+ * @param  {Class} type
+ *
+ * @return {Boolean}
+ */
+function matchType(value, type) {
+  return (type === undefined)
+      || (type === Number && typeof(value) === 'number')
+      || (type === String && typeof(value) === 'string')
+      || (value instanceof type);
 }
 
 /**

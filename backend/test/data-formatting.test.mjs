@@ -2,7 +2,7 @@ import Chai from 'chai'; const { expect } = Chai;
 import FS from 'fs'; const { readFile } = FS.promises;
 import { dirname } from 'path';
 import { fileURLToPath } from 'url';
-import ExcelJS from 'exceljs'; const { Workbook } = ExcelJS;
+import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
@@ -12,6 +12,9 @@ import {
   formatFraction,
   findFraction,
 } from '../src/data-formatting.mjs';
+import {
+  adjustDate,
+} from '../src/excel-parsing.mjs';
 
 describe('Excel parsing', function() {
   describe('#findFraction()', function() {
@@ -170,20 +173,29 @@ async function testSheet(name, options) {
       const { rowCount } = worksheet;
       for (let r = 2; r <= rowCount; r++) {
         const worksheetRow = worksheet.getRow(r);
-        const patternCell = worksheetRow.getCell(1);
         const valueCell = worksheetRow.getCell(2);
         const targetCell = worksheetRow.getCell(3);
         const resultCell = worksheetRow.getCell(4);
-        const pattern = patternCell.text;
-        const value = valueCell.value;
+        let value = valueCell.value;
         const format = targetCell.numFmt;
         const result = resultCell.text;
-        if (format !== pattern) {
-          throw new Error(`Mismatch on row ${r}: '${format}' != '${pattern}'`);
+        if (value instanceof Date) {
+          value = adjustDate(value);
         }
-        const ours = formatValue(value, format, options);
+        if (valueCell.effectiveType === ValueType.RichText || valueCell.effectiveType === ValueType.Hyperlink) {
+          value = valueCell.text;
+        } else if (value === null) {
+          value = 0;
+        }
+        let text;
         try {
-          expect(ours.text).to.eql(result);
+          const ours = formatValue(value, format, options);
+          text = ours.text;
+        } catch (e) {
+          text = value + '';
+        }
+        try {
+          expect(text).to.eql(result);
         } catch (e) {
           e.message += ` on row ${r}`;
           throw e;

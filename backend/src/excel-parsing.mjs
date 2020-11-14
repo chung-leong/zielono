@@ -1,5 +1,6 @@
 import Lodash from 'lodash'; const { trim, split, filter, includes, isEqual, isEmpty, toLower } = Lodash;
-import ExcelJS from 'exceljs'; const { Workbook } = ExcelJS;
+import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
+import { formatValue } from './data-formatting.mjs';
 
 /**
  * Parse an Excel file
@@ -9,7 +10,7 @@ import ExcelJS from 'exceljs'; const { Workbook } = ExcelJS;
  * @return {object}
  */
 async function parseExcelFile(buffer) {
-  const workbook = new ExcelJS.Workbook();
+  const workbook = new Workbook();
   await workbook.xlsx.load(buffer);
   const keywords = extractKeywords(workbook.keywords);
   const title = trim(workbook.title);
@@ -128,6 +129,11 @@ function extractNameFlags(text) {
   }
 }
 
+const defaultAlignment = { vertical: 'top', horizontal: 'left' };
+const defaultFill = { type: 'pattern', pattern: 'none' };
+const defaultBorder = {};
+const defaultFont = { size: 11, color: { argb: 'FF000000' }, name: 'Calibri', family: 2, charset: 1 };
+
 /**
  * Extract value from a cell in a worksheet
  *
@@ -137,50 +143,65 @@ function extractNameFlags(text) {
  * @return {(object|string)}
  */
 function extractCellContents(worksheetCell, media) {
-  const { alignment, border, fill, font, text, value, type, numFmt } = worksheetCell;
-  const attrs = {};
+  const { alignment, border, fill, font } = worksheetCell;
+  const contents = {};
   if (alignment && !isEqual(alignment, defaultAlignment)) {
-    attrs.alignment = alignment;
+    contents.alignment = alignment;
   }
   if (border && !isEqual(border, defaultBorder)) {
-    attrs.border = border;
+    contents.border = border;
   }
   if (fill && !isEqual(fill, defaultFill)) {
-    attrs.fill = fill;
+    contents.fill = fill;
   }
-  let richText = (value) ? value.richText : null;
-  if (!richText && text) {
-    // need to handle it as rich text if cell uses a font or has non-default attributes
-    if (font) {
-      richText = [ { font, text } ];
-    } else if (!isEmpty(attrs)) {
-      richText = [ { font: {}, text } ];
-    }
+  if (font && !isEqual(fill, defaultFont)) {
+    contents.font = font;
   }
-  // return an object when there's rich text or an image
-  // otherwise return a text string to keep JSON compact
   if (media && media.type === 'image') {
-    const image = media;
-    if (richText) {
-      return { image, richText, ...attrs };
-    } else if (text) {
-      return { image, text };
-    } else {
-      return { image };
-    }
-  } else if (richText) {
-    return { richText, ...attrs }
-  } else {
-    return text;
+    contents.image = media;
   }
+
+  // get the cell's value and determine what to use for formatting purpose
+  const { type, effectiveType, numFmt } = worksheetCell;
+  let effectiveValue = (type === ValueType.Formula) ? worksheetCell.result : worksheetCell.value;
+  let formattingValue = effectiveValue;
+  if (effectiveType === ValueType.RichText) {
+    // use plain text
+    formattingValue = worksheetCell.text;
+    effectiveValue = effectiveValue.richText;
+  } else if (effectiveType === ValueType.Hyperlink) {
+    // use display text
+    formattingValue = worksheetCell.text;
+  } else if (effectiveType === ValueType.Null) {
+    // treat as 0
+    formattingValue = 0;
+  }
+
+  // apply formatting if there's one
+  if (numFmt && numFmt !== '@') {
+    try {
+      // need locale
+      const result = formatValue(formattingValue, numFmt, {});
+      if (result.color) {
+        contents.color = result.color;
+      }
+      contents.text = result.text;
+    } catch (e) {
+      // probably a type mismatch error
+    }
+  }
+  contents.value = effectiveValue;
+  return contents;
 }
 
-const defaultAlignment = { vertical: 'top', horizontal: 'left' };
-const defaultFill = { type: 'pattern', pattern: 'none' };
-const defaultBorder = {};
+function adjustDate(date) {
+  const offset = date.getTimezoneOffset();
+  return (offset) ? new Date(date.getTime() + offset * 60 * 1000) : date;
+}
 
 export {
   parseExcelFile,
   extractKeywords,
   extractNameFlags,
+  adjustDate,
 };
