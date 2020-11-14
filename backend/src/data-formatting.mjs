@@ -4,7 +4,7 @@ import { getExcelColor } from './excel-colors.mjs';
 const { floor, round, abs } = Math;
 
 function formatValue(value, formatString, options) {
-  const { locale, timeZone } = options;
+  const { locale } = options;
   // handle conditional formatting
   const parts = split(formatString, /;/);
   let applicablePartIndex = 0;
@@ -112,7 +112,7 @@ function formatValue(value, formatString, options) {
     const locale = formatLocale || options.locale;
 
     // find AM/PM
-    const time = new TimeParser(value, { locale, timeZone });
+    const time = new TimeParser(value, { locale });
     find(/\bAM\/PM\b/, (m) => {
       time.hour12 = true;
       return time.period;
@@ -152,26 +152,26 @@ function formatValue(value, formatString, options) {
     // find year
     find(/yyyy|yy/, (m) => {
       const year = chooseComponent(m, { 2: '2-digit', 4: 'numeric' });
-      return formatDateComponent(value, { year }, { locale, timeZone });
+      return value.toLocaleDateString(locale, { year });
     });
     // find month (initial)
     find(/m{5}/, (m) => {
-      return formatDateComponent(value, { month: 'long' }, { locale, timeZone }).charAt(0);
+      return value.toLocaleDateString(locale, { month: 'long' }).charAt(0);
     });
     // find month
     find(/m{1,4}/, (m) => {
       const month = chooseComponent(m, { 1: 'numeric', 2: '2-digit', 3: 'short', 4: 'long' });
-      return formatDateComponent(value, { month }, { locale, timeZone });
+      return value.toLocaleDateString(locale, { month });
     });
     // find weekday
     find(/d{3,4}/, (m) => {
       const weekday = chooseComponent(m, { 3: 'short', 4: 'long' });
-      return formatDateComponent(value, { weekday }, { locale, timeZone });
+      return value.toLocaleDateString(locale, { weekday });
     });
     // find day
     find(/d{1,2}/, (m) => {
       const day = chooseComponent(m, { 1: 'numeric', 2: '2-digit' });
-      return formatDateComponent(value, { day }, { locale, timeZone });
+      return value.toLocaleDateString(locale, { day });
     });
   } else if (typeof(value) === 'number') {
     // find fraction
@@ -620,21 +620,6 @@ function chooseComponent(match, chooses) {
 }
 
 /**
- * Helper function that format a date component
- *
- * @param  {Date} date
- * @param  {object} components
- * @param  {object} options
- *
- * @return {string}
- */
-function formatDateComponent(date, component, options) {
-  const { locale, timeZone } = options;
-  const strOptions = { timeZone, ...component };
-  return date.toLocaleDateString(locale, strOptions);
-}
-
-/**
  * Helper class that extract time values in accordance with specified time zone
  */
 class TimeParser {
@@ -648,9 +633,9 @@ class TimeParser {
   get(name) {
     if (!this._values) {
       this._values = {};
-      const { locale, timeZone } = this._options;
+      const { locale } = this._options;
       const hourCycle = (this._hour12) ? 'h12' : 'h23';
-      const text = this._date.toLocaleTimeString(locale, { timeZone, hourCycle });
+      const text = this._date.toLocaleTimeString(locale, { hourCycle });
       const m = /(\d+)\D(\d+)\D(\d+)\s*(\S+)?/.exec(text);
       this._values.hours = parseInt(m[1]);
       this._values.minutes = parseInt(m[2]);
@@ -675,6 +660,5 @@ export {
   formatValue,
   formatNumber,
   formatFraction,
-  formatDateComponent,
   findFraction,
 };
