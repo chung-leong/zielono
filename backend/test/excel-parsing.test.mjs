@@ -56,18 +56,17 @@ describe('Excel parsing', function() {
     it('should ignore empty and hidden sheets', async function() {
       const data = await readFile(`${__dirname}/assets/sample.xlsx`);
       const json = await parseExcelFile(data);
-      expect(json.sheets).to.have.lengthOf(3);
+      expect(json.sheets).to.have.lengthOf(4);
     })
     it('should extract flags from sheet names', async function() {
       const data = await readFile(`${__dirname}/assets/sample.xlsx`);
       const json = await parseExcelFile(data);
-      const [ sheet1, sheet2 ] = json.sheets;
-      expect(sheet1.name).to.eql('Sushi');
-      expect(sheet2.name).to.eql('Text');
-      expect(sheet2.flags).to.eql([ 'with styles' ]);
+      const [ sheet1 ] = json.sheets;
+      expect(sheet1.name).to.eql('Text');
+      expect(sheet1.flags).to.eql([ 'with styles' ]);
     })
     it('should extract flags from column names', async function() {
-      const data = await readFile(`${__dirname}/assets/sample.xlsx`);
+      const data = await readFile(`${__dirname}/assets/sushi.xlsx`);
       const json = await parseExcelFile(data);
       const [ sheet1 ] = json.sheets;
       const [ col1, col2, col3, col4 ] = sheet1.columns;

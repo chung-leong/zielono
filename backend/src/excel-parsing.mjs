@@ -16,6 +16,9 @@ async function parseExcelFile(buffer) {
   const title = trim(workbook.title);
   const description = trim(workbook.description);
   const subject = trim(workbook.subject);
+  const category = trim(workbook.category);
+  const status = trim(workbook.contentStatus);
+
   const sheets = [];
   for (let worksheet of workbook.worksheets) {
     const sheet = await parseExcelWorksheet(worksheet);
@@ -23,7 +26,7 @@ async function parseExcelFile(buffer) {
       sheets.push(sheet);
     }
   }
-  return { title, subject, description, keywords, sheets };
+  return { title, subject, description, category, status, keywords, sheets };
 }
 
 /**
