@@ -21,8 +21,7 @@ function formatValue(value, formatString, options) {
   let locale = options.locale;
   let color;
   let removeFraction = false, emptyFraction = false;
-  let applicablePart = parts[applicablePartIndex];
-  let remaining = applicablePart;
+  let remaining = parts[applicablePartIndex];
   const replacements = [];
   const find = (regExp, callback, type) => {
     if (remaining) {
@@ -32,9 +31,10 @@ function formatValue(value, formatString, options) {
         if (!matchType(value, type)) {
           throw new Error(`Type mismatch`);
         }
-
-        // invoke callback, store the result, and take out the matching part
+        // remove matching section from string
         const { index } = m;
+        remaining = remaining.substr(0, index) + remaining.substr(index + m[0].length);
+        // invoke callback, store the result, and take out the matching part
         const currentPartIndex = applicablePartIndex;
         const result = callback(m) || '';
         if (currentPartIndex !== applicablePartIndex) {
@@ -43,7 +43,6 @@ function formatValue(value, formatString, options) {
         }
         const offset = result.length - m[0].length;
         replacements.unshift({ index, offset, result });
-        remaining = remaining.substr(0, index) + remaining.substr(index + m[0].length);
         if (!regExp.global) {
           break;
         }
@@ -70,8 +69,7 @@ function formatValue(value, formatString, options) {
     return { text, color };
   };
   const skip = () => {
-    applicablePart = parts[++applicablePartIndex] || '';
-    remaining = applicablePart;
+    remaining = parts[++applicablePartIndex] || '';
     replacements.splice(0)
   };
 
@@ -151,7 +149,7 @@ function formatValue(value, formatString, options) {
     let seconds = time.seconds;
     if (m[3]) {
       // attach decimal part
-      seconds += value.getMilliseconds() / 1000;
+      seconds += time.fractionalSecond;
       strOptions.maximumFractionDigits = m[3].length;
     }
     return seconds.toLocaleString(locale, strOptions);
@@ -199,7 +197,7 @@ function formatValue(value, formatString, options) {
       effectiveValue = floor(effectiveValue);
     }
     // deal with percentage
-    if (applicablePart.includes('%')) {
+    if (remaining.includes('%')) {
       effectiveValue *= 100;
     }
     let text = formatNumber(effectiveValue, m[0], { locale, omitSign });
@@ -669,6 +667,7 @@ class TimeParser {
   get hours() { return this.get('hours') }
   get minutes() { return this.get('minutes') }
   get seconds() { return this.get('seconds') }
+  get fractionalSecond() { return this._date.getMilliseconds() / 1000 }
 
   set hour12(value) {
     this._hour12 = value;
