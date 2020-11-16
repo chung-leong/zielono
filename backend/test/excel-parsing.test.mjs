@@ -23,6 +23,10 @@ describe('Excel parsing', function() {
       const keywords = extractKeywords(' Hello world  cat ');
       expect(keywords).to.eql([ 'Hello', 'world', 'cat' ]);
     })
+    it('should handle comma-delimited list', function() {
+      const keywords = extractKeywords(' Hello, world,  cat ');
+      expect(keywords).to.eql([ 'Hello', 'world', 'cat' ]);
+    })
   })
   describe('#extractNameFlags()', function() {
     it('should handle null input', function() {
@@ -32,16 +36,27 @@ describe('Excel parsing', function() {
       expect(nameFlags2).to.be.undefined;
     })
     it('should handle names with no flags correctly', function() {
-      const nameFlags = extractNameFlags('Hello');
-      expect(nameFlags).to.eql({ name: 'Hello' });
+      const nameFlags = extractNameFlags('Hello world');
+      expect(nameFlags).to.eql({
+        name: 'Hello world',
+        nameCC: 'helloWorld'
+      });
     })
     it('should handle names with signle flag correctly', function() {
-      const nameFlags = extractNameFlags('Hello (EN)');
-      expect(nameFlags).to.eql({ name: 'Hello', flags: [ 'en' ] });
+      const nameFlags = extractNameFlags('Hello world(en)');
+      expect(nameFlags).to.eql({
+        name: 'Hello world',
+        nameCC: 'helloWorld',
+        flags: [ 'en' ]
+      });
     })
     it('should handle names with multiple flags correctly', function() {
-      const nameFlags = extractNameFlags(' Hello (EN-US, EN-GB)');
-      expect(nameFlags).to.eql({ name: 'Hello', flags: [ 'en-us', 'en-gb' ] });
+      const nameFlags = extractNameFlags(' Hello world (en-US, en-GB)');
+      expect(nameFlags).to.eql({
+        name: 'Hello world',
+        nameCC: 'helloWorld',
+        flags: [ 'en-US', 'en-GB' ]
+      });
     })
   })
   describe('#parseExcelFile', function() {
@@ -56,7 +71,7 @@ describe('Excel parsing', function() {
     it('should ignore empty and hidden sheets', async function() {
       const data = await readFile(`${__dirname}/assets/sample.xlsx`);
       const json = await parseExcelFile(data);
-      expect(json.sheets).to.have.lengthOf(4);
+      expect(json.sheets).to.have.lengthOf(5);
     })
     it('should extract flags from sheet names', async function() {
       const data = await readFile(`${__dirname}/assets/sample.xlsx`);

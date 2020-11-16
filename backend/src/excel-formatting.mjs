@@ -1,6 +1,6 @@
 import Lodash from 'lodash'; const { split, repeat, toLower } = Lodash;
 import Lcid from 'lcid';
-import { getExcelColor } from './excel-colors.mjs';
+import { getNamedColor } from './excel-styling.mjs';
 const { floor, round, abs } = Math;
 
 function formatValue(value, formatString, options) {
@@ -105,7 +105,7 @@ function formatValue(value, formatString, options) {
   });
   // find color
   find(/\[(BLACK|BLUE|CYAN|GREEN|MAGENTA|RED|WHITE|YELLOW|COLOR\s*(\d\d?))\]/i, (m) => {
-    color = getExcelColor(m[1] || m[0]);
+    color = getNamedColor(m[1] || m[0]);
   });
   // find spacer
   find(/(_+)\)/, (m) => {

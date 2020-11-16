@@ -11,7 +11,7 @@ import {
   formatNumber,
   formatFraction,
   findFraction,
-} from '../src/data-formatting.mjs';
+} from '../src/excel-formatting.mjs';
 import {
   adjustDate,
 } from '../src/excel-parsing.mjs';

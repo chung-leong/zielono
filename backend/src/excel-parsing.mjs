@@ -1,6 +1,7 @@
-import Lodash from 'lodash'; const { trim, split, filter, includes, isEqual, isEmpty, toLower } = Lodash;
+import Lodash from 'lodash'; const { trim, camelCase, split, filter, isEmpty } = Lodash;
 import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
-import { formatValue } from './data-formatting.mjs';
+import { formatValue } from './excel-formatting.mjs';
+import { extractCellStyle, extractRichText } from './excel-styling.mjs';
 
 /**
  * Parse an Excel file
@@ -10,15 +11,12 @@ import { formatValue } from './data-formatting.mjs';
  * @return {object}
  */
 async function parseExcelFile(buffer) {
-  const workbook = new Workbook();
+  const workbook = new Workbook;
   await workbook.xlsx.load(buffer);
   const keywords = extractKeywords(workbook.keywords);
   const title = trim(workbook.title);
   const description = trim(workbook.description);
   const subject = trim(workbook.subject);
-  const category = trim(workbook.category);
-  const status = trim(workbook.contentStatus);
-
   const sheets = [];
   for (let worksheet of workbook.worksheets) {
     const sheet = await parseExcelWorksheet(worksheet);
@@ -26,13 +24,13 @@ async function parseExcelFile(buffer) {
       sheets.push(sheet);
     }
   }
-  return { title, subject, description, category, status, keywords, sheets };
+  return { title, subject, description, keywords, sheets };
 }
 
 /**
  * Parse an Excel worksheet
  *
- * @param  {[type]} worksheet
+ * @param  {Worksheet} worksheet
  *
  * @return {(object|undefined)}
  */
@@ -105,7 +103,7 @@ async function parseExcelWorksheet(worksheet) {
  */
 function extractKeywords(text) {
   const trimmed = trim(text);
-  const keywords = filter(split(trimmed, /\s+/));
+  const keywords = filter(split(trimmed, /\s*,\s*|\s+/));
   return keywords;
 }
 
@@ -124,18 +122,15 @@ function extractNameFlags(text) {
     const results = {};
     if (m) {
       const name = trimmed.substr(0, trimmed.length - m[0].length);
-      const flags = split(m[1], /\s*,\s*/).map(toLower);
-      return { name, flags };
+      const nameCC = camelCase(name);
+      const flags = split(m[1], /\s*,\s*/);
+      return { name, nameCC, flags };
     } else {
-      return { name: trimmed };
+      const nameCC = camelCase(trimmed);
+      return { name: trimmed, nameCC };
     }
   }
 }
-
-const defaultAlignment = { vertical: 'top', horizontal: 'left' };
-const defaultFill = { type: 'pattern', pattern: 'none' };
-const defaultBorder = {};
-const defaultFont = { size: 11, color: { argb: 'FF000000' }, name: 'Calibri', family: 2, charset: 1 };
 
 /**
  * Extract value from a cell in a worksheet
@@ -146,24 +141,8 @@ const defaultFont = { size: 11, color: { argb: 'FF000000' }, name: 'Calibri', fa
  * @return {(object|string)}
  */
 function extractCellContents(worksheetCell, media) {
-  const { alignment, border, fill, font } = worksheetCell;
-  const contents = {};
-  if (alignment && !isEqual(alignment, defaultAlignment)) {
-    contents.alignment = alignment;
-  }
-  if (border && !isEqual(border, defaultBorder)) {
-    contents.border = border;
-  }
-  if (fill && !isEqual(fill, defaultFill)) {
-    contents.fill = fill;
-  }
-  if (font && !isEqual(fill, defaultFont)) {
-    contents.font = font;
-  }
-  if (media && media.type === 'image') {
-    contents.image = media;
-  }
-
+  // extract style
+  const style = extractCellStyle(worksheetCell);
   // get the cell's value and determine what to use for formatting purpose
   const { type, effectiveType, numFmt } = worksheetCell;
   let effectiveValue = (type === ValueType.Formula) ? worksheetCell.result : worksheetCell.value;
@@ -171,7 +150,7 @@ function extractCellContents(worksheetCell, media) {
   if (effectiveType === ValueType.RichText) {
     // use plain text
     formattingValue = worksheetCell.text;
-    effectiveValue = effectiveValue.richText;
+    effectiveValue = extractRichText(effectiveValue.richText);
   } else if (effectiveType === ValueType.Hyperlink) {
     // use display text
     formattingValue = worksheetCell.text;
@@ -179,14 +158,14 @@ function extractCellContents(worksheetCell, media) {
     // treat as 0
     formattingValue = 0;
   }
-
   // apply formatting if there's one
+  const contents = {};
   if (numFmt && numFmt !== '@') {
     try {
       // need locale
       const result = formatValue(formattingValue, numFmt, {});
       if (result.color) {
-        contents.color = result.color;
+        style.color = result.color;
       }
       contents.text = result.text;
     } catch (e) {
@@ -194,6 +173,13 @@ function extractCellContents(worksheetCell, media) {
     }
   }
   contents.value = effectiveValue;
+  if (!isEmpty(style)) {
+    contents.style = style;
+  }
+  // attach image
+  if (media && media.type === 'image') {
+    contents.image = media;
+  }
   return contents;
 }
 
