@@ -1,10 +1,11 @@
 const startsWith = require('lodash/startsWith');
-const Module = require('module');
+const includes = require('lodash/includes');
 const deasync = require('deasync');
 const fetch = require('cross-fetch');
+const Module = require('module');
 
 /**
- * Override require() so that code can be read from memory
+ * Override require() so that code can be retrieved from remote location
  *
  * @param  {object} options
  */
@@ -27,7 +28,7 @@ function overrideRequire(options) {
         content = content.toString();
       }
       module._compile(content, filename);
-    } else if (includes(filename, moduleWhitelist)) {
+    } else if (includes(moduleWhitelist, filename)) {
       jsExtensionBefore(module, filename);
     } else {
       throw new Error(`Cannot load ${filename}`);

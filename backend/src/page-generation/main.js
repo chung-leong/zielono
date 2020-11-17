@@ -1,21 +1,15 @@
-const FileRetrieval = require('./file-retrieval');
-const { overrideRequire } = FileRetrieval;
-const SSRExecution = require('./ssr-execution');
-const { generatePage } = SSRExecution;
-const ContentOutput = require('./content-output');
-const { outputResult, outputError } = ContentOutput;
+const { overrideRequire } = require('./file-retrieval-git');
+const { generatePage } = require('./ssr-execution');
 
-async function main() {
-  overrideRequire({});
-
-  const ssr = require('./index.js');
-  const log = [];
+process.once('message', async (msg) => {
   try {
-    const { headers, html } = await generatePage(ssr, log, {});
-    await outputResult(headers, html);
-  } catch (err) {
-    await outputError(err, log);
+    const gitOptions = {}
+    overrideRequire(gitOptions);
+    const ssr = require('./index.js');
+    const pageOptions = {};
+    const result = await generatePage(ssr, pageOptions);
+    process.send(result);
+  } catch (error) {
+    process.send({ error });
   }
-}
-
-main();
+});
