@@ -1,4 +1,8 @@
-import Lodash from 'lodash'; const { trim, camelCase, split, filter, isEmpty } = Lodash;
+import trim from 'lodash/trim.js';
+import camelCase from 'lodash/camelCase.js';
+import split from 'lodash/split.js';
+import filter from 'lodash/filter.js';
+import isEmpty from 'lodash/isEmpty.js';
 import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
 import { formatValue } from './excel-formatting.mjs';
 import { extractCellStyle, extractRichText } from './excel-styling.mjs';

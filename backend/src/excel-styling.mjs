@@ -1,4 +1,7 @@
-import Lodash from 'lodash'; const { includes, isEmpty, round, toLower } = Lodash;
+import includes from 'lodash/includes.js';
+import isEmpty from 'lodash/isEmpty.js';
+import round from 'lodash/round.js';
+import toLower from 'lodash/toLower.js';
 import ExcelJS from 'exceljs'; const { ValueType } = ExcelJS;
 
 function extractCellStyle(cell) {

@@ -1,4 +1,6 @@
-import Lodash from 'lodash'; const { split, repeat, toLower } = Lodash;
+import split from 'lodash/split.js';
+import repeat from 'lodash/repeat.js';
+import toLower from 'lodash/toLower.js';
 import Lcid from 'lcid';
 import { getNamedColor } from './excel-styling.mjs';
 const { floor, round, abs } = Math;
