@@ -6,7 +6,7 @@ import {
   checkTimeZone,
 } from '../src/time-zone-management.mjs';
 
-describe('File retrieval from cloud', function() {
+describe('Time zone management', function() {
   describe('#checkTimeZone()', function() {
     it('should return true if time zone is valid', function() {
       const result = checkTimeZone('Europe/Warsaw');

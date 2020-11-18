@@ -2,7 +2,7 @@ import split from 'lodash/split.js';
 import repeat from 'lodash/repeat.js';
 import toLower from 'lodash/toLower.js';
 import Lcid from 'lcid';
-import { getNamedColor } from './excel-styling.mjs';
+import { getNamedColor, stringifyARGB } from './excel-styling.mjs';
 const { floor, round, abs } = Math;
 
 function formatValue(value, formatString, options) {
@@ -107,7 +107,8 @@ function formatValue(value, formatString, options) {
   });
   // find color
   find(/\[(BLACK|BLUE|CYAN|GREEN|MAGENTA|RED|WHITE|YELLOW|COLOR\s*(\d\d?))\]/i, (m) => {
-    color = getNamedColor(m[1] || m[0]);
+    const argb = getNamedColor(m[1] || m[0]);
+    color = stringifyARGB(argb);
   });
   // find spacer
   find(/(_+)\)/, (m) => {

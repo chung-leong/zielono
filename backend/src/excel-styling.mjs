@@ -118,21 +118,26 @@ function convertBorder(border) {
  * @return {string|undefined}
  */
 function convertColor(color) {
+  const argb = extractColor(color);
+  return stringifyARGB(argb);
+}
+
+/**
+ * Extract ARGB values from a color object
+ *
+ * @param  {object} color
+ *
+ * @return {object|undefined}
+ */
+function extractColor(color) {
   if (color) {
-    const { argb, theme, tint } = color;
-    if (argb) {
-      const alpha255 = parseInt(argb.substr(0, 2), 16);
-      if (alpha255 === 255) {
-        return '#' + toLower(argb.substr(2));
-      } else {
-        const r = parseInt(argb, argb.substr(2, 2), 16);
-        const g = parseInt(argb, argb.substr(4, 2), 16);
-        const b = parseInt(argb, argb.substr(6, 2), 16);
-        const a = round(alpha255 / 255, 2);
-        return `rgba(${r},${g},${b},${a})`;
-      }
-    } else if (theme !== undefined) {
-      return getThemeColor(theme, tint);
+    let argb;
+    if (color.argb) {
+      return parseARGB(color.argb);
+    } else if (color.theme !== undefined) {
+      return getThemeColor(color.theme, color.tint);
+    } else if (color.indexed) {
+      return getIndexedColor(color.indexed);
     }
   }
 }
@@ -176,130 +181,168 @@ function applyFont(style, cell) {
   }
 }
 
-const indexedColors = [
-  '',
-  '#000000',
-  '#ffffff',
-  '#ff0000',
-  '#00ff00',
-  '#0000ff',
-  '#ffff00',
-  '#ff00ff',
-  '#00ffff',
-  '#800000',
-  '#008000',
-  '#000080',
-  '#808000',
-  '#800080',
-  '#008080',
-  '#c0c0c0',
-  '#808080',
-  '#9999ff',
-  '#993366',
-  '#ffffcc',
-  '#ccffff',
-  '#660066',
-  '#ff8080',
-  '#0066cc',
-  '#ccccff',
-  '#000080',
-  '#ff00ff',
-  '#ffff00',
-  '#00ffff',
-  '#800080',
-  '#800000',
-  '#008080',
-  '#0000ff',
-  '#00ccff',
-  '#ccffff',
-  '#ccffcc',
-  '#ffff99',
-  '#99ccff',
-  '#ff99cc',
-  '#cc99ff',
-  '#ffcc99',
-  '#3366ff',
-  '#33cccc',
-  '#99cc00',
-  '#ffcc00',
-  '#ff9900',
-  '#ff6600',
-  '#666699',
-  '#969696',
-  '#003366',
-  '#339966',
-  '#003300',
-  '#333300',
-  '#993300',
-  '#993366',
-  '#333399',
-  '#333333',
-];
-
-const namedColorIndices = {
-  black: 1,
-  white: 2,
-  red: 3,
-  green: 4,
-  blue: 5,
-  yellow: 6,
-  magenta: 7,
-  cyan: 8,
-};
-
 function getNamedColor(name) {
+  const namedColorIndices = {
+    black: 1,
+    white: 2,
+    red: 3,
+    green: 4,
+    blue: 5,
+    yellow: 6,
+    magenta: 7,
+    cyan: 8,
+  };
   let index = namedColorIndices[toLower(name)];
   if (!index) {
     index = parseInt(name);
   }
-  return indexedColors[index];
+  return getIndexedColor(index);
 }
 
 function getIndexedColor(index) {
+  const indexedColors = [
+    undefined,
+    { a: 0xff, r: 0x00, g: 0x00, b: 0x00 },
+    { a: 0xff, r: 0xff, g: 0xff, b: 0xff },
+    { a: 0xff, r: 0xff, g: 0x00, b: 0x00 },
+    { a: 0xff, r: 0x00, g: 0xff, b: 0x00 },
+    { a: 0xff, r: 0x00, g: 0x00, b: 0xff },
+    { a: 0xff, r: 0xff, g: 0xff, b: 0x00 },
+    { a: 0xff, r: 0xff, g: 0x00, b: 0xff },
+    { a: 0xff, r: 0x00, g: 0xff, b: 0xff },
+    { a: 0xff, r: 0x80, g: 0x00, b: 0x00 },
+    { a: 0xff, r: 0x00, g: 0x80, b: 0x00 },
+    { a: 0xff, r: 0x00, g: 0x00, b: 0x80 },
+    { a: 0xff, r: 0x80, g: 0x80, b: 0x00 },
+    { a: 0xff, r: 0x80, g: 0x00, b: 0x80 },
+    { a: 0xff, r: 0x00, g: 0x80, b: 0x80 },
+    { a: 0xff, r: 0xc0, g: 0xc0, b: 0xc0 },
+    { a: 0xff, r: 0x80, g: 0x80, b: 0x80 },
+    { a: 0xff, r: 0x99, g: 0x99, b: 0xff },
+    { a: 0xff, r: 0x99, g: 0x33, b: 0x66 },
+    { a: 0xff, r: 0xff, g: 0xff, b: 0xcc },
+    { a: 0xff, r: 0xcc, g: 0xff, b: 0xff },
+    { a: 0xff, r: 0x66, g: 0x00, b: 0x66 },
+    { a: 0xff, r: 0xff, g: 0x80, b: 0x80 },
+    { a: 0xff, r: 0x00, g: 0x66, b: 0xcc },
+    { a: 0xff, r: 0xcc, g: 0xcc, b: 0xff },
+    { a: 0xff, r: 0x00, g: 0x00, b: 0x80 },
+    { a: 0xff, r: 0xff, g: 0x00, b: 0xff },
+    { a: 0xff, r: 0xff, g: 0xff, b: 0x00 },
+    { a: 0xff, r: 0x00, g: 0xff, b: 0xff },
+    { a: 0xff, r: 0x80, g: 0x00, b: 0x80 },
+    { a: 0xff, r: 0x80, g: 0x00, b: 0x00 },
+    { a: 0xff, r: 0x00, g: 0x80, b: 0x80 },
+    { a: 0xff, r: 0x00, g: 0x00, b: 0xff },
+    { a: 0xff, r: 0x00, g: 0xcc, b: 0xff },
+    { a: 0xff, r: 0xcc, g: 0xff, b: 0xff },
+    { a: 0xff, r: 0xcc, g: 0xff, b: 0xcc },
+    { a: 0xff, r: 0xff, g: 0xff, b: 0x99 },
+    { a: 0xff, r: 0x99, g: 0xcc, b: 0xff },
+    { a: 0xff, r: 0xff, g: 0x99, b: 0xcc },
+    { a: 0xff, r: 0xcc, g: 0x99, b: 0xff },
+    { a: 0xff, r: 0xff, g: 0xcc, b: 0x99 },
+    { a: 0xff, r: 0x33, g: 0x66, b: 0xff },
+    { a: 0xff, r: 0x33, g: 0xcc, b: 0xcc },
+    { a: 0xff, r: 0x99, g: 0xcc, b: 0x00 },
+    { a: 0xff, r: 0xff, g: 0xcc, b: 0x00 },
+    { a: 0xff, r: 0xff, g: 0x99, b: 0x00 },
+    { a: 0xff, r: 0xff, g: 0x66, b: 0x00 },
+    { a: 0xff, r: 0x66, g: 0x66, b: 0x99 },
+    { a: 0xff, r: 0x96, g: 0x96, b: 0x96 },
+    { a: 0xff, r: 0x00, g: 0x33, b: 0x66 },
+    { a: 0xff, r: 0x33, g: 0x99, b: 0x66 },
+    { a: 0xff, r: 0x00, g: 0x33, b: 0x00 },
+    { a: 0xff, r: 0x33, g: 0x33, b: 0x00 },
+    { a: 0xff, r: 0x99, g: 0x33, b: 0x00 },
+    { a: 0xff, r: 0x99, g: 0x33, b: 0x66 },
+    { a: 0xff, r: 0x33, g: 0x33, b: 0x99 },
+    { a: 0xff, r: 0x33, g: 0x33, b: 0x33 },
+  ];
   return indexedColors[index];
 }
 
-const themeColors = [
-  [ 0xff, 0xff, 0xff ],   // lt1
-  [ 0x00, 0x00, 0x00 ],   // dk1
-  [ 0xe7, 0xe6, 0xe6 ],   // lt2
-  [ 0x44, 0x54, 0x6a ],   // dk2
-  [ 0x44, 0x72, 0xc4 ],   // accent1
-  [ 0xed, 0x7d, 0x31 ],   // acentt2
-  [ 0xa5, 0xa5, 0xa5 ],   // accent3
-  [ 0xff, 0xc0, 0x00 ],   // accent4
-  [ 0x5b, 0x9b, 0xd5 ],   // accent5
-  [ 0x70, 0xad, 0x47 ],   // accent6
-  [ 0x05, 0x63, 0xc1 ],   // hlink
-  [ 0x95, 0x4f, 0x72 ]    // folHlink
-];
-
 function getThemeColor(theme, tint) {
-  const rgb = themeColors[theme];
-  if (rgb) {
-    //console.log(theme, rgb, tint);
-    const hexes = rgb.map((n) => {
-      if (tint > 0) {
-        n = Math.round(n + (255 - n) * tint);
-        n = Math.min(255, n);
-      } else if (tint < 0) {
-        n = Math.round(n * (1 + tint));
-        n = Math.max(0, n);
-      }
-      let hex = n.toString(16);
-      if (hex.length < 2) {
-        hex = '0' + hex;
-      }
-      return hex;
-    });
-    return '#' + hexes.join('');
+  const themeColors = [
+    { a: 0xff, r: 0xff, g: 0xff, b: 0xff },   // lt1
+    { a: 0xff, r: 0x00, g: 0x00, b: 0x00 },   // dk1
+    { a: 0xff, r: 0xe7, g: 0xe6, b: 0xe6 },   // lt2
+    { a: 0xff, r: 0x44, g: 0x54, b: 0x6a },   // dk2
+    { a: 0xff, r: 0x44, g: 0x72, b: 0xc4 },   // accent1
+    { a: 0xff, r: 0xed, g: 0x7d, b: 0x31 },   // acentt2
+    { a: 0xff, r: 0xa5, g: 0xa5, b: 0xa5 },   // accent3
+    { a: 0xff, r: 0xff, g: 0xc0, b: 0x00 },   // accent4
+    { a: 0xff, r: 0x5b, g: 0x9b, b: 0xd5 },   // accent5
+    { a: 0xff, r: 0x70, g: 0xad, b: 0x47 },   // accent6
+    { a: 0xff, r: 0x05, g: 0x63, b: 0xc1 },   // hlink
+    { a: 0xff, r: 0x95, g: 0x4f, b: 0x72 }    // folHlink
+  ];
+  let argb = themeColors[theme];
+  if (argb) {
+    if (tint) {
+      argb = {
+        a: applyTint(argb.a, tint),
+        r: applyTint(argb.r, tint),
+        g: applyTint(argb.g, tint),
+        b: applyTint(argb.b, tint),
+      };
+    }
+    return argb;
   }
+}
+
+function applyTint(n, tint) {
+  if (tint > 0) {
+    n = n + (255 - n) * tint;
+  } else {
+    n = n + n * tint;
+  }
+  if (n > 255) {
+    n = 255;
+  } else if (n < 0) {
+    n = 0;
+  } else {
+    n = Math.round(n);
+  }
+  return n;
+}
+
+function parseARGB(s) {
+  if (s) {
+    const a = parseInt(s.substr(0, 2), 16);
+    const r = parseInt(s.substr(2, 2), 16);
+    const g = parseInt(s.substr(4, 2), 16);
+    const b = parseInt(s.substr(6, 2), 16);
+    return { a, r, g, b };
+  }
+}
+
+function stringifyARGB(argb) {
+  if (argb) {
+    const { a, r, g, b } = argb;
+    if (a === 255) {
+      return `#${hex(r)}${hex(g)}${hex(b)}`;
+    } else {
+      return `rgba(${r}, ${g}, ${b}, ${round(a / 255)})`;
+    }
+  }
+}
+
+function hex(n) {
+  let hex = round(n).toString(16);
+  if (hex.length < 2) {
+    hex = '0' + hex;
+  }
+  return hex;
 }
 
 export {
   extractCellStyle,
   extractRichText,
+  extractColor,
   getNamedColor,
   getIndexedColor,
   getThemeColor,
+  parseARGB,
+  stringifyARGB,
 };

@@ -6,6 +6,9 @@ import isEmpty from 'lodash/isEmpty.js';
 import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
 import { formatValue } from './excel-formatting.mjs';
 import { extractCellStyle, extractRichText } from './excel-styling.mjs';
+import { ExcelConditionalStyling } from './excel-styling-conditional.mjs';
+import BaseXform from 'exceljs/lib/xlsx/xform/base-xform.js';
+import CfvoXform from 'exceljs/lib/xlsx/xform/sheet/cf/cfvo-xform.js';
 
 /**
  * Parse an Excel file
@@ -55,6 +58,7 @@ async function parseExcelWorksheet(worksheet) {
         media[`${c}:${r}`] = workbookImage;
       }
     }
+    const conditionalStyling = new ExcelConditionalStyling(worksheet);
     // process the cells
     const columns = [];
     const rows = [];
@@ -75,22 +79,25 @@ async function parseExcelWorksheet(worksheet) {
             isUsing[c] = true;
           }
         }
-      } else {
         if (columns.length === 0) {
           break;
         }
+      } else {
         // all the remaining rows as treated as data rows
         const row = [];
         for (let c = 1; c <= columnCount; c++) {
           if (isUsing[c]) {
             const worksheetCell = worksheetRow.getCell(c);
-            const value = extractCellContents(worksheetCell, media[`${c}:${r}`]);
-            row.push(value);
+            const contents = extractCellContents(worksheetCell, media[`${c}:${r}`]);
+            row.push(contents);
+            conditionalStyling.check(worksheetCell, contents);
           }
         }
         rows.push(row);
       }
     }
+    // apply conditional styling
+    conditionalStyling.apply();
     // don't return empty sheets
     if (columns.length > 0) {
       return { ...sheetNameFlags, columns, rows };
@@ -191,6 +198,15 @@ function adjustDate(date) {
   const offset = date.getTimezoneOffset();
   return (offset) ? new Date(date.getTime() + offset * 60 * 1000) : date;
 }
+
+// hot-patch bug in ExcelJS
+CfvoXform.prototype.parseOpen = function(node) {
+  const value = BaseXform.toFloatValue(node.attributes.val);
+  this.model = {
+    type: node.attributes.type,
+    value: !isNaN(value) ? value : node.attributes.val,
+  };
+};
 
 export {
   parseExcelFile,
