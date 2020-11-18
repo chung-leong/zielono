@@ -63,14 +63,16 @@ async function parseExcelWorksheet(worksheet) {
     const columns = [];
     const rows = [];
     const isUsing = {};
+    let lowestNonEmptyRow = 1;
     for (let r = 1; r <= rowCount; r++) {
       const worksheetRow = worksheet.getRow(r);
-      if (!worksheetRow.hasValues) {
-        continue;
-      }
       if (r === 1) {
         // use first row as column names
         for (let c = 1; c <= columnCount; c++) {
+          const workshetColumn = worksheet.getColumn(c);
+          if (workshetColumn.hidden) {
+            continue;
+          }
           const worksheetCell = worksheetRow.getCell(c);
           const columnNameFlags = extractNameFlags(worksheetCell.text);
           if (columnNameFlags) {
@@ -84,6 +86,26 @@ async function parseExcelWorksheet(worksheet) {
         }
       } else {
         // all the remaining rows as treated as data rows
+        if (worksheetRow.hidden) {
+          // skip hidden rows
+          continue;
+        }
+        if (worksheetRow.hasValues) {
+          const prevNonEmptyRow = lowestNonEmptyRow;
+          if (r > lowestNonEmptyRow) {
+            lowestNonEmptyRow = r;
+            if (r !== prevNonEmptyRow + 1) {
+              // go back and process the empty rows above this one
+              r = prevNonEmptyRow;
+              continue;
+            }
+          }
+        } else {
+          if (r > lowestNonEmptyRow) {
+            // don't process an empty row unless there's something beneath it
+            continue;
+          }
+        }
         const row = [];
         for (let c = 1; c <= columnCount; c++) {
           if (isUsing[c]) {

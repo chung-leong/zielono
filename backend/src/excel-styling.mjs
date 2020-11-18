@@ -99,14 +99,14 @@ function convertBorder(border) {
         thickness = '3px';
         break;
       case 'hair':
-        type = 'dotted';
+        thickness = '0.5px';
         break;
       case 'mediumDashed':
         type = 'dashed';
         thickness = '3px';
         break;
     }
-    return `${type} ${thickness} ${colorStr}`;
+    return `${thickness} ${type} ${colorStr}`;
   }
 }
 

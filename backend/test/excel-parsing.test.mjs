@@ -1,12 +1,7 @@
 import Chai from 'chai'; const { expect } = Chai;
-import FS from 'fs'; const { readFile } = FS.promises;
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { loadExcelFile } from './helpers/file-loading.mjs'
 
 import {
-  parseExcelFile,
   extractKeywords,
   extractNameFlags,
 } from '../src/excel-parsing.mjs';
@@ -62,10 +57,8 @@ describe('Excel parsing', function() {
   describe('#parseExcelFile()', function() {
     let sample, sushi;
     before(async () => {
-      const file1 = await readFile(`${__dirname}/assets/sample.xlsx`);
-      sample = await parseExcelFile(file1);
-      const file2 = await readFile(`${__dirname}/assets/sushi.xlsx`);
-      sushi = await parseExcelFile(file2);
+      sample = await loadExcelFile('sample.xlsx');
+      sushi = await loadExcelFile('sushi.xlsx');
     })
     it('should correctly extract metadata', function() {
       expect(sample.title).to.eql('This is a title');
@@ -81,7 +74,7 @@ describe('Excel parsing', function() {
       expect(sheet1.name).to.eql('Text');
       expect(sheet1.flags).to.eql([ 'with styles' ]);
     })
-    it('should extract flags from column names', async function() {
+    it('should extract flags from column names', function() {
       const [ sheet1 ] = sushi.sheets;
       const [ col1, col2, col3, col4 ] = sheet1.columns;
       expect(col1.name).to.eql('Name');
@@ -91,5 +84,35 @@ describe('Excel parsing', function() {
       expect(col3.flags).to.eql([ 'pl' ]);
       expect(col4.name).to.eql('Picture');
     })
+    it('should extract plain text from cells', function() {
+      const [ sheet1 ] = sample.sheets;
+      const [ cellA2, cellB2 ] = sheet1.rows[0];
+      expect(cellA2).to.eql({ value: 'Normal' });
+      expect(cellB2).to.eql({ value: 'This is a test',
+        style: {
+          verticalAlign: 'bottom'
+        }
+      });
+    })
+    it('should keep empty rows', function() {
+      const [ sheet1 ] = sample.sheets;
+      const [ cellA17, cellB17 ] = sheet1.rows[15];
+      expect(cellA17).to.eql({ value: null });
+      expect(cellB17).to.eql({ value: null, style: { verticalAlign: 'bottom' } });
+      const [ cellA19, cellB19 ] = sheet1.rows[17];
+      expect(cellA17).to.eql({ value: null });
+      expect(cellB17).to.eql({ value: null, style: { verticalAlign: 'bottom' } });
+    })
+    it('should skip hidden rows', function() {
+      const [ sheet1 ] = sample.sheets;
+      const [ cellA31 ] = sheet1.rows[29];
+      expect(cellA31).to.eql({ value: null });
+      const [ cellA33 ] = sheet1.rows[30];
+      expect(cellA33).to.eql({ value: 'Visible' });
+    })
+    it('should skip hidden columns', function() {
+      const [ sheet1 ] = sample.sheets;
+      expect(sheet1.columns).to.have.lengthOf(2);
+    });
   })
 })
