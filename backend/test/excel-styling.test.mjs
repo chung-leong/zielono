@@ -12,8 +12,68 @@ import {
 
 describe('Excel styling', function() {
   describe('#parseARGB()', function() {
+    it('should correctly parse an RGB string', function() {
+      const argb = parseARGB('#FEf1f2f3');
+      expect(argb).to.eql({ a: 0xfe, r: 0xf1, g: 0xf2, b: 0xf3 });
+    })
   })
   describe('#stringifyARGB()', function() {
+    it('should return color in basic hex representation when the color is opaque', function () {
+      const color = stringifyARGB({ a:0xff, r: 0xff, g: 0x01, b: 0x01 });
+      expect(color).to.eql('#ff0101');
+    })
+    it('should return color in rgba() notation when the color is transparent', function () {
+      const color = stringifyARGB({ a:0xf0, r: 0xff, g: 0x01, b: 0x01 });
+      expect(color).to.eql('rgba(255, 1, 1, 0.94)');
+    })
+  })
+  describe('#getNamedColor()', function() {
+    it('should return a color by name', function() {
+      const color = getNamedColor('RED');
+      expect(color).to.eql({ a: 0xff, r: 0xff, g: 0x00, b: 0x00 });
+    })
+    it('should return an unnamed color', function() {
+      const color = getNamedColor('10');
+      expect(color).to.eql({ a: 0xff, r: 0x00, g: 0x80, b: 0x00 });
+    })
+  })
+  describe('#getIndexedColor()', function() {
+    it('should return a color by index', function() {
+      const color = getIndexedColor(5);
+      expect(color).to.eql({ a: 0xff, r: 0x00, g: 0x00, b: 0xff })
+    })
+    it('should return undefined when index is out of range', function() {
+      const color = getIndexedColor(64);
+      expect(color).to.be.undefined;
+    })
+  })
+  describe('#getThemeColor()', function() {
+    it('should return a theme color with no tint', function() {
+      const color = getThemeColor(1, 0);
+      expect(color).to.eql({ a: 255, r: 0, g: 0, b: 0 });
+    })
+    it('should return a theme color with max tint', function() {
+      const color = getThemeColor(1, 1);
+      expect(color).to.eql({ a: 255, r: 255, g: 255, b: 255 });
+    })
+    it('should return a color correspdoning to the theme = 3', function() {
+      const color = getThemeColor(3, 0.80);
+      expect(color).to.eql({ a: 255, r: 218, g: 221, b: 225 });
+    })
+  })
+  describe('#extractColor()', function() {
+    it('should extract color specified as ARGB', function() {
+      const color = extractColor({ argb: '#ff00ff00' });
+      expect(color).to.eql({ a: 255, r: 0, g: 255, b: 0 });
+    })
+    it('should extract theme color', function() {
+      const color = extractColor({ theme: 3, tint: 0.80 });
+      expect(color).to.eql({ a: 255, r: 218, g: 221, b: 225 });
+    })
+    it('should extract indexed color', function() {
+      const color = extractColor({ indexed: 5 });
+      expect(color).to.eql({ a: 0xff, r: 0x00, g: 0x00, b: 0xff });
+    })
   })
   describe('#parseExcelFile()', function() {
     let sample, sushi;

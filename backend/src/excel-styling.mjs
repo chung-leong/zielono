@@ -1,7 +1,8 @@
 import includes from 'lodash/includes.js';
 import isEmpty from 'lodash/isEmpty.js';
-import round from 'lodash/round.js';
 import toLower from 'lodash/toLower.js';
+import round from 'lodash/round.js';
+import floor from 'lodash/round.js';
 import ExcelJS from 'exceljs'; const { ValueType } = ExcelJS;
 
 function extractCellStyle(cell) {
@@ -302,13 +303,16 @@ function applyTint(n, tint) {
   } else if (n < 0) {
     n = 0;
   } else {
-    n = Math.round(n);
+    n = round(n);
   }
   return n;
 }
 
 function parseARGB(s) {
-  if (s) {
+  if (typeof(s) === 'string') {
+    if (s.charAt(0) === '#') {
+      s = s.substr(1);
+    }
     const a = parseInt(s.substr(0, 2), 16);
     const r = parseInt(s.substr(2, 2), 16);
     const g = parseInt(s.substr(4, 2), 16);
@@ -323,13 +327,13 @@ function stringifyARGB(argb) {
     if (a === 255) {
       return `#${hex(r)}${hex(g)}${hex(b)}`;
     } else {
-      return `rgba(${r}, ${g}, ${b}, ${round(a / 255)})`;
+      return `rgba(${r}, ${g}, ${b}, ${round(a / 255, 2)})`;
     }
   }
 }
 
 function hex(n) {
-  let hex = round(n).toString(16);
+  let hex = floor(n).toString(16);
   if (hex.length < 2) {
     hex = '0' + hex;
   }
