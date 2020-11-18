@@ -152,22 +152,26 @@ describe('Excel data formatting', function() {
       const result = formatValue(value, format, { locale: 'en-us' });
       expect(result).to.eql({ text: '12:00:00.5 AM', color: undefined });
     })
-    it('should be able to correctly process items in sheet "normal"', async function() {
-      await testSheet('normal', { locale: 'en-us' });
+
+    let workbook;
+    before(async () => {
+      const buffer = await readFile(`${__dirname}/assets/formatting.xlsx`);
+      workbook = new Workbook();
+      await workbook.xlsx.load(buffer);
     })
-    it('should be able to correctly process items in sheet "special"', async function() {
-      await testSheet('special', { locale: 'en-us' });
+    it('should be able to correctly process items in sheet "normal"', function() {
+      testSheet(workbook, 'normal', { locale: 'en-us' });
     })
-    it('should be able to correctly process items in sheet "datetime"', async function() {
-      await testSheet('datetime', { locale: 'en-us' });
+    it('should be able to correctly process items in sheet "special"', function() {
+      testSheet(workbook, 'special', { locale: 'en-us' });
+    })
+    it('should be able to correctly process items in sheet "datetime"', function() {
+      testSheet(workbook, 'datetime', { locale: 'en-us' });
     })
   })
 })
 
-async function testSheet(name, options) {
-  const buffer = await readFile(`${__dirname}/assets/formatting.xlsx`);
-  const workbook = new Workbook();
-  await workbook.xlsx.load(buffer);
+function testSheet(workbook, name, options) {
   for (let worksheet of workbook.worksheets) {
     if (worksheet.name === name) {
       const { rowCount } = worksheet;
