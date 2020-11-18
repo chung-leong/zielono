@@ -5,6 +5,13 @@ import round from 'lodash/round.js';
 import floor from 'lodash/round.js';
 import ExcelJS from 'exceljs'; const { ValueType } = ExcelJS;
 
+/**
+ * Extract and translate Excel styling info into CSS
+ *
+ * @param  {Cell} cell
+ *
+ * @return {object}
+ */
 function extractCellStyle(cell) {
   const style = {};
   applyAlignment(style, cell);
@@ -14,6 +21,13 @@ function extractCellStyle(cell) {
   return style;
 }
 
+/**
+ * Extract Rich text, translating style info into CSS
+ *
+ * @param  {object[]} richText
+ *
+ * @return {object[]}
+ */
 function extractRichText(richText) {
   const newSegments = [];
   for (let segment of richText) {
@@ -28,6 +42,12 @@ function extractRichText(richText) {
   return newSegments;
 }
 
+/**
+ * Attach rules controlling cell alignment to style object
+ *
+ * @param  {object} style
+ * @param  {Cell} cell
+ */
 function applyAlignment(style, cell) {
   const { horizontal, vertical, indent } = cell.alignment || {};
   let textAlign = getDefaultAlignment(cell), verticalAlign = 'bottom';
@@ -48,6 +68,13 @@ function applyAlignment(style, cell) {
   }
 }
 
+/**
+ * Return horizontal aligment used by default for given vakye tyoe
+ *
+ * @param  {Cell} cell
+ *
+ * @return {string}
+ */
 function getDefaultAlignment(cell) {
   const { effectiveType } = cell;
   if (effectiveType === ValueType.Number || effectiveType === ValueType.Date) {
@@ -57,6 +84,12 @@ function getDefaultAlignment(cell) {
   }
 }
 
+/**
+ * Attach rules controlling cell borders to style object
+ *
+ * @param  {object} style
+ * @param  {Cell} cell
+ */
 function applyBorder(style, cell) {
   const { left, right, top, bottom } = cell.border || {};
   const leftStr = convertBorder(left);
@@ -143,6 +176,12 @@ function extractColor(color) {
   }
 }
 
+/**
+ * Attach rules controlling cell background to style object
+ *
+ * @param  {object} style
+ * @param  {Cell} cell
+ */
 function applyFill(style, cell) {
   const { type, pattern, fgColor } = cell.fill || {};
   if (type === 'pattern' && pattern === 'solid') {
@@ -153,11 +192,16 @@ function applyFill(style, cell) {
   }
 }
 
-const defaultFontNames = [ 'Calibri', 'Arial' ];
-const defaultFontSizes = [ 10, 11 ];
-const defaultColor = '#000000';
-
+/**
+ * Attach rules controlling font to style object
+ *
+ * @param  {object} style
+ * @param  {Cell} cell
+ */
 function applyFont(style, cell) {
+  const defaultFontNames = [ 'Calibri', 'Arial' ];
+  const defaultFontSizes = [ 10, 11 ];
+  const defaultTextColor = '#000000';
   const { name, size, color, italic, underline, bold } = cell.font || {};
   // don't apply the font when it's the default
   if (name && !includes(defaultFontNames, name)) {
@@ -168,7 +212,7 @@ function applyFont(style, cell) {
     style.fontSize = size + 'pt';
   }
   const colorStr = convertColor(color);
-  if (colorStr && colorStr !== defaultColor) {
+  if (colorStr && colorStr !== defaultTextColor) {
     style.color = colorStr;
   }
   if (italic) {
@@ -182,6 +226,13 @@ function applyFont(style, cell) {
   }
 }
 
+/**
+ * Return a color by name (or index expressed as a name)
+ *
+ * @param  {string} name
+ *
+ * @return {object|undefined}
+ */
 function getNamedColor(name) {
   const namedColorIndices = {
     black: 1,
@@ -200,6 +251,13 @@ function getNamedColor(name) {
   return getIndexedColor(index);
 }
 
+/**
+ * Return an indexed Excel color
+ *
+ * @param  {number} index
+ *
+ * @return {object|undefined}
+ */
 function getIndexedColor(index) {
   const indexedColors = [
     undefined,
@@ -263,6 +321,14 @@ function getIndexedColor(index) {
   return indexedColors[index];
 }
 
+/**
+ * Return a color from a theme, with optional tinting
+ *
+ * @param  {number} theme
+ * @param  {number} tint
+ *
+ * @return {object|undefined}
+ */
 function getThemeColor(theme, tint) {
   const themeColors = [
     { a: 0xff, r: 0xff, g: 0xff, b: 0xff },   // lt1
@@ -292,6 +358,14 @@ function getThemeColor(theme, tint) {
   }
 }
 
+/**
+ * Helper function that apply a tint to a ARGB channel
+ *
+ * @param  {number} n
+ * @param  {number} tint
+ *
+ * @return {number}
+ */
 function applyTint(n, tint) {
   if (tint > 0) {
     n = n + (255 - n) * tint;
@@ -308,6 +382,12 @@ function applyTint(n, tint) {
   return n;
 }
 
+/**
+ * Parse a string representation of an ARGB color
+ *
+ * @param  {string} s
+ * @return {object|undefined}
+ */
 function parseARGB(s) {
   if (typeof(s) === 'string') {
     if (s.charAt(0) === '#') {
@@ -321,6 +401,13 @@ function parseARGB(s) {
   }
 }
 
+/**
+ * Return string representation of a color specified as ARGB
+ *
+ * @param  {object} argb
+ *
+ * @return {string}
+ */
 function stringifyARGB(argb) {
   if (argb) {
     const { a, r, g, b } = argb;
@@ -332,6 +419,13 @@ function stringifyARGB(argb) {
   }
 }
 
+/**
+ * Helper function that returns a zero-padded, hexadecimal  number
+ *
+ * @param  {string} n
+ * 
+ * @return {string}
+ */
 function hex(n) {
   let hex = floor(n).toString(16);
   if (hex.length < 2) {
