@@ -19,32 +19,33 @@ function overrideRequire(options) {
     }
   };
 
+  const moduleWhitelist = [];
   const jsExtensionBefore = Module._extensions['.js'];
-  Module._extensions['.js'] = function(module, filename) {
-    if (startsWith(filename, './')) {
+  Module._extensions['.js'] = function(module, path) {
+    if (startsWith(path, './')) {
       const downloadOpts = {};
-      let content = downloadRemoteSync(filename, downloadOpts);
+      let content = retrieveFromGitSync(path, downloadOpts);
       if (typeof(content) != 'string') {
         content = content.toString();
       }
-      module._compile(content, filename);
-    } else if (includes(moduleWhitelist, filename)) {
-      jsExtensionBefore(module, filename);
+      module._compile(content, path);
+    } else if (includes(moduleWhitelist, path)) {
+      jsExtensionBefore(module, path);
     } else {
-      throw new Error(`Cannot load ${filename}`);
+      throw new Error(`Cannot load ${path}`);
     }
   };
 }
 
-async function downloadRemote(filename, options) {
+async function retrieveFromGit(path, options) {
   const url = 'https://raw.githubusercontent.com/chung-leong/trambar-generic/master/ssr/index.js';
   const req = await fetch(url);
   const buffer = await req.buffer();
   return buffer;
 }
 
-const downloadRemoteSync = deasync((filename, options, cb) => {
-  downloadRemote(filename, options).then((data) => {
+const retrieveFromGitSync = deasync((path, options, cb) => {
+  retrieveFromGit(path, options).then((data) => {
     cb(null, data);
   }).catch((err) => {
     cb(err, null);
@@ -53,6 +54,6 @@ const downloadRemoteSync = deasync((filename, options, cb) => {
 
 module.exports = {
   overrideRequire,
-  downloadRemote,
-  downloadRemoteSync,
+  retrieveFromGit,
+  retrieveFromGitSync,
 };
