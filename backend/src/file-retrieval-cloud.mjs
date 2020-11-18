@@ -53,32 +53,43 @@ async function retrieveFromCloud(url, options) {
  * @return {string}
  */
 function getDownloadURL(url) {
-  const isOneDrive = /^https:\/\/(1drv\.ms|onedrive\.live\.com)\//;
-  const isDropbox = /^https:\/\/(www\.dropbox\.com)\//;
-  if (isOneDrive.test(url)) {
-    const shareURL = getOneDriveShareURL(url);
-    return shareURL + '/root/content';
-  } else if (isDropbox.test(url)) {
-    return replace(url, 'www', 'dl');
-  }
-  return url;
+  return getDropboxURL(url)
+      || getOneDriveURL(url)
+      || url;
 }
 
 /**
- * Encode a OneDrive shared file URL
+ * Return the download URL for a shared file on Dropbox
  *
  * @param  {string} url
  *
- * @return {string}
+ * @return {string|undefined}
  */
-function getOneDriveShareURL(url) {
-  let token = Buffer.from(url).toString('base64');
-  token = trimEnd(token, '=');
-  token = replace(token, /\//g, '_');
-  token = replace(token, /\+/g, '-');
-  token = 'u!' + token;
-  const apiURL = 'https://api.onedrive.com/v1.0/shares/';
-  return apiURL + token;
+function getDropboxURL(url) {
+  if (/^https:\/\/(www\.dropbox\.com)\//.test(url)) {
+    url = replace(url, 'www.dropbox.com', 'dl.dropboxusercontent.com');
+    url = replace(url, '?dl=0', '?dl=1');
+    return url;
+  }
+}
+
+/**
+ * Return the download URL for a shared file on OneDrive
+ *
+ * @param  {string} url
+ *
+ * @return {string|undefined}
+ */
+function getOneDriveURL(url) {
+  if (/^https:\/\/(1drv\.ms|onedrive\.live\.com)\//.test(url)) {
+    // encode url as base64
+    let token = Buffer.from(url).toString('base64');
+    token = trimEnd(token, '=');
+    token = replace(token, /\//g, '_');
+    token = replace(token, /\+/g, '-');
+    token = 'u!' + token;
+    return `https://api.onedrive.com/v1.0/shares/${token}/root/content`;
+  }
 }
 
 export {

@@ -16,7 +16,7 @@ import {
   adjustDate,
 } from '../src/excel-parsing.mjs';
 
-describe('Excel parsing', function() {
+describe('Excel data formatting', function() {
   describe('#findFraction()', function() {
     it('should return expected results', function() {
       expect(findFraction(1.95, 1)).to.eql({ whole: 2 });
