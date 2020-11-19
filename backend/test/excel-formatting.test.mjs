@@ -1,10 +1,7 @@
 import Chai from 'chai'; const { expect } = Chai;
-import FS from 'fs'; const { readFile } = FS.promises;
-import { dirname } from 'path';
-import { fileURLToPath } from 'url';
 import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
+import { loadAsset } from './helpers/file-loading.mjs';
+import { adjustDate } from '../src/excel-parsing.mjs';
 
 import {
   formatValue,
@@ -12,9 +9,6 @@ import {
   formatFraction,
   findFraction,
 } from '../src/excel-formatting.mjs';
-import {
-  adjustDate,
-} from '../src/excel-parsing.mjs';
 
 describe('Excel data formatting', function() {
   describe('#findFraction()', function() {
@@ -155,7 +149,7 @@ describe('Excel data formatting', function() {
 
     let workbook;
     before(async () => {
-      const buffer = await readFile(`${__dirname}/assets/formatting.xlsx`);
+      const buffer = await loadAsset('formatting.xlsx');
       workbook = new Workbook();
       await workbook.xlsx.load(buffer);
     })

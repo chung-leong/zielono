@@ -178,12 +178,16 @@ function extractCellContents(worksheetCell, media) {
   const style = extractCellStyle(worksheetCell);
   // get the cell's value and determine what to use for formatting purpose
   const { type, effectiveType, numFmt } = worksheetCell;
-  let effectiveValue = (type === ValueType.Formula) ? worksheetCell.result : worksheetCell.value;
-  let formattingValue = effectiveValue;
+  let value = (type === ValueType.Formula) ? worksheetCell.result : worksheetCell.value;
+  if (value instanceof Date) {
+    // reinterpret time as local time
+    value = adjustDate(value);
+  }
+  let formattingValue = value;
   if (effectiveType === ValueType.RichText) {
     // use plain text
     formattingValue = worksheetCell.text;
-    effectiveValue = extractRichText(effectiveValue.richText);
+    value = extractRichText(value.richText);
   } else if (effectiveType === ValueType.Hyperlink) {
     // use display text
     formattingValue = worksheetCell.text;
@@ -193,7 +197,7 @@ function extractCellContents(worksheetCell, media) {
   }
   // apply formatting if there's one
   const contents = {};
-  if (numFmt && numFmt !== '@') {
+  if (numFmt && numFmt !== '@' && !(value && value.error)) {
     try {
       // need locale
       const result = formatValue(formattingValue, numFmt, {});
@@ -205,7 +209,7 @@ function extractCellContents(worksheetCell, media) {
       // probably a type mismatch error
     }
   }
-  contents.value = effectiveValue;
+  contents.value = value;
   if (!isEmpty(style)) {
     contents.style = style;
   }

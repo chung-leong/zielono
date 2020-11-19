@@ -1,26 +1,32 @@
 import split from 'lodash/split.js';
 import replace from 'lodash/replace.js';
+import floor from 'lodash/floor.js';
+import colCache from 'exceljs/lib/utils/col-cache.js';
 import { extractColor, stringifyARGB } from './excel-styling.mjs';
 
 class ExcelConditionalStyling {
   constructor(worksheet) {
     this.rules = [];
     for (let ruleSetDef of worksheet.conditionalFormattings) {
-      const range = parseCellRange(ruleSetDef.ref);
-      for (let ruleDef of ruleSetDef.rules) {
-        const { type } = ruleDef;
-        let rule;
-        switch (type) {
-          case 'colorScale':
-            rule = new ExcelConidtionalRuleColorScale(range, ruleDef);
-            break;
+      try {
+        const range = colCache.decode(ruleSetDef.ref);
+        for (let ruleDef of ruleSetDef.rules) {
+          const { type } = ruleDef;
+          let rule;
+          switch (type) {
+            case 'colorScale':
+              rule = new ExcelConidtionalRuleColorScale(range, ruleDef);
+              break;
+          }
+          if (rule) {
+            this.rules.push(rule);
+          }
         }
-        if (rule) {
-          this.rules.push(rule);
-        }
+      } catch (err) {
+        console.error(err.message);
       }
     }
-    this.rules.sort((a, b) => a.priority - b.priority);
+    this.rules.sort((a, b) => b.priority - a.priority);
     this.worksheet = worksheet;
   }
 
@@ -32,23 +38,26 @@ class ExcelConditionalStyling {
 
   apply() {
     for (let rule of this.rules) {
-      rule.apply(this.worksheet);
+      try {
+        rule.apply(this.worksheet);
+      } catch (err) {
+        console.log(err.message);
+      }
     }
   }
 }
 
 class ExcelConditionalRule {
   constructor(range, ruleDef) {
-    const { start, end } = range;
     this.cells = [];
-    this.firstCol = start.col;
-    this.lastCol = end.col;
-    this.firstRow = start.row;
-    this.lastRow = end.row;
+    this.firstCol = range.left;
+    this.lastCol = range.right;
+    this.firstRow = range.top;
+    this.lastRow = range.bottom;
     this.priority = ruleDef.priority;
   }
 
-  isInRange(cell) {
+  inRange(cell) {
     const { col, row } = cell;
     if (this.firstRow <= row && row <= this.lastRow) {
       if (this.firstCol <= col && col <= this.lastCol) {
@@ -59,7 +68,7 @@ class ExcelConditionalRule {
   }
 
   check(cell, contents) {
-    if (this.isInRange(cell)) {
+    if (this.inRange(cell)) {
       const { value } = contents;
       if (value != null) {
         const number = (typeof(value) === 'number') ? value : value.valueOf();
@@ -94,87 +103,65 @@ class ExcelConidtionalRuleColorScale extends ExcelConditionalRule {
     const maxValue = cells[cells.length - 1].number;
     // get the control values
     const cfValues = this.valueObjects.map((vo) => {
+      let value;
       switch (vo.type) {
-        case 'num':
-          return vo.value;
-        case 'min':
-          return minValue;
-        case 'max':
-          return maxValue;
+        case 'num': value = vo.value; break;
+        case 'min': value = minValue; break;
+        case 'max': value = maxValue; break;
         case 'percent':
-          return minValue + (maxValue - minValue) * vo.value;
+          value = minValue + (maxValue - minValue) * (vo.value / 100);
+          break;
         case 'percentile':
           const pos = (cells.length - 1) * (vo.value / 100);
-          const base = Math.floor(pos);
+          const base = floor(pos);
           const rest = pos - base;
-          const baseValue = cells[base].number;
+          value = cells[base].number;
           if(base + 1 < cells.length) {
-            const nextValue = cells[base + 1].number;
-            return baseValue + rest * (nextValue - baseValue);
-          } else {
-            return baseValue;
+            const next = cells[base + 1].number;
+            value += rest * (next - value);
           }
+          break;
         case 'formula':
           // can only handle references
           if (/^\$?[A-Z]+\$?\d+$/.test(vo.value)) {
             const cell = worksheet.getCell(vo.value);
-            let value = cell.result;
+            value = cell.result;
             if (value === undefined) {
               value = cell.value;
             }
-            if (value && typeof(value) != 'number') {
-              value = value.valueOf();
-            }
-            if (typeof(value) === 'number'){
-              return value;
-            }
+          } else {
+            throw new Error('Unable to handle formula');
           }
-          return NaN;
+          break;
       }
+      if (value && typeof(value) != 'number') {
+        value = value.valueOf();
+      }
+      return (typeof(value) === 'number') ? value : NaN;
     });
+    if (cfValues.some(isNaN)) {
+      throw new Error('Invalid parameter');
+    }
     const colors = this.colors.map(extractColor);
-    if (!cfValues.some(isNaN) && !colors.some(c => !c)) {
-      // calculate the color for each cell
-      for (let { contents, number } of cells) {
-        let color;
-        if (colors.length === 2) {
-          const [ min, max ] = cfValues;
-          color = interpolateColor2(colors, number, min, max);
-        } else if (colors.length === 3) {
-          const [ min, mid, max ] = cfValues;
-          color = interpolateColor2(colors, number, min, max, mid);
-        }
-        if (!contents.style) {
-          contents.style = {};
-        }
-        contents.style.backgroundColor = stringifyARGB(color);
+    if (colors.some(c => !c)) {
+      throw new Error('Invalid color');
+    }
+    // calculate the color for each cell
+    for (let { contents, number } of cells) {
+      let color;
+      if (colors.length === 2) {
+        const [ min, max ] = cfValues;
+        color = interpolateColor2(colors, number, min, max);
+      } else if (colors.length === 3) {
+        const [ min, mid, max ] = cfValues;
+        color = interpolateColor3(colors, number, min, max, mid);
       }
+      if (!contents.style) {
+        contents.style = {};
+      }
+      contents.style.backgroundColor = stringifyARGB(color);
     }
   }
-}
-
-const colCharOffset = 'A'.charCodeAt(0) - 1;
-
-function parseCellAddress(address) {
-  const m = /^([A-Z]+)(\d+)$/.exec(address);
-  let col, row;
-  if (m) {
-    const colName = m[1];
-    col = 0;
-    for (let i = colName.length - 1, j = 0; i >= 0; i--, j++) {
-      const n = colName.charCodeAt(i) - colCharOffset;
-      col += (j > 0) ? n * Math.pow(26, j) : n;
-    }
-    row = parseInt(m[2]);
-  }
-  return { col, row };
-}
-
-function parseCellRange(ref) {
-  const [ startAddress, endAddress ] = split(ref, ':');
-  const start = parseCellAddress(startAddress);
-  const end = parseCellAddress(endAddress);
-  return { start, end };
 }
 
 function interpolateColor3(colors, value, min, max, mid) {
@@ -196,10 +183,10 @@ function interpolateColor2(colors, value, min, max) {
   } else if (fraction <= 0) {
     return c1;
   }
-  const a = c1.a + (c2.a - c1.a) * fraction;
-  const r = c1.r + (c2.r - c1.r) * fraction;
-  const g = c1.g + (c2.g - c1.g) * fraction;
-  const b = c1.b + (c2.b - c1.b) * fraction;
+  const a = floor(c1.a + (c2.a - c1.a) * fraction);
+  const r = floor(c1.r + (c2.r - c1.r) * fraction);
+  const g = floor(c1.g + (c2.g - c1.g) * fraction);
+  const b = floor(c1.b + (c2.b - c1.b) * fraction);
   return { a, r, g, b };
 }
 
@@ -207,4 +194,6 @@ export {
   ExcelConditionalStyling,
   ExcelConditionalRule,
   ExcelConidtionalRuleColorScale,
+  interpolateColor2,
+  interpolateColor3
 };

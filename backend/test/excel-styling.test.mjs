@@ -76,7 +76,7 @@ describe('Excel styling', function() {
     })
   })
   describe('#parseExcelFile()', function() {
-    let sample, sushi;
+    let sample;
     before(async () => {
       sample = await loadExcelFile('sample.xlsx');
     })
