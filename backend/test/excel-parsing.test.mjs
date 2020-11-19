@@ -114,5 +114,41 @@ describe('Excel parsing', function() {
       const [ sheet1 ] = sample.sheets;
       expect(sheet1.columns).to.have.lengthOf(2);
     });
+    it('should obtain values from calculated cells', function() {
+      const sheet3 = sample.sheets[2];
+      const [ cellA2, cellB2 ] = sheet3.rows[0];
+      expect(cellA2).to.eql({
+        value: 4,
+        text: '$4.0',
+        style: {
+          verticalAlign: 'bottom',
+          textAlign: 'right',
+        }
+      });
+      expect(cellB2).to.eql({
+        value: 15.16,
+        text: '15.16 PLN',
+        style: {
+          verticalAlign: 'bottom',
+          textAlign: 'right',
+        }
+      });
+    })
+    it('should handle cells in error condition', function() {
+      const sheet3 = sample.sheets[2];
+      const [ cellA6, cellB6 ] = sheet3.rows[4];
+      expect(cellA6).to.eql({
+        value: { error: '#DIV/0!' },
+        style: {
+          verticalAlign: 'bottom'
+        },
+      });
+      expect(cellB6).to.eql({
+        value: { error: '#DIV/0!' },
+        style: {
+          verticalAlign: 'bottom'
+        },
+      });
+    })
   })
 })
