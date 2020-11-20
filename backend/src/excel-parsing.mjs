@@ -2,10 +2,9 @@ import trim from 'lodash/trim.js';
 import camelCase from 'lodash/camelCase.js';
 import split from 'lodash/split.js';
 import filter from 'lodash/filter.js';
-import isEmpty from 'lodash/isEmpty.js';
 import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
 import { formatValue } from './excel-formatting.mjs';
-import { extractCellStyle, extractRichText } from './excel-styling.mjs';
+import { extractCellStyle, extractRichText, applyStyle } from './excel-styling.mjs';
 import { ExcelConditionalStyling } from './excel-styling-conditional.mjs';
 import BaseXform from 'exceljs/lib/xlsx/xform/base-xform.js';
 import CfvoXform from 'exceljs/lib/xlsx/xform/sheet/cf/cfvo-xform.js';
@@ -58,7 +57,8 @@ async function parseExcelWorksheet(worksheet) {
         media[`${c}:${r}`] = workbookImage;
       }
     }
-    const conditionalStyling = new ExcelConditionalStyling(worksheet);
+    // TODO: need locale
+    const conditionalStyling = new ExcelConditionalStyling(worksheet, {});
     // process the cells
     const columns = [];
     const rows = [];
@@ -174,44 +174,32 @@ function extractNameFlags(text) {
  * @return {(object|string)}
  */
 function extractCellContents(worksheetCell, media) {
+  const contents = {};
   // extract style
   const style = extractCellStyle(worksheetCell);
-  // get the cell's value and determine what to use for formatting purpose
+  if (style) {
+    contents.style = style;
+  }
+  // get the cell's value
   const { type, effectiveType, numFmt } = worksheetCell;
   let value = (type === ValueType.Formula) ? worksheetCell.result : worksheetCell.value;
   if (value instanceof Date) {
     // reinterpret time as local time
     value = adjustDate(value);
-  }
-  let formattingValue = value;
-  if (effectiveType === ValueType.RichText) {
-    // use plain text
-    formattingValue = worksheetCell.text;
+  } else if (effectiveType === ValueType.RichText) {
     value = extractRichText(value.richText);
-  } else if (effectiveType === ValueType.Hyperlink) {
-    // use display text
-    formattingValue = worksheetCell.text;
-  } else if (effectiveType === ValueType.Null) {
-    // treat as 0
-    formattingValue = 0;
-  }
-  // apply formatting if there's one
-  const contents = {};
-  if (numFmt && numFmt !== '@' && !(value && value.error)) {
-    try {
-      // need locale
-      const result = formatValue(formattingValue, numFmt, {});
-      if (result.color) {
-        style.color = result.color;
-      }
-      contents.text = result.text;
-    } catch (e) {
-      // probably a type mismatch error
-    }
   }
   contents.value = value;
-  if (!isEmpty(style)) {
-    contents.style = style;
+  // apply formatting
+  try {
+    // TODO: need locale
+    const result = formatValue(value, numFmt, {});
+    if (result) {
+      applyStyle(contents, result.style);
+      contents.text = result.text;
+    }
+  } catch (e) {
+    // probably a type mismatch error
   }
   // attach image
   if (media && media.type === 'image') {
@@ -227,11 +215,15 @@ function adjustDate(date) {
 
 // hot-patch bug in ExcelJS
 CfvoXform.prototype.parseOpen = function(node) {
-  const value = BaseXform.toFloatValue(node.attributes.val);
-  this.model = {
-    type: node.attributes.type,
-    value: !isNaN(value) ? value : node.attributes.val,
-  };
+  const  { type, val, gte } = node.attributes;
+  let value = BaseXform.toFloatValue(val);
+  if (isNaN(value)) {
+    value = val;
+  }
+  this.model = { type, value };
+  if (gte !== undefined) {
+    this.model.gte = (gte === '0');
+  }
 };
 
 export {

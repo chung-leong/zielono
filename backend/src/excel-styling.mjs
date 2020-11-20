@@ -10,15 +10,17 @@ import ExcelJS from 'exceljs'; const { ValueType } = ExcelJS;
  *
  * @param  {Cell} cell
  *
- * @return {object}
+ * @return {object|undefined}
  */
 function extractCellStyle(cell) {
   const style = {};
-  applyAlignment(style, cell);
-  applyBorder(style, cell);
-  applyFill(style, cell);
-  applyFont(style, cell);
-  return style;
+  addAlignment(style, cell);
+  addBorder(style, cell);
+  addFill(style, cell);
+  addFont(style, cell);
+  if(!isEmpty(style)) {
+    return style;
+  }
 }
 
 /**
@@ -32,7 +34,7 @@ function extractRichText(richText) {
   const newSegments = [];
   for (let segment of richText) {
     const style = {};
-    applyFont(style, segment);
+    addFont(style, segment);
     const newSegment = { text: segment.text };
     if (!isEmpty(style)) {
       newSegment.style = style;
@@ -48,7 +50,7 @@ function extractRichText(richText) {
  * @param  {object} style
  * @param  {Cell} cell
  */
-function applyAlignment(style, cell) {
+function addAlignment(style, cell) {
   const { horizontal, vertical, indent } = cell.alignment || {};
   let textAlign = getDefaultAlignment(cell), verticalAlign = 'bottom';
   if (horizontal && horizontal !== 'general') {
@@ -57,7 +59,7 @@ function applyAlignment(style, cell) {
   if (vertical) {
     verticalAlign = vertical;
   }
-  if (textAlign !== 'left') {
+  if (textAlign !== 'left' && textAlign !== undefined) {
     style.textAlign = textAlign;
   }
   if (verticalAlign !== 'top') {
@@ -77,10 +79,12 @@ function applyAlignment(style, cell) {
  */
 function getDefaultAlignment(cell) {
   const { effectiveType } = cell;
-  if (effectiveType === ValueType.Number || effectiveType === ValueType.Date) {
-    return 'right';
-  } else {
-    return 'left';
+  if (effectiveType !== undefined) {
+    if (effectiveType === ValueType.Number || effectiveType === ValueType.Date) {
+      return 'right';
+    } else {
+      return 'left';
+    }
   }
 }
 
@@ -90,7 +94,7 @@ function getDefaultAlignment(cell) {
  * @param  {object} style
  * @param  {Cell} cell
  */
-function applyBorder(style, cell) {
+function addBorder(style, cell) {
   const { left, right, top, bottom } = cell.border || {};
   const leftStr = convertBorder(left);
   const rightStr = convertBorder(right);
@@ -182,7 +186,7 @@ function extractColor(color) {
  * @param  {object} style
  * @param  {Cell} cell
  */
-function applyFill(style, cell) {
+function addFill(style, cell) {
   const { type, pattern, fgColor } = cell.fill || {};
   if (type === 'pattern' && pattern === 'solid') {
     const colorStr = convertColor(fgColor);
@@ -198,7 +202,7 @@ function applyFill(style, cell) {
  * @param  {object} style
  * @param  {Cell} cell
  */
-function applyFont(style, cell) {
+function addFont(style, cell) {
   const defaultFontNames = [ 'Calibri', 'Arial' ];
   const defaultFontSizes = [ 10, 11 ];
   const defaultTextColor = '#000000';
@@ -423,7 +427,7 @@ function stringifyARGB(argb) {
  * Helper function that returns a zero-padded, hexadecimal  number
  *
  * @param  {string} n
- * 
+ *
  * @return {string}
  */
 function hex(n) {
@@ -432,6 +436,24 @@ function hex(n) {
     hex = '0' + hex;
   }
   return hex;
+}
+
+/**
+ * Apply CSS style to contents
+ *
+ * @param  {object} contents
+ * @param  {object} style
+ */
+function applyStyle(contents, style) {
+  if (style) {
+    if (contents.style) {
+      for (let name in style) {
+        contents.style[name] = style[name];
+      }
+    } else {
+      contents.style = style;
+    }
+  }
 }
 
 export {
@@ -443,4 +465,5 @@ export {
   getThemeColor,
   parseARGB,
   stringifyARGB,
+  applyStyle,
 };

@@ -5,7 +5,28 @@ import Lcid from 'lcid';
 import { getNamedColor, stringifyARGB } from './excel-styling.mjs';
 const { floor, round, abs } = Math;
 
+/**
+ * Format a value in accordance to given format string
+ *
+ * @param  {*} value
+ * @param  {string} formatString
+ * @param  {object} options
+ *
+ * @return {object|undefined}
+ */
 function formatValue(value, formatString, options) {
+  if (!formatString || formatString === '@') {
+    return;
+  }
+  if (value == null) {
+    value = 0;
+  } else if (value instanceof Array) {  // rich text
+    value = value.map((s) => s.text).join('');
+  } else if (value.hyperlink) {
+    value = value.text;
+  } else if (value.error) {
+    return;
+  }
   // handle conditional formatting
   const parts = split(formatString, /;/);
   let applicablePartIndex = 0;
@@ -18,7 +39,6 @@ function formatValue(value, formatString, options) {
       omitSign = true;
     }
   }
-
   // create a closure for replacing matching patterns
   let locale = options.locale;
   let color;
@@ -68,13 +88,13 @@ function formatValue(value, formatString, options) {
         }
       }
     }
-    return { text, color };
+    const style = (color) ? { color } : undefined;
+    return { text, style };
   };
   const skip = () => {
     remaining = parts[++applicablePartIndex] || '';
     replacements.splice(0)
   };
-
   // find escaped sequences
   find(/\\(.)/g, (m) => {
     return m[1];

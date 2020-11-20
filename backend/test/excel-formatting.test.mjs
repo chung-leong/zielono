@@ -105,46 +105,50 @@ describe('Excel data formatting', function() {
       const value = -15;
       const format = '0;[RED]-0';
       const result = formatValue(value, format, { locale: 'en-us' });
-      expect(result).to.eql({ text: '-15', color: '#ff0000' });
+      expect(result).to.eql({ text: '-15',
+        style: { color: '#ff0000' }
+      });
     })
     it('should handle currency format', function() {
       const value = 500;
       const format = '#,##0.00 [$zł-415];[RED]-#,##0.00 [$zł-415]';
       const result1 = formatValue(value, format, { locale: 'en-us' });
       const result2 = formatValue(value, format, { locale: 'pl-pl' });
-      expect(result1).to.eql({ text: '500.00 zł', color: undefined });
-      expect(result2).to.eql({ text: '500,00 zł', color: undefined });
+      expect(result1).to.eql({ text: '500.00 zł', style: undefined });
+      expect(result2).to.eql({ text: '500,00 zł', style: undefined });
     })
     it('should handle negative currency value', function() {
       const value = -500;
       const format = '#,##0.00 [$zł-415];[RED]-#,##0.00 [$zł-415]';
       const result = formatValue(value, format, { locale: 'en-us' });
-      expect(result).to.eql({ text: '-500.00 zł', color: '#ff0000' });
+      expect(result).to.eql({ text: '-500.00 zł',
+        style: { color: '#ff0000' } 
+      });
     })
     it('should handle percentage', function() {
       const value = 0.5;
       const format = '0 %';
       const result = formatValue(value, format, { locale: 'en-us' });
-      expect(result).to.eql({ text: '50 %', color: undefined });
+      expect(result).to.eql({ text: '50 %', style: undefined });
     })
     it('should handle fraction', function() {
       const value = 100.5;
       const format = '# ?/?';
       const result = formatValue(value, format, { locale: 'en-us' });
-      expect(result).to.eql({ text: '100 1/2', color: undefined });
+      expect(result).to.eql({ text: '100 1/2', style: undefined });
     })
     it('should handle boolean', function() {
       const format = '"TRUE";"TRUE";"FALSE"';
       const result1 = formatValue(0, format, { locale: 'en-us' });
       const result2 = formatValue(1, format, { locale: 'en-us' });
-      expect(result1).to.eql({ text: 'FALSE', color: undefined });
-      expect(result2).to.eql({ text: 'TRUE', color: undefined });
+      expect(result1).to.eql({ text: 'FALSE', style: undefined });
+      expect(result2).to.eql({ text: 'TRUE', style: undefined });
     })
     it('should handle time', function() {
       const value = new Date(1970, 1, 1, 0, 0, 0, 500);
       const format = 'hh:mm:ss.0 AM/PM';
       const result = formatValue(value, format, { locale: 'en-us' });
-      expect(result).to.eql({ text: '12:00:00.5 AM', color: undefined });
+      expect(result).to.eql({ text: '12:00:00.5 AM', style: undefined });
     })
 
     let workbook;
