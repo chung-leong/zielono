@@ -482,5 +482,68 @@ describe('Excel conditional styling', function() {
         }
       });
     })
+    it('should apply style to cells with duplicate values', function() {
+      const sheet = sample.sheets[3];
+      expect(sheet).to.have.property('name', 'Conditional formatting');
+      const column = sheet.columns[16];
+      expect(column).to.have.property('name', 'Duplicate');
+      const cellQ2 = sheet.rows[0][16];
+      const cellQ6 = sheet.rows[4][16];
+      const cellQ9 = sheet.rows[7][16];
+      const cellQ11 = sheet.rows[9][16];
+      expect(cellQ2).to.eql({ value: 1,
+        style: {
+          textAlign: 'right'
+        },
+      });
+      expect(cellQ6).to.eql({ value: 10,
+        style: {
+          color: '#9c0006',
+          textAlign: 'right',
+          backgroundColor: '#ffc7ce'
+        },
+      });
+      expect(cellQ9).to.eql({ value: 10,
+        style: {
+          color: '#9c0006',
+          textAlign: 'right',
+          backgroundColor: '#ffc7ce'
+        },
+      });
+      expect(cellQ11).to.eql({ value: '10', text: 'Top 10',
+        style: {
+          color: '#9c0006',
+          backgroundColor: '#ffc7ce'
+        },
+      });
+    })
+    it('should apply style to cells with unique values', function() {
+      const sheet = sample.sheets[3];
+      expect(sheet).to.have.property('name', 'Conditional formatting');
+      const column = sheet.columns[17];
+      expect(column).to.have.property('name', 'Unique');
+      const cellR2 = sheet.rows[0][17];
+      const cellR4 = sheet.rows[2][17];
+      const cellR6 = sheet.rows[4][17];
+      const cellR9 = sheet.rows[7][17];
+      expect(cellR2).to.eql({ value: 10,
+        style: {
+          textAlign: 'right'
+        },
+      });
+      expect(cellR4).to.eql({ value: 11,
+        style: {
+          color: '#9c0006',
+          textAlign: 'right',
+          backgroundColor: '#ffc7ce'
+        },
+      });
+      expect(cellR6).to.eql({ value: 9,
+        style: {
+          textAlign: 'right',
+        },
+      });
+      expect(cellR9).to.eql({ value: '9' });
+    })
   })
 })

@@ -2,6 +2,7 @@ import split from 'lodash/split.js';
 import replace from 'lodash/replace.js';
 import floor from 'lodash/floor.js';
 import meanBy from 'lodash/meanBy.js';
+import countBy from 'lodash/countBy.js';
 import colCache from 'exceljs/lib/utils/col-cache.js';
 import { extractCellStyle, extractColor, stringifyARGB, applyStyle } from './excel-styling.mjs';
 import { formatValue } from './excel-formatting.mjs';
@@ -55,6 +56,9 @@ class ExcelConditionalRule {
         return new ExcelConditionalRuleRankBased(range, ruleDef, options);
       case 'aboveAverage':
         return new ExcelConditionalRuleAverageBased(range, ruleDef, options);
+      case 'uniqueValues':
+      case 'duplicateValues':
+        return new ExcelConditionalRuleUniquenessBased(range, ruleDef, options);
       default:
         //console.log(ruleDef);
     }
@@ -298,6 +302,27 @@ class ExcelConditionalRuleAverageBased extends ExcelConditionalRule {
     const avg = meanBy(cells, (c) => c.number);
     for (let { contents, number } of cells) {
       if ((above && number > avg) || (!above && number < avg)) {
+        this.applyStyle(contents);
+      }
+    }
+  }
+}
+
+class ExcelConditionalRuleUniquenessBased extends ExcelConditionalRule {
+  constructor(range, ruleDef) {
+    super(range, ruleDef);
+  }
+
+  apply(worksheet) {
+    // compare value as strings
+    const cells = this.cells;
+    const strings = cells.map((c) => c.contents.value + '');
+    const counts = countBy(strings);
+    const duplicate = (this.type === 'duplicateValues');
+    for (let [ index, string ] of strings.entries()) {
+      const count = counts[string];
+      if ((duplicate) ? count > 1 : count === 1) {
+        const { contents } = cells[index];
         this.applyStyle(contents);
       }
     }
