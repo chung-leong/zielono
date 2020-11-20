@@ -3,11 +3,10 @@ import camelCase from 'lodash/camelCase.js';
 import split from 'lodash/split.js';
 import filter from 'lodash/filter.js';
 import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
+import './exceljs-patching.mjs';
 import { formatValue } from './excel-formatting.mjs';
 import { extractCellStyle, extractRichText, applyStyle } from './excel-styling.mjs';
 import { ExcelConditionalStyling } from './excel-styling-conditional.mjs';
-import BaseXform from 'exceljs/lib/xlsx/xform/base-xform.js';
-import CfvoXform from 'exceljs/lib/xlsx/xform/sheet/cf/cfvo-xform.js';
 
 /**
  * Parse an Excel file
@@ -176,7 +175,7 @@ function extractNameFlags(text) {
 function extractCellContents(worksheetCell, media) {
   const contents = {};
   // extract style
-  const style = extractCellStyle(worksheetCell);
+  const style = extractCellStyle(worksheetCell, true);
   if (style) {
     contents.style = style;
   }
@@ -212,19 +211,6 @@ function adjustDate(date) {
   const offset = date.getTimezoneOffset();
   return (offset) ? new Date(date.getTime() + offset * 60 * 1000) : date;
 }
-
-// hot-patch bug in ExcelJS
-CfvoXform.prototype.parseOpen = function(node) {
-  const  { type, val, gte } = node.attributes;
-  let value = BaseXform.toFloatValue(val);
-  if (isNaN(value)) {
-    value = val;
-  }
-  this.model = { type, value };
-  if (gte !== undefined) {
-    this.model.gte = (gte === '0');
-  }
-};
 
 export {
   parseExcelFile,

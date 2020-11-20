@@ -9,12 +9,13 @@ import ExcelJS from 'exceljs'; const { ValueType } = ExcelJS;
  * Extract and translate Excel styling info into CSS
  *
  * @param  {Cell} cell
+ * @param  {boolean} withDefault
  *
  * @return {object|undefined}
  */
-function extractCellStyle(cell) {
+function extractCellStyle(cell, withDefault) {
   const style = {};
-  addAlignment(style, cell);
+  addAlignment(style, cell, withDefault);
   addBorder(style, cell);
   addFill(style, cell);
   addFont(style, cell);
@@ -49,10 +50,12 @@ function extractRichText(richText) {
  *
  * @param  {object} style
  * @param  {Cell} cell
+ * @param  {boolean} withDefault
  */
-function addAlignment(style, cell) {
+function addAlignment(style, cell, withDefault) {
   const { horizontal, vertical, indent } = cell.alignment || {};
-  let textAlign = getDefaultAlignment(cell), verticalAlign = 'bottom';
+  let textAlign = (withDefault) ? getDefaultAlignment(cell) : undefined;
+  let verticalAlign = (withDefault) ? 'bottom' : undefined;
   if (horizontal && horizontal !== 'general') {
     textAlign = horizontal;
   }
@@ -62,7 +65,7 @@ function addAlignment(style, cell) {
   if (textAlign !== 'left' && textAlign !== undefined) {
     style.textAlign = textAlign;
   }
-  if (verticalAlign !== 'top') {
+  if (verticalAlign !== 'top' && verticalAlign !== undefined) {
     style.verticalAlign = verticalAlign;
   }
   if (indent) {
@@ -79,12 +82,10 @@ function addAlignment(style, cell) {
  */
 function getDefaultAlignment(cell) {
   const { effectiveType } = cell;
-  if (effectiveType !== undefined) {
-    if (effectiveType === ValueType.Number || effectiveType === ValueType.Date) {
-      return 'right';
-    } else {
-      return 'left';
-    }
+  if (effectiveType === ValueType.Number || effectiveType === ValueType.Date) {
+    return 'right';
+  } else {
+    return 'left';
   }
 }
 
@@ -187,9 +188,10 @@ function extractColor(color) {
  * @param  {Cell} cell
  */
 function addFill(style, cell) {
-  const { type, pattern, fgColor } = cell.fill || {};
-  if (type === 'pattern' && pattern === 'solid') {
-    const colorStr = convertColor(fgColor);
+  const { type, pattern, fgColor, bgColor } = cell.fill || {};
+  if (type === 'pattern') {
+    const color = (pattern === 'solid') ? fgColor : bgColor;
+    const colorStr = convertColor(color);
     if (colorStr) {
       style.backgroundColor = colorStr;
     }

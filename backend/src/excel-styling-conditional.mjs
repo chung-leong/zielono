@@ -142,7 +142,7 @@ class ExcelConditionalRule {
       }
     }
     // add style to contents, potentially overwriting color specified by format
-    const style = extractCellStyle(this.style);
+    const style = extractCellStyle(this.style, false);
     applyStyle(contents, style);
   }
 }
@@ -160,7 +160,7 @@ class ExcelConditionalRuleValueBased extends ExcelConditionalRule {
       this.iconSet = ruleDef.iconSet;
       this.reverse = ruleDef.reverse;
     }
-    this.showValue = true;
+    this.showValue = (ruleDef.showValue !== false);
   }
 
   apply(worksheet) {
@@ -206,7 +206,7 @@ class ExcelConditionalRuleValueBased extends ExcelConditionalRule {
         throw new Error('Invalid parameter');
       }
       // whether iconSet rule comparison is performed as > or >=
-      gte[index] = !!vo.gte;
+      gte[index] = (vo.gte !== false);
       return value;
     });
     if (this.type === 'colorScale') {
@@ -229,12 +229,10 @@ class ExcelConditionalRuleValueBased extends ExcelConditionalRule {
       const [ min, max ] = cfValues;
       for (let { contents, number } of cells) {
         const width = (number - min) / (max - min);
-        if (width) {
-          const color = stringifyARGB(argb);
-          contents.bar = { width, color };
-          if (!this.showValue) {
-            contents.hideValue = true;
-          }
+        const color = stringifyARGB(argb);
+        contents.bar = { width, color };
+        if (!this.showValue) {
+          contents.hideValue = true;
         }
       }
     } else if (this.type === 'iconSet') {
@@ -245,8 +243,8 @@ class ExcelConditionalRuleValueBased extends ExcelConditionalRule {
         while (index < max) {
           if (number < cfValues[index + 1]) {
             break;      // can't use the next one, so we're done
-          } else if (number == cfValues[index + 1] && gte[index + 1]) {
-            break;      // greater-or-equal comparison
+          } else if (number == cfValues[index + 1] && !gte[index + 1]) {
+            break;      // not greater-or-equal
           } else {
             index++;    // use next one
           }
