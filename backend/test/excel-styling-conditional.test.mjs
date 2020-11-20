@@ -279,8 +279,8 @@ describe('Excel conditional styling', function() {
       });
       expect(cellI10).to.eql({ value: 9,
         style: {
-          color: '#9c0006',
           textAlign: 'right',
+          color: '#9c0006',
           backgroundColor: '#ffc7ce'
         },
       });
@@ -305,8 +305,8 @@ describe('Excel conditional styling', function() {
       });
       expect(cellJ7).to.eql({ value: 60,
         style: {
-          color: '#9c0006',
           textAlign: 'right',
+          color: '#9c0006',
           backgroundColor: '#ffc7ce'
         },
       });
@@ -321,15 +321,15 @@ describe('Excel conditional styling', function() {
       const cellK7 = sheet.rows[5][10];
       expect(cellK2).to.eql({ value: 10,
         style: {
-          color: '#9c0006',
           textAlign: 'right',
+          color: '#9c0006',
           backgroundColor: '#ffc7ce'
         },
       });
       expect(cellK6).to.eql({ value: 50,
         style: {
-          color: '#9c0006',
           textAlign: 'right',
+          color: '#9c0006',
           backgroundColor: '#ffc7ce'
         },
       });
@@ -359,8 +359,8 @@ describe('Excel conditional styling', function() {
       });
       expect(cellL7).to.eql({ value: 60,
         style: {
-          color: '#9c0006',
           textAlign: 'right',
+          color: '#9c0006',
           backgroundColor: '#ffc7ce'
         },
       });
@@ -375,15 +375,15 @@ describe('Excel conditional styling', function() {
       const cellM7 = sheet.rows[5][12];
       expect(cellM2).to.eql({ value: -10, text: '(10.00)',
         style: {
-          color: '#9c6500',
           textAlign: 'right',
+          color: '#9c6500',
           backgroundColor: '#ffeb9c'
         },
       });
       expect(cellM6).to.eql({ value: 50, text: '50.00 ',
         style: {
-          color: '#9c6500',
           textAlign: 'right',
+          color: '#9c6500',
           backgroundColor: '#ffeb9c'
         },
       });
@@ -498,15 +498,15 @@ describe('Excel conditional styling', function() {
       });
       expect(cellQ6).to.eql({ value: 10,
         style: {
-          color: '#9c0006',
           textAlign: 'right',
+          color: '#9c0006',
           backgroundColor: '#ffc7ce'
         },
       });
       expect(cellQ9).to.eql({ value: 10,
         style: {
-          color: '#9c0006',
           textAlign: 'right',
+          color: '#9c0006',
           backgroundColor: '#ffc7ce'
         },
       });
@@ -533,8 +533,8 @@ describe('Excel conditional styling', function() {
       });
       expect(cellR4).to.eql({ value: 11,
         style: {
-          color: '#9c0006',
           textAlign: 'right',
+          color: '#9c0006',
           backgroundColor: '#ffc7ce'
         },
       });
@@ -544,6 +544,240 @@ describe('Excel conditional styling', function() {
         },
       });
       expect(cellR9).to.eql({ value: '9' });
+    })
+    it('should apply style to cells with values greater than 5.5', function() {
+      const sheet = sample.sheets[3];
+      expect(sheet).to.have.property('name', 'Conditional formatting');
+      const column = sheet.columns[18];
+      expect(column).to.have.property('name', 'Greater than');
+      const cellS6 = sheet.rows[4][18];
+      const cellS7 = sheet.rows[5][18];
+      expect(cellS6).to.eql({ value: 5,
+        style: {
+          textAlign: 'right'
+        },
+      });
+      expect(cellS7).to.eql({ value: 6,
+        style: {
+          textAlign: 'right',
+          color: '#9c0006',
+          backgroundColor: '#ffc7ce'
+        },
+      });
+    })
+    it('should apply style to cells with values less than 5.5', function() {
+      const sheet = sample.sheets[3];
+      expect(sheet).to.have.property('name', 'Conditional formatting');
+      const column = sheet.columns[19];
+      expect(column).to.have.property('name', 'Less than');
+      const cellT6 = sheet.rows[4][19];
+      const cellT7 = sheet.rows[5][19];
+      expect(cellT6).to.eql({ value: 5,
+        style: {
+          textAlign: 'right',
+          color: '#006100',
+          backgroundColor: '#c6efce'
+        },
+      });
+      expect(cellT7).to.eql({ value: 6,
+        style: {
+          textAlign: 'right',
+        },
+      });
+    })
+    it('should apply style to cells with values that equals 2', function() {
+      const sheet = sample.sheets[3];
+      expect(sheet).to.have.property('name', 'Conditional formatting');
+      const column = sheet.columns[20];
+      expect(column).to.have.property('name', 'Equal');
+      const cellU3 = sheet.rows[1][20];
+      const cellU4 = sheet.rows[2][20];
+      expect(cellU3).to.eql({ value: 2,
+        style: {
+          textAlign: 'right',
+          color: '#006100',
+          backgroundColor: '#c6efce'
+        },
+      });
+      expect(cellU4).to.eql({ value: 3,
+        style: {
+          textAlign: 'right',
+        },
+      });
+    })
+    it('should apply style to cells with values that is not 5', function() {
+      const sheet = sample.sheets[3];
+      expect(sheet).to.have.property('name', 'Conditional formatting');
+      const column = sheet.columns[21];
+      expect(column).to.have.property('name', 'Not equal');
+      const cellV5 = sheet.rows[3][21];
+      const cellV6 = sheet.rows[4][21];
+      const cellV7 = sheet.rows[5][21];
+      expect(cellV5).to.eql({ value: 4,
+        style: {
+          textAlign: 'right',
+          color: '#9c6500',
+          backgroundColor: '#ffeb9c'
+        },
+      });
+      expect(cellV6).to.eql({ value: 5,
+        style: {
+          textAlign: 'right',
+        },
+      });
+      expect(cellV7).to.eql({ value: 6,
+        style: {
+          textAlign: 'right',
+          color: '#9c6500',
+          backgroundColor: '#ffeb9c'
+        },
+      });
+    })
+    it('should apply style to cells with values greater than or equal to 4', function() {
+      const sheet = sample.sheets[3];
+      expect(sheet).to.have.property('name', 'Conditional formatting');
+      const column = sheet.columns[22];
+      expect(column).to.have.property('name', 'Greater or equal');
+      const cellW4 = sheet.rows[2][22];
+      const cellW5 = sheet.rows[3][22];
+      expect(cellW4).to.eql({ value: 3,
+        style: {
+          textAlign: 'right',
+        },
+      });
+      expect(cellW5).to.eql({ value: 4,
+        style: {
+          textAlign: 'right',
+          color: '#9c0006',
+          backgroundColor: '#ffc7ce'
+        },
+      });
+    })
+    it('should apply style to cells with values between 3 and 8', function() {
+      const sheet = sample.sheets[3];
+      expect(sheet).to.have.property('name', 'Conditional formatting');
+      const column = sheet.columns[23];
+      expect(column).to.have.property('name', 'Between');
+      const cellX3 = sheet.rows[1][23];
+      const cellX4 = sheet.rows[2][23];
+      const cellX9 = sheet.rows[7][23];
+      const cellX10 = sheet.rows[8][23];
+      expect(cellX3).to.eql({ value: 2,
+        style: {
+          textAlign: 'right',
+        },
+      });
+      expect(cellX4).to.eql({ value: 3,
+        style: {
+          textAlign: 'right',
+          color: '#9c0006',
+          backgroundColor: '#ffc7ce'
+        },
+      });
+      expect(cellX9).to.eql({ value: 8,
+        style: {
+          textAlign: 'right',
+          color: '#9c0006',
+          backgroundColor: '#ffc7ce'
+        },
+      });
+      expect(cellX10).to.eql({ value: 9,
+        style: {
+          textAlign: 'right',
+        },
+      });
+    })
+    it('should apply style to cells containing "land"', function() {
+      const sheet = sample.sheets[3];
+      expect(sheet).to.have.property('name', 'Conditional formatting');
+      const column = sheet.columns[24];
+      expect(column).to.have.property('name', 'Contains');
+      const cellY2 = sheet.rows[0][24];
+      const cellY3 = sheet.rows[1][24];
+      const cellY9 = sheet.rows[7][24];
+      expect(cellY2).to.eql({ value: 'Poland',
+        style: {
+          border: '1px solid #ffffff',
+          fontWeight: 'bold',
+        },
+      });
+      expect(cellY3).to.eql({ value: 'Czech Republic' });
+      expect(cellY9).to.eql({ value: 'Switzerland',
+        style: {
+          border: '1px solid #ffffff',
+          fontWeight: 'bold',
+        },
+      });
+    })
+    it('should apply style to cells with text ending in "ia"', function() {
+      const sheet = sample.sheets[3];
+      expect(sheet).to.have.property('name', 'Conditional formatting');
+      const column = sheet.columns[25];
+      expect(column).to.have.property('name', 'Ends with');
+      const cellZ2 = sheet.rows[0][25];
+      const cellZ4 = sheet.rows[2][25];
+      const cellZ6 = sheet.rows[4][25];
+      expect(cellZ2).to.eql({ value: 'Poland' });
+      expect(cellZ4).to.eql({ value: 'Slovakia',
+        style: {
+          backgroundColor: '#ed7d31',
+        },
+      });
+      expect(cellZ6).to.eql({ value: 'Austria',
+        style: {
+          backgroundColor: '#ed7d31',
+        },
+      });
+    })
+    it('should apply style to cells with text starting with "s"', function() {
+      const sheet = sample.sheets[3];
+      expect(sheet).to.have.property('name', 'Conditional formatting');
+      const column = sheet.columns[26];
+      expect(column).to.have.property('name', 'Starts with');
+      const cellAA2 = sheet.rows[0][26];
+      const cellAA4 = sheet.rows[2][26];
+      const cellAA8 = sheet.rows[6][26];
+      expect(cellAA2).to.eql({ value: 'Poland' });
+      expect(cellAA4).to.eql({ value: 'Slovakia',
+        style: {
+          color: '#9c0006',
+          backgroundColor: '#ffc7ce'
+        },
+      });
+      expect(cellAA8).to.eql({ value: 'Slovenia',
+        style: {
+          color: '#9c0006',
+          backgroundColor: '#ffc7ce'
+        },
+      });
+    })
+    it('should reformat value with conditional formatting string', function() {
+      const sheet = sample.sheets[3];
+      expect(sheet).to.have.property('name', 'Conditional formatting');
+      const column = sheet.columns[27];
+      expect(column).to.have.property('name', 'Format');
+      const cellAB3 = sheet.rows[1][27];
+      const cellAB4 = sheet.rows[2][27];
+      const cellAB6 = sheet.rows[4][27];
+      expect(cellAB3).to.eql({ value: 2, text: '$2.00',
+        style: {
+          textAlign: 'right',
+        }
+      });
+      expect(cellAB4).to.eql({ value: -3, text: '(3.00)',
+        style: {
+          textAlign: 'right',
+          color: '#ffff00',
+          backgroundColor: '#00b050'
+        },
+      });
+      expect(cellAB6).to.eql({ value: -5, text: '(5.00)',
+        style: {
+          textAlign: 'right',
+          color: '#ffff00',
+          backgroundColor: '#00b050'
+        },
+      });
     })
   })
 })

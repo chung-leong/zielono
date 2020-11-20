@@ -59,6 +59,11 @@ class ExcelConditionalRule {
       case 'uniqueValues':
       case 'duplicateValues':
         return new ExcelConditionalRuleUniquenessBased(range, ruleDef, options);
+      case 'cellIs':
+      case 'containsText':
+      case 'beginsWith':
+      case 'endsWith':
+        return new ExcelConditionalRuleOperatorBased(range, ruleDef, options);
       default:
         //console.log(ruleDef);
     }
@@ -139,10 +144,15 @@ class ExcelConditionalRule {
     const { numFmt } = this.style;
     if (numFmt) {
       const { locale } = this.options;
-      const result = formatValue(value, numFmt, { locale });
-      if (result) {
-        applyStyle(contents, result.style);
-        contents.text = result.text;
+      try {
+        const { value } = contents;
+        const result = formatValue(value, numFmt.formatCode, { locale });
+        if (result) {
+          applyStyle(contents, result.style);
+          contents.text = result.text;
+        }
+      } catch (err) {
+        // type mismatch probably
       }
     }
     // add style to contents, potentially overwriting color specified by format
@@ -152,19 +162,19 @@ class ExcelConditionalRule {
 }
 
 class ExcelConditionalRuleValueBased extends ExcelConditionalRule {
-  constructor(range, ruleDef) {
-    super(range, ruleDef);
-    const { cfvo, color } = ruleDef;
+  constructor(range, ruleDef, options) {
+    super(range, ruleDef, options);
+    const { cfvo, color, iconSet, reverse, showValue } = ruleDef;
     this.valueObjects = cfvo;
     if (this.type === 'colorScale') {
-      this.colors = ruleDef.color;
+      this.colors = color;
     } else if (this.type === 'dataBar') {
-      this.color = ruleDef.color;
+      this.color = color;
     } else {
-      this.iconSet = ruleDef.iconSet;
-      this.reverse = ruleDef.reverse;
+      this.iconSet = iconSet;
+      this.reverse = reverse;
     }
-    this.showValue = (ruleDef.showValue !== false);
+    this.showValue = (showValue !== false);
   }
 
   apply(worksheet) {
@@ -194,16 +204,8 @@ class ExcelConditionalRuleValueBased extends ExcelConditionalRule {
           }
           break;
         case 'formula':
-          // can only handle references
-          if (/^\$?[A-Z]+\$?\d+$/.test(vo.value)) {
-            const cell = worksheet.findCell(vo.value);
-            if (!cell) {
-              throw new Error('Invalid cell reference');
-            }
-            value = getNumeric(cell.value);
-          } else {
-            throw new Error('Unable to handle formula');
-          }
+          const result = evaluateSimpleFormula(vo.value, worksheet);
+          value = getNumeric(result);
           break;
       }
       if (typeof(value) !== 'number') {
@@ -214,7 +216,7 @@ class ExcelConditionalRuleValueBased extends ExcelConditionalRule {
       return value;
     });
     if (this.type === 'colorScale') {
-      const argbs = this.colors.map(getColor);
+      const argbs = this.colors.map(getColorARGB);
       // calculate the color for each cell
       for (let { contents, number } of cells) {
         let argb;
@@ -229,7 +231,7 @@ class ExcelConditionalRuleValueBased extends ExcelConditionalRule {
         applyStyle(contents, { backgroundColor });
       }
     } else if (this.type === 'dataBar') {
-      const argb = getColor(this.color);
+      const argb = getColorARGB(this.color);
       const [ min, max ] = cfValues;
       for (let { contents, number } of cells) {
         const width = (number - min) / (max - min);
@@ -266,11 +268,12 @@ class ExcelConditionalRuleValueBased extends ExcelConditionalRule {
 }
 
 class ExcelConditionalRuleRankBased extends ExcelConditionalRule {
-  constructor(range, ruleDef) {
-    super(range, ruleDef);
-    this.bottom = (ruleDef.bottom === true);
-    this.percent = (ruleDef.percent === true);
-    this.rank = ruleDef.rank;
+  constructor(range, ruleDef, options) {
+    super(range, ruleDef, options);
+    const { bottom, percent, rank } = ruleDef;
+    this.bottom = (bottom === true);
+    this.percent = (percent === true);
+    this.rank = rank;
   }
 
   apply(worksheet) {
@@ -291,9 +294,10 @@ class ExcelConditionalRuleRankBased extends ExcelConditionalRule {
 }
 
 class ExcelConditionalRuleAverageBased extends ExcelConditionalRule {
-  constructor(range, ruleDef) {
+  constructor(range, ruleDef, options) {
     super(range, ruleDef);
-    this.aboveAverage = (ruleDef.aboveAverage !== false);
+    const { aboveAverage } = ruleDef;
+    this.aboveAverage = (aboveAverage !== false);
   }
 
   apply(worksheet) {
@@ -309,7 +313,7 @@ class ExcelConditionalRuleAverageBased extends ExcelConditionalRule {
 }
 
 class ExcelConditionalRuleUniquenessBased extends ExcelConditionalRule {
-  constructor(range, ruleDef) {
+  constructor(range, ruleDef, options) {
     super(range, ruleDef);
   }
 
@@ -329,6 +333,95 @@ class ExcelConditionalRuleUniquenessBased extends ExcelConditionalRule {
   }
 }
 
+class ExcelConditionalRuleOperatorBased extends ExcelConditionalRule {
+  constructor(range, ruleDef, options) {
+    super(range, ruleDef, options);
+    const { formulae, operator } = ruleDef;
+    this.operator = operator;
+    this.formulae = formulae;
+  }
+
+  apply(worksheet) {
+    const cells = this.cells;
+    const operands = this.extractOperands(worksheet);
+    for (let { contents } of cells) {
+      if (this.compareValue(contents.value, operands)) {
+        this.applyStyle(contents);
+      }
+    }
+  }
+
+  extractOperands(worksheet) {
+    const operands = [];
+    for (let formula of this.formulae) {
+      // extract operand from formula
+      switch (this.operator) {
+        case 'beginsWith':
+          formula = reduceFormula(/^\s*LEFT\(\w+,\d+\)=(.*?)\s*$/i, formula);
+          break;
+        case 'endsWith':
+          formula = reduceFormula(/^\s*RIGHT\(\w+,\d+\)=(.*?)\s*$/, formula);
+          break;
+        case 'containsText':
+          formula = reduceFormula(/^\s*NOT\(ISERROR\(SEARCH\((.*?),\w+\)\)\)\s*$/, formula);
+          break;
+      }
+      const result = evaluateSimpleFormula(formula);
+      if (result == null) {
+        throw new Error('Null value');
+      }
+      operands.push(result.valueOf());
+    }
+    return operands;
+  }
+
+  compareValue(value, operands) {
+    if (value != null) {
+      const v = value.valueOf(), op = operands;
+      switch (this.operator) {
+        case 'equal': return (v == op[0]);
+        case 'notEqual': return (v != op[0]);
+        case 'greaterThan': return (v > op[0]);
+        case 'greaterThanOrEqual': return (v >= op[0]);
+        case 'lessThan': return (v < op[0]);
+        case 'lessThanOrEqual': return (v >= op[0]);
+        case 'between': return (op[0] <= v && v <= op[1]);
+        case 'beginsWith':
+        case 'endsWith':;
+        case 'containsText':
+          return this.compareText(v, op[0]);
+      }
+    }
+    return false;
+  }
+
+  compareText(haystack, needle) {
+    if (typeof(haystack) !== 'string' || typeof(needle) !== 'string') {
+      return false;
+    }
+    const { locale } = this.options;
+    const s1 = haystack.toLocaleLowerCase(locale);
+    const s2 = needle.toLocaleLowerCase(locale);
+    const index = s1.indexOf(s2);
+    switch (this.operator) {
+      case 'beginsWith': return (index === 0);
+      case 'endsWith': return (index + s2.length === s1.length);
+      case 'containsText': return (index !== -1);
+    }
+  }
+}
+
+/**
+ * Get intermediate color based on three colors
+ *
+ * @param  {object[]} colors
+ * @param  {number} value
+ * @param  {number} min
+ * @param  {number} max
+ * @param  {number} mid
+ *
+ * @return {object}
+ */
 function interpolateColor3(colors, value, min, max, mid) {
   const [ c1, c2, c3 ] = colors;
   if (value > mid) {
@@ -340,6 +433,16 @@ function interpolateColor3(colors, value, min, max, mid) {
   }
 }
 
+/**
+ * Get intermediate color between two colors
+ *
+ * @param  {object[]} colors
+ * @param  {number} value
+ * @param  {number} min
+ * @param  {number} max
+ *
+ * @return {object}
+ */
 function interpolateColor2(colors, value, min, max) {
   const [ c1, c2 ] = colors;
   const fraction = (value - min) / (max - min);
@@ -355,7 +458,14 @@ function interpolateColor2(colors, value, min, max) {
   return { a, r, g, b };
 }
 
-function getColor(color) {
+/**
+ * Obtain a ARGB object from a color Object, throwing on failure
+ *
+ * @param  {object} color
+ *
+ * @return {object}
+ */
+function getColorARGB(color) {
   const argb = extractColor(color);
   if (!argb) {
     throw new Error('Invalid color');
@@ -363,6 +473,12 @@ function getColor(color) {
   return argb;
 }
 
+/**
+ * Get a numeric value from
+ * @param  {*} value
+ *
+ * @return {number}
+ */
 function getNumeric(value) {
   if (typeof(value) === 'number') {
     return value;
@@ -370,9 +486,55 @@ function getNumeric(value) {
     return value ? 1 : 0;
   } else if (value instanceof Date) {
     return value.getTime();
-  } else if (value.result) {
-    return getNumeric(value.result);
   }
+}
+
+/**
+ * Handle cell references and literals
+ *
+ * @param  {string} formula
+ * @param  {Worksheet} worksheet
+ *
+ * @return {*}
+ */
+function evaluateSimpleFormula(formula, worksheet) {
+  if (/^\$?[A-Z]+\$?\d+$/.test(formula)) {
+    const cell = worksheet.findCell(formula);
+    if (!cell) {
+      throw new Error('Invalid cell reference');
+    }
+    let { value } = cell;
+    if (value instanceof Object && value.result) {
+      value = value.result;
+    }
+    return value;
+  } else {
+    // see if it's a number
+    const number = parseFloat(formula);
+    if (!isNaN(number)) {
+      return number;
+    }
+    // see if it's a literal string
+    const m = /^\s*"(.*)"\s*$/.exec(formula);
+    if (m) {
+      const string = m[1].replace(/\\(.)/g, '$1');
+      return string;
+    }
+    throw new Error('Unable to handle formula');
+  }
+}
+
+/**
+ * Look for regexp and return the first captured string on match
+ *
+ * @param  {RegExp} regExp
+ * @param  {string} formula
+ *
+ * @return {string}
+ */
+function reduceFormula(regExp, formula) {
+  const m = regExp.exec(formula);
+  return (m) ? m[1] : formula;
 }
 
 export {
