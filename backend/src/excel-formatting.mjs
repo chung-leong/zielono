@@ -1,6 +1,7 @@
 import split from 'lodash/split.js';
 import repeat from 'lodash/repeat.js';
 import toLower from 'lodash/toLower.js';
+import sortBy from 'lodash/sortBy.js';
 import Lcid from 'lcid';
 import { getNamedColor, stringifyARGB } from './excel-styling.mjs';
 const { floor, round, abs } = Math;
@@ -18,262 +19,14 @@ function formatValue(value, formatString, options) {
   if (!formatString || formatString === '@') {
     return;
   }
-  if (value == null) {
-    value = 0;
-  } else if (value instanceof Array) {  // rich text
-    value = value.map((s) => s.text).join('');
-  } else if (value.hyperlink) {
-    value = value.text;
-  } else if (value.error) {
-    return;
-  }
-  // handle conditional formatting
-  const parts = split(formatString, /;/);
-  let applicablePartIndex = 0;
-  let signDisplay = 'auto';
-  if (typeof(value) === 'number') {
-    if (value === 0 && parts.length >= 3) {
-      applicablePartIndex = 2;
-    } else if (value < 0 && parts.length >= 2) {
-      applicablePartIndex = 1;
-      signDisplay = 'never';
-    }
-  }
-  // create a closure for replacing matching patterns
-  let locale = options.locale;
-  let color;
-  let removeFraction = false, emptyFraction = false;
-  let remaining = parts[applicablePartIndex];
-  const replacements = [];
-  const find = (regExp, callback, type) => {
-    if (remaining) {
-      let m;
-      while (m = regExp.exec(remaining)) {
-        // check type
-        if (!matchType(value, type)) {
-          throw new Error(`Type mismatch`);
-        }
-        // remove matching section from string
-        const { index } = m;
-        remaining = remaining.substr(0, index) + remaining.substr(index + m[0].length);
-        // invoke callback, store the result, and take out the matching part
-        const currentPartIndex = applicablePartIndex;
-        const result = callback(m) || '';
-        if (currentPartIndex !== applicablePartIndex) {
-          // the callback called skip()
-          break;
-        }
-        const offset = result.length - m[0].length;
-        replacements.unshift({ index, offset, result });
-        if (!regExp.global) {
-          break;
-        }
-      }
-    }
-  };
-  const apply = () => {
-    let text = remaining;
-    for (let i = 0; i < replacements.length; i++) {
-      const { index, offset, result } = replacements[i];
-      if (result) {
-        text = text.substr(0, index) + result + text.substr(index);
-      }
-      if (offset !== 0) {
-        // adjust changes that are behind this one
-        for (let j = i + 1; j < replacements.length; j++) {
-          const prev = replacements[j];
-          if (prev.index > index) {
-            prev.index += offset;
-          }
-        }
-      }
-    }
-    const style = (color) ? { color } : undefined;
-    return { text, style };
-  };
-  const skip = () => {
-    remaining = parts[++applicablePartIndex] || '';
-    replacements.splice(0)
-  };
-  // find escaped sequences
-  find(/\\(.)/g, (m) => {
-    return m[1];
-  });
-  // find condition (e.g. [<=9999999])
-  find(/\[(<=?|>=?|=)\s*(\d+)\s*\]/, (m) => {
-    const op = m[1], operand = parseInt(m[2]);
-    const result = compareValues(op, value, operand);
-    if (!result) {
-      skip();
-    }
-  });
-  // find currency symbol/locale
-  find(/\[\$([^-\]]*)(-([0-9a-f]+))?]/i, (m) => {
-    if (m[3]) {
-      // locale can be overridden only for dates
-      if (value instanceof Date) {
-        const lcid = parseInt(m[3], 16);
-        const formatLocale = Lcid.from(lcid);
-        if (formatLocale) {
-          locale = toLower(formatLocale).replace(/_/g, '-');
-        }
-      }
-    }
-    return m[1];
-  });
-  // find quoted string
-  find(/"(.*?)"/, (m) => {
-    return m[1];
-  });
-  // find color
-  find(/\[(BLACK|BLUE|CYAN|GREEN|MAGENTA|RED|WHITE|YELLOW|COLOR\s*(\d\d?))\]/i, (m) => {
-    const argb = getNamedColor(m[1] || m[0]);
-    color = stringifyARGB(argb);
-  });
-  // find spacer
-  find(/(_+)\)/, (m) => {
-    return repeat(' ', m[1].length);
-  });
-  // find string placeholder
-  find(/@/g, (m) => {
-    return value + '';
-  }, String);
-  // find AM/PM
-  const time = new TimeParser(value, { locale });
-  find(/\bAM\/PM\b/, (m) => {
-    time.hour12 = true;
-    return time.period;
-  }, Date);
-  // find hour (minute, second) count
-  find(/\[(h+|m+|s+)\]/ig, (m) => {
-    // need to remove timezone offset
-    const tzOffset = value.getTimezoneOffset() * 60 * 1000;
-    let count = ((value.getTime() - tzOffset) / 1000) + (25569 * 24 * 3600);
-    const unit = toLower(m[1].charAt(0));
-    if (unit == 'h') {
-      count /= 3600;
-    } else if (unit === 'm') {
-      count /= 60;
-    }
-    count = floor(count);
-    return count.toLocaleString(locale, { minimumIntegerDigits: m[1].length, useGrouping: false });
-  }, Date);
-  // find hour
-  find(/h{1,2}/i, (m) => {
-    return time.hours.toLocaleString(locale, { minimumIntegerDigits: m[0].length });
-  }, Date);
-  // find minute
-  find(/m{1,2}(?=:)|(?<=:)m{1,2}/i, (m) => {
-    return time.minutes.toLocaleString(locale, { minimumIntegerDigits: m[0].length });
-  }, Date);
-  // find second
-  find(/(s{1,2})(\.([#0]+))?/i, (m) => {
-    const strOptions = { minimumIntegerDigits: m[1].length };
-    let seconds = time.seconds;
-    if (m[3]) {
-      // attach decimal part
-      seconds += time.fractionalSecond;
-      strOptions.maximumFractionDigits = m[3].length;
-    }
-    return seconds.toLocaleString(locale, strOptions);
-  }, Date);
-  // find year
-  find(/yyyy|yy/i, (m) => {
-    const year = chooseComponent(m, { 2: '2-digit', 4: 'numeric' });
-    return value.toLocaleDateString(locale, { year });
-  }, Date);
-  // find month (initial)
-  find(/m{5}/i, (m) => {
-    return value.toLocaleDateString(locale, { month: 'long' }).charAt(0);
-  }, Date);
-  // find month
-  find(/m{1,4}/i, (m) => {
-    const month = chooseComponent(m, { 1: 'numeric', 2: '2-digit', 3: 'short', 4: 'long' });
-    return value.toLocaleDateString(locale, { month });
-  }, Date);
-  // find weekday
-  find(/d{3,4}/i, (m) => {
-    const weekday = chooseComponent(m, { 3: 'short', 4: 'long' });
-    return value.toLocaleDateString(locale, { weekday });
-  }, Date);
-  // find day
-  find(/d{1,2}/i, (m) => {
-    const day = chooseComponent(m, { 1: 'numeric', 2: '2-digit' });
-    return value.toLocaleDateString(locale, { day });
-  }, Date);
-  // find fraction
-  find(/\?+\/[\?0-9]*/, (m) => {
-    removeFraction = true;
-    const formatter = ExcelFractionFormatter.get(m[0], { locale })
-    let text = formatter.format(value);
-    if (!text) {
-      // put in a spacer
-      text = repeat(' ', m[0].length);
-      emptyFraction = true;
-    }
-    return text;
-  }, Number);
-  // find numeric
-  find(/[#0](.*[#0])?/, (m) => {
-    let effectiveValue = value;
-    // remove fractional part if it's shown already
-    if (removeFraction) {
-      effectiveValue = floor(effectiveValue);
-    }
-    // deal with percentage
-    if (remaining.includes('%')) {
-      effectiveValue *= 100;
-    }
-    const formatter = ExcelNumberFormatter.get(m[0], { locale, signDisplay })
-    let text = formatter.format(effectiveValue);
-    if (removeFraction) {
-      if (!text && emptyFraction) {
-        // put in a zero when the fraction is also empty
-        text = '0';
-      }
-    }
-    return text;
-  }, Number);
-  return apply();
-}
-
-/**
- * Helper function that checks a value's type
- *
- * @param  {*} value
- * @param  {Class} type
- *
- * @return {Boolean}
- */
-function matchType(value, type) {
-  return (type === undefined)
-      || (type === Number && typeof(value) === 'number')
-      || (type === String && typeof(value) === 'string')
-      || (value instanceof type);
-}
-
-/**
- * Helper function that performs a comparison between two values
- *
- * @param  {String} op
- * @param  {number} v1
- * @param  {number} v2
- *
- * @return {boolean}
- */
-function compareValues(op, v1, v2) {
-  switch(op) {
-    case '=': return (v1 == v2);
-    case '>': return (v1 > v2);
-    case '>=': return (v1 >= v2);
-    case '<': return (v1 < v2);
-    case '<=': return (v1 <= v2);
-    default: return false;
-  }
+  const formatter = ExcelValueFormatter.get(formatString, options);
+  return formatter.format(value);
 }
 
 class ExcelDataFormatter {
   constructor(formatString, options, key) {
+    const { locale } = options;
+    this.locale = locale;
     this.key = key;
   }
 
@@ -289,7 +42,8 @@ class ExcelDataFormatter {
       this.cache[key] = formatter;
       this.cache.push(formatter);
       if (this.cache.length > 100) {
-        this.cache.shift();
+        const old = this.cache.shift();
+        delete this.cache[old.key];
       }
     }
     return formatter;
@@ -301,12 +55,317 @@ class ExcelDataFormatter {
   }
 }
 
+class ExcelValueFormatter extends ExcelDataFormatter {
+  constructor(formatString, options, key) {
+    super(formatString, options, key);
+    const fsParts = split(formatString, /;/);
+    this.parts = fsParts.map((fsPart) => this.parsePart(fsPart));
+  }
+
+  parsePart(fsPart) {
+    // create a closure for replacing matching patterns
+    let remaining = fsPart;
+    let operations = [];
+    const find = (regExp, format, type) => {
+      if (remaining) {
+        let m;
+        while (m = regExp.exec(remaining)) {
+          // replace matching section with blank
+          const { index } = m;
+          const blank = repeat('\0', m[0].length);
+          remaining = remaining.substr(0, index) + blank + remaining.substr(index + m[0].length);
+          operations.push({ index, format, type, matches: m });
+          if (!regExp.global) {
+            break;
+          }
+        }
+      }
+    };
+    const notBlank = /[^\0]+/g;
+
+    // find escaped sequences
+    find(/\\(.)/g, (m, value) => {
+      return m[1];
+    });
+    // find condition (e.g. [<=9999999])
+    find(/\[(<=?|>=?|=)\s*(\d+)\s*\]/, (m, value) => {
+      const op = m[1], operand = parseInt(m[2]);
+      const result = this.compareValues(op, value, operand);
+      if (!result) {
+        return false;
+      }
+    });
+    // find currency symbol/locale
+    find(/\[\$([^-\]]*)(-([0-9a-f]+))?]/i, (m, value, cxt) => {
+      if (m[3]) {
+        // locale can be overridden only for dates
+        if (value instanceof Date) {
+          const lcid = parseInt(m[3], 16);
+          const formatLocale = Lcid.from(lcid);
+          if (formatLocale) {
+            cxt.locale = toLower(formatLocale).replace(/_/g, '-');
+          }
+        }
+      }
+      return m[1];
+    });
+    // find quoted string
+    find(/"(.*?)"/, (m) => {
+      return m[1];
+    });
+    // find color
+    find(/\[(BLACK|BLUE|CYAN|GREEN|MAGENTA|RED|WHITE|YELLOW|COLOR\s*(\d\d?))\]/i, (m, value, cxt) => {
+      const argb = getNamedColor(m[1] || m[0]);
+      cxt.color = stringifyARGB(argb);
+    });
+    // find spacer
+    find(/(_+)\)/, (m) => {
+      return repeat(' ', m[1].length);
+    });
+    // find string placeholder
+    find(/@/g, (m, value) => {
+      return value + '';
+    }, String);
+    find(/\bAM\/PM\b/, (m, value, cxt) => {
+      const { time } = cxt;
+      time.hour12 = true;
+      return time.period;
+    }, Date);
+    // find hour (minute, second) count
+    find(/\[(h+|m+|s+)\]/ig, (m, value, cxt) => {
+      // need to remove timezone offset
+      const { locale } = cxt;
+      const tzOffset = value.getTimezoneOffset() * 60 * 1000;
+      let count = ((value.getTime() - tzOffset) / 1000) + (25569 * 24 * 3600);
+      const unit = toLower(m[1].charAt(0));
+      if (unit == 'h') {
+        count /= 3600;
+      } else if (unit === 'm') {
+        count /= 60;
+      }
+      count = floor(count);
+      return count.toLocaleString(locale, {
+        minimumIntegerDigits: m[1].length,
+        useGrouping: false
+      });
+    }, Date);
+    // find hour
+    find(/h{1,2}/i, (m, value, cxt) => {
+      const { time, locale } = cxt;
+      return time.hours.toLocaleString(locale, {
+        minimumIntegerDigits: m[0].length
+      });
+    }, Date);
+    // find minute
+    find(/m{1,2}(?=:)|(?<=:)m{1,2}/i, (m, value, cxt) => {
+      const { time, locale } = cxt;
+      return time.minutes.toLocaleString(locale, {
+        minimumIntegerDigits: m[0].length
+      });
+    }, Date);
+    // find second
+    find(/(s{1,2})(\.([#0]+))?/i, (m, value, cxt) => {
+      const { time, locale } = cxt;
+      const strOptions = {
+        minimumIntegerDigits: m[1].length
+      };
+      let seconds = time.seconds;
+      if (m[3]) {
+        // attach decimal part
+        seconds += time.fractionalSecond;
+        strOptions.maximumFractionDigits = m[3].length;
+      }
+      return seconds.toLocaleString(locale, strOptions);
+    }, Date);
+    // find year
+    find(/yyyy|yy/i, (m, value, cxt) => {
+      const { locale } = cxt;
+      const year = this.chooseComponent(m, { 2: '2-digit', 4: 'numeric' });
+      return value.toLocaleDateString(locale, { year });
+    }, Date);
+    // find month (initial)
+    find(/m{5}/i, (m, value, cxt) => {
+      const { locale } = cxt;
+      return value.toLocaleDateString(locale, { month: 'long' }).charAt(0);
+    }, Date);
+    // find month
+    find(/m{1,4}/i, (m, value, cxt) => {
+      const { locale } = cxt;
+      const month = this.chooseComponent(m, { 1: 'numeric', 2: '2-digit', 3: 'short', 4: 'long' });
+      return value.toLocaleDateString(locale, { month });
+    }, Date);
+    // find weekday
+    find(/d{3,4}/i, (m, value, cxt) => {
+      const { locale } = cxt;
+      const weekday = this.chooseComponent(m, { 3: 'short', 4: 'long' });
+      return value.toLocaleDateString(locale, { weekday });
+    }, Date);
+    // find day
+    find(/d{1,2}/i, (m, value, cxt) => {
+      const { locale } = cxt;
+      const day = this.chooseComponent(m, { 1: 'numeric', 2: '2-digit' });
+      return value.toLocaleDateString(locale, { day });
+    }, Date);
+    // find fraction
+    find(/\?+\/[\?0-9]*/, (m, value, cxt) => {
+      const { locale } = cxt;
+      cxt.removeFraction = true;
+      const formatter = ExcelFractionFormatter.get(m[0], { locale })
+      let text = formatter.format(value);
+      if (!text) {
+        // put in a spacer
+        text = repeat(' ', m[0].length);
+        cxt.emptyFraction = true;
+      }
+      return text;
+    }, Number);
+    // find percentage
+    find(/%/, (m, value, cxt) => {
+      cxt.percentage = true;
+      return m[0];
+    });
+    // find numeric
+    find(/[#0](.*[#0])?/, (m, value, cxt) => {
+      const { removeFraction, emptyFraction, percentage, locale, signDisplay } = cxt;
+      // remove fractional part if it's shown already
+      if (removeFraction) {
+        value = floor(value);
+      }
+      // deal with percentage
+      if (percentage) {
+        value *= 100;
+      }
+      const formatter = ExcelNumberFormatter.get(m[0], { locale, signDisplay })
+      let text = formatter.format(value);
+      if (removeFraction) {
+        if (!text && emptyFraction) {
+          // put in a zero when the fraction is also empty
+          text = '0';
+        }
+      }
+      return text;
+    }, Number);
+    // find all remaining text
+    find(notBlank, (m) => {
+      return m[0];
+    });
+
+    // sort the operations by position in the format string
+    const sorted = sortBy(operations, (op) => op.index);
+    for (let op of operations) {
+      op.index = sorted.indexOf(op);
+    }
+    return operations;
+  }
+
+  /**
+   * Checks a value's type
+   *
+   * @param  {*} value
+   * @param  {Class} type
+   *
+   * @return {Boolean}
+   */
+  matchType(value, type) {
+    return (type === undefined)
+        || (type === Number && typeof(value) === 'number')
+        || (type === String && typeof(value) === 'string')
+        || (value instanceof type);
+  }
+
+  /**
+   * Perform a comparison between two values
+   *
+   * @param  {String} op
+   * @param  {number} v1
+   * @param  {number} v2
+   *
+   * @return {boolean}
+   */
+  compareValues(op, v1, v2) {
+    switch(op) {
+      case '=': return (v1 == v2);
+      case '>': return (v1 > v2);
+      case '>=': return (v1 >= v2);
+      case '<': return (v1 < v2);
+      case '<=': return (v1 <= v2);
+      default: return false;
+    }
+  }
+
+  /**
+   * Pick a value based on the length of the regexp match
+   *
+   * @param  {array} match
+   * @param  {object} chooses
+   *
+   * @return {string}
+   */
+  chooseComponent(match, chooses) {
+    return chooses[match[0].length];
+  }
+
+  format(value) {
+    if (value == null) {
+      value = 0;
+    } else if (value instanceof Array) {  // rich text
+      value = value.map((s) => s.text).join('');
+    } else if (value.hyperlink) {
+      value = value.text;
+    } else if (value.error) {
+      return;
+    }
+    const cxt = {
+      signDisplay: 'auto',
+      locale: this.locale,
+      color: undefined,
+      removeFraction: false,
+      emptyFraction: false,
+      time: new TimeParser(value, { locale: this.locale }),
+    };
+    // handle conditional formatting
+    let partIndex = 0;
+    if (typeof(value) === 'number') {
+      if (value === 0 && this.parts.length >= 3) {
+        partIndex = 2;
+      } else if (value < 0 && this.parts.length >= 2) {
+        partIndex = 1;
+        cxt.signDisplay = 'never';
+      }
+    }
+    while (partIndex < this.parts.length) {
+      const operations = this.parts[partIndex];
+      const segments = [];
+      let failed = false;
+      for (let { format, index, type, matches } of operations) {
+        if (!this.matchType(value, type)) {
+          throw new Error(`Type mismatch`);
+        }
+        const text = format(matches, value, cxt);
+        if (text === false) {
+          // skip to the next part
+          failed = true;
+          break;
+        }
+        segments[index] = (text != undefined) ? text : '';
+      }
+      if (!failed) {
+        const text = segments.join('');
+        let style;
+        if (cxt.color) {
+          style = { color: cxt.color };
+        }
+        return { text, style };
+      }
+      partIndex++;
+    }
+  }
+}
+
 class ExcelNumberFormatter extends ExcelDataFormatter {
   constructor(formatString, options, key) {
     super(formatString, options, key);
-    const { signDisplay, locale } = options;
-    this.key = key;
-    this.locale = locale;
+    const { signDisplay } = options;
 
     // separate the formatting string into different parts
     this.formatStringParts = this.separateNumericString(formatString);
@@ -682,18 +741,6 @@ class ExcelFractionFormatter extends ExcelDataFormatter {
     }
     return { whole, nom, dem };
   }
-}
-
-/**
- * Helper function that picks a value based on the length of the regexp match
- *
- * @param  {array} match
- * @param  {object} chooses
- *
- * @return {string}
- */
-function chooseComponent(match, chooses) {
-  return chooses[match[0].length];
 }
 
 /**
