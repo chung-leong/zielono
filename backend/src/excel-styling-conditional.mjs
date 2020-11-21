@@ -64,8 +64,8 @@ class ExcelConditionalRule {
       case 'beginsWith':
       case 'endsWith':
         return new ExcelConditionalRuleOperatorBased(range, ruleDef, options);
-      default:
-        //console.log(ruleDef);
+      case 'timePeriod':
+        return new ExcelConditionalRuleTimeBased(range, ruleDef, options);
     }
   }
 
@@ -411,6 +411,41 @@ class ExcelConditionalRuleOperatorBased extends ExcelConditionalRule {
   }
 }
 
+class ExcelConditionalRuleTimeBased extends ExcelConditionalRule {
+  constructor(range, ruleDef, options) {
+    super(range, ruleDef, options);
+    const { timePeriod } = ruleDef;
+    this.currentTime = getCurrentTime();
+    this.timePeriod = timePeriod;
+    this.timeRange = getTimePeriod(timePeriod, this.currentTime);
+    this.expirationDate = undefined;
+  }
+
+  inTimeRange(date) {
+    if (date instanceof Date) {
+      const { start, end } = this.timeRange;
+      if (start <= date && date < end) {
+        // see how long the condition will remain true
+        const validUntil = new Date(this.currentTime.getTime() + (end - date));
+        if (!this.expirationDate || this.expirationDate > validUntil) {
+          this.expirationDate = validUntil;
+        }
+        return true;
+      }
+    }
+    return false;
+  }
+
+  apply(worksheet) {
+    const cells = this.cells;
+    for (let { contents } of cells) {
+      if (this.inTimeRange(contents.value)) {
+        this.applyStyle(contents);
+      }
+    }
+  }
+}
+
 /**
  * Get intermediate color based on three colors
  *
@@ -537,9 +572,52 @@ function reduceFormula(regExp, formula) {
   return (m) ? m[1] : formula;
 }
 
+/**
+ * Get time period based on given time
+ *
+ * @param  {string} period
+ * @param  {Date} now
+ *
+ * @return {object}
+ */
+function getTimePeriod(period, now) {
+  const y = now.getFullYear();
+  const m = now.getMonth();
+  const d = now.getDate();
+  const dow = now.getDay();
+  switch (period) {
+    case 'today': return { start: new Date(y, m, d), end: new Date(y, m, d + 1) };
+    case 'yesterday': return { start: new Date(y, m, d - 1), end: new Date(y, m, d) };
+    case 'tomorrow': return { start: new Date(y, m, d + 1), end: new Date(y, m, d + 2) };
+    case 'last7Days': return { start: new Date(y, m, d - 6), end: new Date(y, m, d + 1) };
+    case 'thisWeek': return { start: new Date(y, m, d - dow), end: new Date(y, m, d - dow + 7) };
+    case 'lastWeek': return { start: new Date(y, m, d - dow - 7), end: new Date(y, m, d - dow) };
+    case 'nextWeek': return { start: new Date(y, m, d - dow + 7), end: new Date(y, m, d - dow + 14) };
+    case 'thisMonth': return { start: new Date(y, m), end: new Date(y, m + 1) };
+    case 'lastMonth': return { start: new Date(y, m - 1), end: new Date(y, m) };
+    case 'nextMonth': return { start: new Date(y, m + 1), end: new Date(y, m + 2) };
+    case 'thisYear': return { start: new Date(y, 0), end: new Date(y + 1, 0) };
+    case 'lastYear': return { start: new Date(y - 1, 0), end: new Date(y, 0) };
+    case 'nextYear': return { start: new Date(y + 1, 0), end: new Date(y + 2, 0) };
+    default: throw new Error('Invalid time period');
+  }
+}
+
+let currentTime;
+
+function setCurrentTime(time) {
+  currentTime = time;
+}
+
+function getCurrentTime() {
+  return new Date(currentTime);
+}
+
 export {
   ExcelConditionalStyling,
   ExcelConditionalRule,
   interpolateColor2,
-  interpolateColor3
+  interpolateColor3,
+  getTimePeriod,
+  setCurrentTime,
 };

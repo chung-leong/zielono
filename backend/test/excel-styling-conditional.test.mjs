@@ -4,6 +4,8 @@ import { loadExcelFile } from './helpers/file-loading.mjs'
 import {
   interpolateColor2,
   interpolateColor3,
+  getTimePeriod,
+  setCurrentTime,
 } from '../src/excel-styling-conditional.mjs';
 
 describe('Excel conditional styling', function() {
@@ -58,9 +60,116 @@ describe('Excel conditional styling', function() {
       expect(result).to.eql({ a: 255, r: 0, g: 127, b: 127 });
     })
   })
+  describe('#getTimePeriod()', function() {
+    it('should return correct time period for today', function() {
+      const date = new Date('2020/11/2')
+      const today = getTimePeriod('today', date);
+      expect(today).to.eql({
+        start: new Date('2020/11/2'),
+        end: new Date('2020/11/3')
+      });
+    })
+    it('should return correct time period for yesterday', function() {
+      const date = new Date('2020/11/2')
+      const yesterday = getTimePeriod('yesterday', date);
+      expect(yesterday).to.eql({
+        start: new Date('2020/11/1'),
+        end: new Date('2020/11/2')
+      });
+    })
+    it('should return correct time period for tomorrow', function() {
+      const date = new Date('2020/11/2')
+      const tomorrow = getTimePeriod('tomorrow', date);
+      expect(tomorrow).to.eql({
+        start: new Date('2020/11/3'),
+        end: new Date('2020/11/4')
+      });
+    })
+    it('should return correct time period for last 7 days', function() {
+      const date = new Date('2020/11/2')
+      const last7Days = getTimePeriod('last7Days', date);
+      expect(last7Days).to.eql({
+        start: new Date('2020/10/27'),
+        end: new Date('2020/11/3')
+      });
+    })
+    it('should return correct time period for this week', function() {
+      const date = new Date('2020/11/2')
+      const thisWeek = getTimePeriod('thisWeek', date);
+      expect(thisWeek).to.eql({
+        start: new Date('2020/11/1'),
+        end: new Date('2020/11/8')
+      });
+    })
+    it('should return correct time period for last week', function() {
+      const date = new Date('2020/11/2')
+      const lastWeek = getTimePeriod('lastWeek', date);
+      expect(lastWeek).to.eql({
+        start: new Date('2020/10/25'),
+        end: new Date('2020/11/1')
+      });
+    })
+    it('should return correct time period for next week', function() {
+      const date = new Date('2020/11/2')
+      const nextWeek = getTimePeriod('nextWeek', date);
+      expect(nextWeek).to.eql({
+        start: new Date('2020/11/8'),
+        end: new Date('2020/11/15')
+      });
+    })
+    it('should return correct time period for this month', function() {
+      const date = new Date('2020/11/2')
+      const thisMonth = getTimePeriod('thisMonth', date);
+      expect(thisMonth).to.eql({
+        start: new Date('2020/11/1'),
+        end: new Date('2020/12/1')
+      });
+    })
+    it('should return correct time period for last month', function() {
+      const date = new Date('2020/11/2')
+      const lastMonth = getTimePeriod('lastMonth', date);
+      expect(lastMonth).to.eql({
+        start: new Date('2020/10/1'),
+        end: new Date('2020/11/1')
+      });
+    })
+    it('should return correct time period for next month', function() {
+      const date = new Date('2020/11/2')
+      const nextMonth = getTimePeriod('nextMonth', date);
+      expect(nextMonth).to.eql({
+        start: new Date('2020/12/1'),
+        end: new Date('2021/1/1')
+      });
+    })
+    it('should return correct time period for this year', function() {
+      const date = new Date('2020/11/2')
+      const thisYear = getTimePeriod('thisYear', date);
+      expect(thisYear).to.eql({
+        start: new Date('2020/1/1'),
+        end: new Date('2021/1/1')
+      });
+    })
+    it('should return correct time period for last year', function() {
+      const date = new Date('2020/11/2')
+      const lastYear = getTimePeriod('lastYear', date);
+      expect(lastYear).to.eql({
+        start: new Date('2019/1/1'),
+        end: new Date('2020/1/1')
+      });
+    })
+    it('should return correct time period for next year', function() {
+      const date = new Date('2020/11/2')
+      const nextYear = getTimePeriod('nextYear', date);
+      expect(nextYear).to.eql({
+        start: new Date('2021/1/1'),
+        end: new Date('2022/1/1')
+      });
+    })
+  })
   describe('#parseExcelFile()', function() {
     let sample;
     before(async () => {
+      setCurrentTime('2020/11/21');
       sample = await loadExcelFile('sample.xlsx');
     })
     it('should apply two-color colorscale with numeric parameters', function() {
@@ -776,6 +885,34 @@ describe('Excel conditional styling', function() {
           textAlign: 'right',
           color: '#ffff00',
           backgroundColor: '#00b050'
+        },
+      });
+    })
+    it('should apply style to cells with dates in the last week', function() {
+      const sheet = sample.sheets[3];
+      expect(sheet).to.have.property('name', 'Conditional formatting');
+      const column = sheet.columns[28];
+      expect(column).to.have.property('name', 'Date');
+      const cellAC8 = sheet.rows[6][28];
+      const cellAC9 = sheet.rows[7][28];
+      const cellAC11 = sheet.rows[9][28];
+      expect(cellAC8).to.eql({ value: new Date('2020/11/07'), text: '11-07-20',
+        style: {
+          textAlign: 'right',
+        },
+      });
+      expect(cellAC9).to.eql({ value: new Date('2020/11/08'), text: '11-08-20',
+        style: {
+          textAlign: 'right',
+          color: '#9c0006',
+          backgroundColor: '#ffc7ce'
+        },
+      });
+      expect(cellAC11).to.eql({ value: new Date('2020/11/10'), text: '11-10-20',
+        style: {
+          textAlign: 'right',
+          color: '#9c0006',
+          backgroundColor: '#ffc7ce'
         },
       });
     })
