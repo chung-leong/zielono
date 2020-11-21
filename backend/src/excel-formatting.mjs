@@ -124,7 +124,7 @@ class ExcelValueFormatter extends ExcelDataFormatter {
     });
     // find string placeholder
     find(/@/g, (m, value) => {
-      return value + '';
+      return `${value}`;
     }, String);
     find(/\bAM\/PM\b/, (m, value, cxt) => {
       const { time } = cxt;
@@ -211,10 +211,8 @@ class ExcelValueFormatter extends ExcelDataFormatter {
       const { locale } = cxt;
       cxt.removeFraction = true;
       const formatter = ExcelFractionFormatter.get(m[0], { locale })
-      let text = formatter.format(value);
-      if (!text) {
-        // put in a spacer
-        text = repeat(' ', m[0].length);
+      const text = formatter.format(value);
+      if (!text.trim()) {
         cxt.emptyFraction = true;
       }
       return text;
@@ -228,6 +226,7 @@ class ExcelValueFormatter extends ExcelDataFormatter {
     find(/[#0](.*[#0])?/, (m, value, cxt) => {
       const { removeFraction, emptyFraction, percentage, locale, signDisplay } = cxt;
       // remove fractional part if it's shown already
+      const originalValue = value;
       if (removeFraction) {
         value = floor(value);
       }
@@ -239,8 +238,8 @@ class ExcelValueFormatter extends ExcelDataFormatter {
       let text = formatter.format(value);
       if (removeFraction) {
         if (!text && emptyFraction) {
-          // put in a zero when the fraction is also empty
-          text = '0';
+          // put the rounded value when the fraction is also empty
+          text = round(originalValue);
         }
       }
       return text;
@@ -662,18 +661,38 @@ class ExcelFractionFormatter extends ExcelDataFormatter {
     const [ nomPart, demPart ] = split(formatString, '/');
     this.denominator = parseInt(demPart);
     this.denominatorWidth = demPart.length;
+    this.nominatorWidth = nomPart.length;
   }
 
   format(number) {
+    let demStr, nomStr;
     if (this.denominator > 0) {
       const whole = floor(number);
       const x = number - whole;
       const nom = round(x * this.denominator);
-      return (nom) ? `${nom}/${this.denominator}` : '';
+      if (nom) {
+        nomStr = `${nom}`;
+        demStr = `${this.denominator}`;
+      }
     } else {
       const { nom, dem } = this.findFraction(number, this.denominatorWidth);
-      return (dem) ? `${nom}/${dem}` : '';
+      if (dem) {
+        nomStr = `${nom}`;
+        demStr = `${dem}`;
+      }
     }
+    if (!demStr) {
+      // return spacer
+      return repeat(' ', this.nominatorWidth + 1 + this.denominatorWidth);
+    }
+    if (demStr.length < this.denominatorWidth) {
+      // add padding
+      demStr = demStr + repeat(' ', this.denominatorWidth - demStr.length);
+    }
+    if (nomStr.length < this.nominatorWidth) {
+      nomStr = repeat(' ', this.nominatorWidth - nomStr.length) + nomStr;
+    }
+    return `${nomStr}/${demStr}`;
   }
 
   /**

@@ -1,4 +1,5 @@
 import Chai from 'chai'; const { expect } = Chai;
+import { loadExcelFile } from './helpers/file-loading.mjs';
 
 import {
   setTimeZone,
@@ -48,6 +49,19 @@ describe('Time zone management', function() {
       const str3 = date.toLocaleTimeString('eu-US', { hour12: true });
       expect(str1).to.not.eql(str2);
       expect(str3).to.eql(str1);
+    })
+  })
+  describe('#parseExcelFile()', function() {
+    let formatting;
+    before(async () => {
+      formatting = await loadExcelFile('formatting.xlsx', { timeZone: 'Pacific/Honolulu' });
+    })
+    it('should interpret date in accordance with specified time zone', function() {
+      // Hawaii is ten hours behind, so at midnight it's 10:00 at Greenwich
+      const hawaiianDate = new Date('2011-11-20T10:00:00.000Z');
+      const sheet3 = formatting.sheets[2];
+      const cellB2 = sheet3.rows[0][1];
+      expect(cellB2.value).to.eql(hawaiianDate);
     })
   })
 })

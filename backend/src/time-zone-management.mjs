@@ -7,12 +7,14 @@ let timeZoneBefore;
  * @param {string} timeZone
  */
 function setTimeZone(timeZone) {
-  if (!timeZoneSet) {
-    timeZoneSet = true;
-    timeZoneBefore = process.env.TZ;
-    process.env.TZ = timeZone;
-  } else {
-    throw new Error('Cannot set time zone again');
+  if (timeZone) {
+    if (!timeZoneSet) {
+      timeZoneSet = true;
+      timeZoneBefore = process.env.TZ;
+      process.env.TZ = timeZone;
+    } else {
+      throw new Error('Cannot set time zone again');
+    }
   }
 }
 

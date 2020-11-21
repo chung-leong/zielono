@@ -1,7 +1,7 @@
 import Chai from 'chai'; const { expect } = Chai;
 import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
-import { loadAsset } from './helpers/file-loading.mjs';
-import { adjustDate } from '../src/excel-parsing.mjs';
+import { loadAsset, loadExcelFile } from './helpers/file-loading.mjs';
+import { reinterpretDate } from '../src/excel-parsing.mjs';
 
 import {
   formatValue,
@@ -46,11 +46,11 @@ describe('Excel data formatting', function() {
       it('should handle fixed denominator', function() {
         expect(f(1.95, '?/100', {})).to.eql('95/100');
         expect(f(1.24, '?/4', {})).to.eql('1/4');
-        expect(f(1.10, '?/4', {})).to.eql('');
+        expect(f(1.10, '?/4', {})).to.eql('   ');
         expect(f(1.30, '?/3', {})).to.eql('1/3');
       })
       it('should handle variable denominator', function() {
-        expect(f(1.95, '?/?', {})).to.eql('');
+        expect(f(1.95, '?/?', {})).to.eql('   ');
         expect(f(1.95, '??/??', {})).to.eql('19/20');
         expect(f(1.272, '??/???', {})).to.eql('34/125');
       })
@@ -165,6 +165,12 @@ describe('Excel data formatting', function() {
       const result = formatValue(value, format, { locale: 'en-us' });
       expect(result).to.eql({ text: '12:00:00.5 AM', style: undefined });
     })
+    it('should handle null correctly', function() {
+      const value = null;
+      const format = '# ?/2';
+      const result = formatValue(value, format, { locale: 'en-us' });
+      expect(result).to.eql({ text: '0    ', style: undefined });
+    })
 
     let workbook;
     before(async () => {
@@ -181,6 +187,33 @@ describe('Excel data formatting', function() {
     it('should be able to correctly process items in sheet "datetime"', function() {
       testSheet(workbook, 'datetime', { locale: 'en-us' });
     })
+    it('should be able to correctly process items in sheet "fraction"', function() {
+      testSheet(workbook, 'fraction', { locale: 'en-us' });
+    })
+  })
+  describe('#parseExcelFile()', function() {
+    let formatting;
+    before(async () => {
+      formatting = await loadExcelFile('formatting.xlsx');
+    })
+    it('should format data in the same manner as Excel', function() {
+      for (let sheet of formatting.sheets) {
+        for (let [ index, row ] of sheet.rows.entries()) {
+          try {
+            const [ pattern, value, result, formatted ] = row;
+            if (result.style && result.style.backgroundColor) {
+              continue;
+            }
+            if (result.text !== undefined) {
+              expect(result.text).to.eql(formatted.value);
+            }
+          } catch(err) {
+            err.message += ` on row ${index + 2} in sheet ${sheet.name}`;
+            throw err;
+          }
+        }
+      }
+    })
   })
 })
 
@@ -189,33 +222,41 @@ function testSheet(workbook, name, options) {
     if (worksheet.name === name) {
       const { rowCount } = worksheet;
       for (let r = 2; r <= rowCount; r++) {
-        const worksheetRow = worksheet.getRow(r);
-        const valueCell = worksheetRow.getCell(2);
-        const targetCell = worksheetRow.getCell(3);
-        const resultCell = worksheetRow.getCell(4);
+        const wsRow = worksheet.getRow(r);
+        if (!wsRow.hasValues) {
+          continue;
+        }
+        const valueCell = wsRow.getCell(2);
+        const targetCell = wsRow.getCell(3);
+        const resultCell = wsRow.getCell(4);
         let value = valueCell.value;
         const format = targetCell.numFmt;
         const result = resultCell.text;
+        if (valueCell.fill && valueCell.fill.pattern === 'solid') {
+          continue;
+        }
         if (value instanceof Date) {
-          value = adjustDate(value);
+          value = reinterpretDate(value);
         }
         if (valueCell.effectiveType === ValueType.RichText || valueCell.effectiveType === ValueType.Hyperlink) {
           value = valueCell.text;
-        } else if (value === null) {
-          value = 0;
         }
         let text;
         try {
           const ours = formatValue(value, format, options);
           text = ours.text;
-        } catch (e) {
-          text = value + '';
+        } catch (err) {
+          if (value == null) {
+            text = '0';
+          } else {
+            text = value + '';
+          }
         }
         try {
           expect(text).to.eql(result);
-        } catch (e) {
-          e.message += ` on row ${r}`;
-          throw e;
+        } catch (err) {
+          err.message += ` on row ${r}`;
+          throw err;
         }
       }
       return;
