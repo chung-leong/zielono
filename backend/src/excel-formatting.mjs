@@ -30,13 +30,13 @@ function formatValue(value, formatString, options) {
   // handle conditional formatting
   const parts = split(formatString, /;/);
   let applicablePartIndex = 0;
-  let omitSign = false;
+  let signDisplay = 'auto';
   if (typeof(value) === 'number') {
     if (value === 0 && parts.length >= 3) {
       applicablePartIndex = 2;
     } else if (value < 0 && parts.length >= 2) {
       applicablePartIndex = 1;
-      omitSign = true;
+      signDisplay = 'never';
     }
   }
   // create a closure for replacing matching patterns
@@ -204,7 +204,8 @@ function formatValue(value, formatString, options) {
   // find fraction
   find(/\?+\/[\?0-9]*/, (m) => {
     removeFraction = true;
-    let text = formatFraction(value, m[0], { locale });
+    const formatter = ExcelFractionFormatter.get(m[0], { locale })
+    let text = formatter.format(value);
     if (!text) {
       // put in a spacer
       text = repeat(' ', m[0].length);
@@ -223,7 +224,8 @@ function formatValue(value, formatString, options) {
     if (remaining.includes('%')) {
       effectiveValue *= 100;
     }
-    let text = formatNumber(effectiveValue, m[0], { locale, omitSign });
+    const formatter = ExcelNumberFormatter.get(m[0], { locale, signDisplay })
+    let text = formatter.format(effectiveValue);
     if (removeFraction) {
       if (!text && emptyFraction) {
         // put in a zero when the fraction is also empty
@@ -270,382 +272,416 @@ function compareValues(op, v1, v2) {
   }
 }
 
-/**
- * Format a number in accordance to format string
- *
- * @param  {number} number
- * @param  {string} formatString
- * @param  {object} options
- *
- * @return {string}
- */
-function formatNumber(number, formatString, options) {
-  const { omitSign, locale } = options;
-  // separate the formatting string into different parts
-  const fsParts = separateNumericString(formatString, 'format');
-  // count the number of placeholders in each
-  const intCounts = countDigitPlaceholders(fsParts.integer);
-  const fraCounts = countDigitPlaceholders(fsParts.fraction);
-  const expCounts = countDigitPlaceholders(fsParts.exponent);
-  // validate them
-  const intValid = validateNumericFormatString(fsParts.integer, 'integer');
-  const fraValid = validateNumericFormatString(fsParts.fraction, 'fraction');
-  const expValid = validateNumericFormatString(fsParts.exponent, 'exponent');
-  const irregular = !(intValid && fraValid && expValid);
-  const strOptions = {
-    signDisplay: !omitSign ? 'auto' : 'never',
-    useGrouping: !irregular ? fsParts.integer.includes(',') : false,
-    minimumIntegerDigits: intCounts.required,
-    maximumFractionDigits: fraCounts.total,
-    minimumFractionDigits: fraCounts.required,
-  };
-  if (expCounts.total > 0) {
-    // use engineering notation when the pattern is something like ##0.00E+00
-    strOptions.notation = (intCounts.total === 3) ? 'engineering' : 'scientific';
+class ExcelDataFormatter {
+  constructor(formatString, options, key) {
+    this.key = key;
   }
-  // toLocaleString() doesn't allow minimumIntegerDigits to be zero
-  // we need to bump it to 1 and strip out the zero afterward
-  let stripLeadingZero = false;
-  if (strOptions.minimumIntegerDigits === 0) {
-    strOptions.minimumIntegerDigits = 1;
-    stripLeadingZero = true;
-  }
-  if (!irregular) {
-    // we can use toLocaleString() to handle the regular case
-    let res = number.toLocaleString(locale, strOptions);
-    if (stripLeadingZero) {
-      res = removeLeadingZero(res);
+
+  static get(formatString, options) {
+    const { signDisplay, locale } = options;
+    if (!this.cache) {
+      this.cache = [];
     }
+    const key = this.getCacheKey(formatString, options);
+    let formatter = this.cache[key];
+    if (!formatter) {
+      formatter = new this(formatString, options, key);
+      this.cache[key] = formatter;
+      this.cache.push(formatter);
+      if (this.cache.length > 100) {
+        this.cache.shift();
+      }
+    }
+    return formatter;
+  }
+
+  static getCacheKey(formatString, options) {
+    const { locale } = options;
+    return `${locale}/${formatString}`;
+  }
+}
+
+class ExcelNumberFormatter extends ExcelDataFormatter {
+  constructor(formatString, options, key) {
+    super(formatString, options, key);
+    const { signDisplay, locale } = options;
+    this.key = key;
+    this.locale = locale;
+
+    // separate the formatting string into different parts
+    this.formatStringParts = this.separateNumericString(formatString);
+    // count the number of placeholders in each
+    const intCounts = this.countDigitPlaceholders('integer');
+    const fraCounts = this.countDigitPlaceholders('fraction');
+    const expCounts = this.countDigitPlaceholders('exponent');
+    // validate them
+    const intValid = this.validateNumericFormatString('integer');
+    const fraValid = this.validateNumericFormatString('fraction');
+    const expValid = this.validateNumericFormatString('exponent');
+    this.irregular = !(intValid && fraValid && expValid);
+    const useGrouping = !this.irregular && this.formatStringParts.integer.includes(',');
+    let minimumIntegerDigits = intCounts.required;
+    // toLocaleString() doesn't allow minimumIntegerDigits to be zero
+    // we need to bump it to 1 and strip out the zero afterward
+    if (minimumIntegerDigits === 0) {
+      minimumIntegerDigits = 1;
+      this.stripLeadingZero = true;
+    }
+    const maximumFractionDigits = fraCounts.total;
+    const minimumFractionDigits = fraCounts.required;
+    let notation;
     if (expCounts.total > 0) {
-      res = normalizeExponent(res, expCounts.required, fsParts.exponentLC);
+      // use engineering notation when the pattern is something like ##0.00E+00
+      notation = (intCounts.total === 3) ? 'engineering' : 'scientific';
+      this.exponentCount = expCounts.required;
     }
-    return res;
-  } else {
-    // handle irregular patterns by first converting the number to string
-    // and get the integer, fractional, and exponent parts
-    const numString = number.toLocaleString('en-us', strOptions);
-    const numParts = separateNumericString(numString, 'value');
-    // then we stick the digits into the pattern manually
-    const intPart = replaceDigitPlaceholders(fsParts.integer, numParts.integer, 'integer');
-    const fraPart = replaceDigitPlaceholders(fsParts.fraction, numParts.fraction, 'fraction');
-    const expPart = replaceDigitPlaceholders(fsParts.exponent, numParts.exponent, 'exponent');
-    // stitch everything back together
-    let text = intPart;
-    if (fraPart) {
-      text += '.' + fraPart;
-    }
-    if (expPart) {
-      text += (fsParts.exponentLC ? 'e' : 'E') + expPart;
-    }
-    return text;
+    this.stringOptions = {
+      signDisplay,
+      useGrouping,
+      minimumIntegerDigits,
+      maximumFractionDigits,
+      minimumFractionDigits,
+      notation,
+    };
   }
-}
 
-/**
- * A helper function for formatNumber() that remove leading zero from a numeric string
- *
- * @param  {string} string
- *
- * @return {string}
- */
-function removeLeadingZero(string) {
-  if (string.substr(0, 1) === '0') {
-    return string.substr(1);
-  } else if (string.substr(0, 2) === '-0') {
-    return (string.length > 2) ? '-' + string.substr(2) : '';
-  } else {
-    return string;
-  }
-}
-
-/**
- * A helper function for formatNumber() that makes the exponent matcg Excel's convention
- *
- * @param  {string} string
- * @param  {number} width
- * @param  {boolean} lowercase
- *
- * @return {string}
- */
-function normalizeExponent(string, width, lowercase) {
-  const expIndex = string.lastIndexOf('E');
-  if (expIndex !== -1) {
-    const expSymbol = (lowercase) ? 'e' : 'E';
-    let sign = '+';
-    let exp = string.substr(expIndex + 1);
-    if (exp.charAt(0) === '-') {
-      exp = exp.substr(1);
-      sign = '-';
-    }
-    while (exp.length < width) {
-      exp = '0' + exp;
-    }
-    return string.substr(0, expIndex) + expSymbol + sign + exp;
-  } else {
-    return string;
-  }
-}
-
-/**
- * A helper function for formatNumber() that counts the number of placeholders in
- * a formatting string
- *
- * @param  {string} string
- *
- * @return {object}
- */
-function countDigitPlaceholders(string) {
-  let required = 0, total = 0;
-  for (let i = 0; i < string.length; i++) {
-    const c = string.charAt(i);
-    if (c === '0') {
-      required++;
-      total++;
-    } else if (c === '#') {
-      total++;
+  format(number) {
+    if (!this.irregular) {
+      // we can use toLocaleString() to handle the regular case
+      let text = number.toLocaleString(this.locale, this.stringOptions);
+      text = this.removeLeadingZero(text);
+      text = this.normalizeExponent(text);
+      return text;
+    } else {
+      // handle irregular patterns by first converting the number to string
+      // and get the integer, fractional, and exponent parts
+      const numString = number.toLocaleString('en-us', this.stringOptions);
+      const numParts = this.separateNumericString(numString);
+      // then we stick the digits into the pattern manually
+      const intPart = this.replaceDigitPlaceholders(numParts, 'integer');
+      const fraPart = this.replaceDigitPlaceholders(numParts, 'fraction');
+      const expPart = this.replaceDigitPlaceholders(numParts, 'exponent');
+      // stitch everything back together
+      let text = intPart;
+      if (fraPart) {
+        text += '.' + fraPart;
+      }
+      if (expPart) {
+        const { exponentLC } = this.formatStringParts;
+        text += (exponentLC ? 'e' : 'E') + expPart;
+      }
+      return text;
     }
   }
-  return { required, total };
-}
 
-/**
- * A helper function for formatNumber() that validates different parts of a numeric
- * formatting string
- *
- * @param  {string} string
- * @param  {string} type
- *
- * @return {boolean}
- */
-function validateNumericFormatString(string, type) {
-  if (type === 'fraction') {
-    let poundEncountered = false;
-    for (let i = 0; i < string.length; i++) {
-      const c = string.charAt(i);
-      if (c === '0' && !poundEncountered) {
-        // ok
-      } else if (c === '#') {
-        poundEncountered = true;
-      } else {
-        return false;
+  /**
+   * Separate the different parts of a numeric string (or formatting string)
+   *
+   * @param  {string} string
+   *
+   * @return {object}
+   */
+  separateNumericString(string) {
+    let integer = '', fraction = '', exponent = '', exponentLC = false;
+    const periodIndex = string.indexOf('.');
+    const expSymbol = !this.formatStringParts ? 'E+' : 'E';
+    let expIndex = string.lastIndexOf(expSymbol);
+    if (expIndex === -1 && expSymbol.length === 2) {
+      // formatting string can use either E+ or e+
+      expIndex = string.lastIndexOf('e+');
+      if (expIndex !== -1) {
+        exponentLC = true;
       }
     }
-  } else {
-    let commaEncountered = false, zeroEncountered = false;
-    for (let i = 0; i < string.length; i++) {
-      const c = string.charAt(i);
-      if (c === '0') {
-        zeroEncountered = true;
-      } else if (c === '#' && !zeroEncountered) {
-        // ok
-      } else if (c === ',' && !commaEncountered) {
-        commaEncountered = true;
-      } else {
-        return false;
-      }
-    }
-  }
-  return true;
-}
-
-/**
- * A help function for formatNumber() that separate the different parts of a numeric string
- * (or formatting string)
- *
- * @param  {string} string
- * @param  {string} type
- *
- * @return {object}
- */
-function separateNumericString(string, type) {
-  let integer = '', fraction = '', exponent = '', exponentLC = false;
-  const periodIndex = string.indexOf('.');
-  const expSymbol = (type === 'format') ? 'E+' : 'E';
-  let expIndex = string.lastIndexOf(expSymbol);
-  if (expIndex === -1 && expSymbol.length === 2) {
-    // formatting string can use either E+ or e+
-    expIndex = string.lastIndexOf('e+');
+    let endIndex = string.length;
     if (expIndex !== -1) {
-      exponentLC = true;
+      exponent = string.substr(expIndex + expSymbol.length);
+      endIndex = expIndex;
     }
+    if (periodIndex !== -1) {
+      fraction = string.substr(periodIndex + 1, endIndex - periodIndex - 1);
+      endIndex = periodIndex;
+    }
+    integer = string.substr(0, endIndex);
+    return { integer, fraction, exponent, exponentLC };
   }
-  let endIndex = string.length;
-  if (expIndex !== -1) {
-    exponent = string.substr(expIndex + expSymbol.length);
-    endIndex = expIndex;
-  }
-  if (periodIndex !== -1) {
-    fraction = string.substr(periodIndex + 1, endIndex - periodIndex - 1);
-    endIndex = periodIndex;
-  }
-  integer = string.substr(0, endIndex);
-  return { integer, fraction, exponent, exponentLC };
-}
 
-/**
- * A helper function for formatNumber() that replaces '#' and '0' with actual digits
- *
- * @param  {string} formatString
- * @param  {string} digits
- * @param  {string} type
- *
- * @return {string}
- */
-function replaceDigitPlaceholders(formatString, digits, type) {
-  const chars = [];
-  let count = 0;
-  for (let i = 0; i < formatString.length; i++) {
-    const c = formatString.charAt(i);
-    chars.push(c);
-    if (c === '#' || c === '0') {
-      count++;
-    }
-  }
-  let used = 0;
-  if (type === 'fraction') {
-    // replace from left-to-right
-    for (let i = 0; i < chars.length; i++) {
-      const c = chars[i];
-      if (c === '#' || c === '0') {
-        let replacement = '';
-        if (used < digits.length) {
-          replacement = digits.charAt(used);
-          used++;
-        } else if (c === '0') {
-          replacement = '0';
-        }
-        chars[i] = replacement;
+  /**
+   * Counts the number of placeholders in a part of the formatting string
+   *
+   * @param  {string} type
+   *
+   * @return {object}
+   */
+  countDigitPlaceholders(type) {
+    const fsPart = this.formatStringParts[type];
+    let required = 0, total = 0;
+    for (let i = 0; i < fsPart.length; i++) {
+      const c = fsPart.charAt(i);
+      if (c === '0') {
+        required++;
+        total++;
+      } else if (c === '#') {
+        total++;
       }
     }
-  } else {
-    // strip out the sign so we're only dealing with actual digits
-    let sign = '', fc = digits.charAt(0);
-    if (fc === '-' || fc === '+') {
-      digits = digits.substr(1);
-      sign = fc;
+    return { required, total };
+  }
+
+  /**
+   * Validates different parts of a numeric formatting string
+   *
+   * @param  {string} type
+   *
+   * @return {boolean}
+   */
+  validateNumericFormatString(type) {
+    const fsPart = this.formatStringParts[type];
+    if (type === 'fraction') {
+      let poundEncountered = false;
+      for (let i = 0; i < fsPart.length; i++) {
+        const c = fsPart.charAt(i);
+        if (c === '0' && !poundEncountered) {
+          // ok
+        } else if (c === '#') {
+          poundEncountered = true;
+        } else {
+          return false;
+        }
+      }
+    } else {
+      let commaEncountered = false, zeroEncountered = false;
+      for (let i = 0; i < fsPart.length; i++) {
+        const c = fsPart.charAt(i);
+        if (c === '0') {
+          zeroEncountered = true;
+        } else if (c === '#' && !zeroEncountered) {
+          // ok
+        } else if (c === ',' && !commaEncountered) {
+          commaEncountered = true;
+        } else {
+          return false;
+        }
+      }
     }
-    if (type === 'exponent' && !sign) {
-      // always use sign for exponent
-      sign = '+';
-    } else if (type === 'integer' && digits === '0') {
-      // the integer part can be completely empty when it's 0
-      // meanwhile, the exponent always has at least one digit
-      digits = '';
+    return true;
+  }
+
+  /**
+   * Remove leading zero from a numeric string
+   *
+   * @param  {string} string
+   *
+   * @return {string}
+   */
+  removeLeadingZero(string) {
+    if (this.stripLeadingZero) {
+      if (string.substr(0, 1) === '0') {
+        return string.substr(1);
+      } else if (string.substr(0, 2) === '-0') {
+        return (string.length > 2) ? '-' + string.substr(2) : '';
+      }
     }
-    // replace from right-to-left
-    for (let i = chars.length - 1; i >= 0; i--) {
-      const c = chars[i];
+    return string;
+  }
+
+  /**
+   * Make the exponent match Excel's convention
+   *
+   * @param  {string} string
+   *
+   * @return {string}
+   */
+  normalizeExponent(string) {
+    if (this.exponentCount) {
+      const { exponentLC } = this.formatStringParts;
+      const expIndex = string.lastIndexOf('E');
+      if (expIndex !== -1) {
+        const expSymbol = (exponentLC) ? 'e' : 'E';
+        let sign = '+';
+        let exp = string.substr(expIndex + 1);
+        if (exp.charAt(0) === '-') {
+          exp = exp.substr(1);
+          sign = '-';
+        }
+        while (exp.length < this.exponentCount) {
+          exp = '0' + exp;
+        }
+        return string.substr(0, expIndex) + expSymbol + sign + exp;
+      }
+    }
+    return string;
+  }
+
+  /**
+   * Replaces '#' and '0' with actual digits
+   *
+   * @param  {object} numParts
+   * @param  {string} type
+   *
+   * @return {string}
+   */
+  replaceDigitPlaceholders(numParts, type) {
+    const fsPart = this.formatStringParts[type];
+    const chars = [];
+    let count = 0;
+    for (let i = 0; i < fsPart.length; i++) {
+      const c = fsPart.charAt(i);
+      chars.push(c);
       if (c === '#' || c === '0') {
-        let replacement = '';
-        if (used < digits.length) {
-          if (used + 1 < count) {
-            replacement = digits.charAt(digits.length - used - 1);
-          } else {
-            // the last digit--include all remaining digits
-            replacement = digits.substr(0, digits.length - used);
+        count++;
+      }
+    }
+    let digits = numParts[type];
+    let used = 0;
+    if (type === 'fraction') {
+      // replace from left-to-right
+      for (let i = 0; i < chars.length; i++) {
+        const c = chars[i];
+        if (c === '#' || c === '0') {
+          let replacement = '';
+          if (used < digits.length) {
+            replacement = digits.charAt(used);
+            used++;
+          } else if (c === '0') {
+            replacement = '0';
           }
-        } else if (c === '0') {
-          replacement = '0';
+          chars[i] = replacement;
         }
-        used++;
-        if (used === count && sign) {
-          // include sign as well
-          replacement = sign + replacement;
+      }
+    } else {
+      // strip out the sign so we're only dealing with actual digits
+      let sign = '', fc = digits.charAt(0);
+      if (fc === '-' || fc === '+') {
+        digits = digits.substr(1);
+        sign = fc;
+      }
+      if (type === 'exponent' && !sign) {
+        // always use sign for exponent
+        sign = '+';
+      } else if (type === 'integer' && digits === '0') {
+        // the integer part can be completely empty when it's 0
+        // meanwhile, the exponent always has at least one digit
+        digits = '';
+      }
+      // replace from right-to-left
+      for (let i = chars.length - 1; i >= 0; i--) {
+        const c = chars[i];
+        if (c === '#' || c === '0') {
+          let replacement = '';
+          if (used < digits.length) {
+            if (used + 1 < count) {
+              replacement = digits.charAt(digits.length - used - 1);
+            } else {
+              // the last digit--include all remaining digits
+              replacement = digits.substr(0, digits.length - used);
+            }
+          } else if (c === '0') {
+            replacement = '0';
+          }
+          used++;
+          if (used === count && sign) {
+            // include sign as well
+            replacement = sign + replacement;
+          }
+          chars[i] = replacement;
         }
-        chars[i] = replacement;
       }
     }
+    return chars.join('');
   }
-  return chars.join('');
+
+  static getCacheKey(formatString, options) {
+    const { signDisplay, locale } = options;
+    return `${locale}/${signDisplay}/${formatString}`;
+  }
 }
 
-/**
- * Format the fractional part of number as a fraction
- *
- * @param  {number} number
- * @param  {string} formatString
- * @param  {object} options
- *
- * @return {string}
- */
-function formatFraction(number, formatString) {
-  const [ nomPart, demPart ] = split(formatString, '/');
-  const dem = parseInt(demPart);
-  if (dem > 0) {
+class ExcelFractionFormatter extends ExcelDataFormatter {
+  constructor(formatString, options, key) {
+    super(formatString, options, key);
+    const [ nomPart, demPart ] = split(formatString, '/');
+    this.denominator = parseInt(demPart);
+    this.denominatorWidth = demPart.length;
+  }
+
+  format(number) {
+    if (this.denominator > 0) {
+      const whole = floor(number);
+      const x = number - whole;
+      const nom = round(x * this.denominator);
+      return (nom) ? `${nom}/${this.denominator}` : '';
+    } else {
+      const { nom, dem } = this.findFraction(number, this.denominatorWidth);
+      return (dem) ? `${nom}/${dem}` : '';
+    }
+  }
+
+  /**
+   * Find fractional representation of a number, limited by width of denominator
+   *
+   * @param  {number} number
+   * @param  {number} width
+   *
+   * @return {object}
+   */
+  findFraction(number, width) {
+    // deal with negative number
+    if (number < 0) {
+      const res = this.findFraction(-number, width);
+      res.whole = -res.whole;
+      return res;
+    }
     const whole = floor(number);
     const x = number - whole;
-    const nom = round(x * dem);
-    return (nom) ? `${nom}/${dem}` : '';
-  } else {
-    const { nom, dem } = findFraction(number, demPart.length);
-    return (dem) ? `${nom}/${dem}` : '';
-  }
-}
-
-/**
- * Find fractional representation of a number, limited by width of denominator
- *
- * @param  {number} number
- * @param  {number} width
- *
- * @return {object}
- */
-function findFraction(number, width) {
-  // deal with negative number
-  if (number < 0) {
-    const res = findFraction(-number, width);
-    res.whole = -res.whole;
-    return res;
-  }
-  const whole = floor(number);
-  const x = number - whole;
-  // the cutoff and error shrinks with increasing width
-  const range = Math.pow(10, width - 1);
-  const error = 0.0001 / range;
-  const cutoff = 0.1 / range;
-  const limit = 10 * range;
-  if (x <= cutoff) {
-    return { whole };
-  } else if (1 - cutoff < x) {
-    return { whole: whole + 1 };
-  }
-  // the lower fraction is 0/1
-  let lowerN = 0, lowerD = 1;
-  // the upper fraction is 1/1
-  let upperN = 1, upperD = 1;
-  // remember the best effort
-  let nom, dem, minDelta = Infinity;
-  for(;;) {
-    // the middle fraction is (lowerN + upperN) / (lowerD + upperD)
-    const middleN = lowerN + upperN;
-    const middleD = lowerD + upperD;
-    // see if the denominator is too wide
-    if (middleD >= limit) {
-      break;
+    // the cutoff and error shrinks with increasing width
+    const range = Math.pow(10, width - 1);
+    const error = 0.0001 / range;
+    const cutoff = 0.1 / range;
+    const limit = 10 * range;
+    if (x <= cutoff) {
+      return { whole };
+    } else if (1 - cutoff < x) {
+      return { whole: whole + 1 };
     }
-    // see how much the guess is off by
-    const diff1 = middleN - middleD * (x + error);
-    const diff2 = middleN - middleD * (x - error);
-    const delta = abs(diff1 + diff2);
-    if (delta < minDelta) {
-      nom = middleN;
-      dem = middleD;
-      minDelta = delta;
+    // the lower fraction is 0/1
+    let lowerN = 0, lowerD = 1;
+    // the upper fraction is 1/1
+    let upperN = 1, upperD = 1;
+    // remember the best effort
+    let nom, dem, minDelta = Infinity;
+    for(;;) {
+      // the middle fraction is (lowerN + upperN) / (lowerD + upperD)
+      const middleN = lowerN + upperN;
+      const middleD = lowerD + upperD;
+      // see if the denominator is too wide
+      if (middleD >= limit) {
+        break;
+      }
+      // see how much the guess is off by
+      const diff1 = middleN - middleD * (x + error);
+      const diff2 = middleN - middleD * (x - error);
+      const delta = abs(diff1 + diff2);
+      if (delta < minDelta) {
+        nom = middleN;
+        dem = middleD;
+        minDelta = delta;
+      }
+      if (diff1 > 0) {
+        // middle is our new upper
+        upperN = middleN;
+        upperD = middleD;
+      } else if (diff2 < 0) {
+        // middle is our new lower
+        lowerN = middleN;
+        lowerD = middleD;
+      } else {
+        // done
+        break;
+      }
     }
-    if (diff1 > 0) {
-      // middle is our new upper
-      upperN = middleN;
-      upperD = middleD;
-    } else if (diff2 < 0) {
-      // middle is our new lower
-      lowerN = middleN;
-      lowerD = middleD;
-    } else {
-      // done
-      break;
-    }
+    return { whole, nom, dem };
   }
-  return { whole, nom, dem };
 }
 
 /**
@@ -700,7 +736,6 @@ class TimeParser {
 
 export {
   formatValue,
-  formatNumber,
-  formatFraction,
-  findFraction,
+  ExcelNumberFormatter,
+  ExcelFractionFormatter,
 };
