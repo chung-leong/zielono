@@ -806,14 +806,14 @@ describe('Excel conditional styling', function() {
       const cellY9 = sheet.rows[7][24];
       expect(cellY2).to.eql({ value: 'Poland',
         style: {
-          border: '1px solid #ffffff',
+          border: '1px solid #000000',
           fontWeight: 'bold',
         },
       });
       expect(cellY3).to.eql({ value: 'Czech Republic' });
-      expect(cellY9).to.eql({ value: 'Switzerland',
+      expect(cellY9).to.eql({ value: 'Finland',
         style: {
-          border: '1px solid #ffffff',
+          border: '1px solid #000000',
           fontWeight: 'bold',
         },
       });
