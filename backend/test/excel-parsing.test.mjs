@@ -1,5 +1,5 @@
 import Chai from 'chai'; const { expect } = Chai;
-import { loadExcelFile } from './helpers/file-loading.mjs'
+import { loadExcelFile, getDigest } from './helpers/file-loading.mjs'
 
 import {
   extractKeywords,
@@ -149,6 +149,18 @@ describe('Excel parsing', function() {
           verticalAlign: 'bottom'
         },
       });
+    })
+    it('should attach images to cells', function() {
+      const sheet1 = sushi.sheets[0];
+      const cellD2 = sheet1.rows[0][3];
+      const cellD3 = sheet1.rows[1][3];
+      expect(cellD2).to.have.property('image');
+      expect(cellD3).to.have.property('image');
+      const digest1 = getDigest(cellD2.image.buffer);
+      const digest2 = getDigest(cellD3.image.buffer);
+      // values from sha1sum
+      expect(digest1).to.eql('1a1e9e305b5a132560e861531430f9b881b35cd1');
+      expect(digest2).to.eql('32e4106d369959addd2abed33f59f78ea92c0c28');
     })
   })
 })
