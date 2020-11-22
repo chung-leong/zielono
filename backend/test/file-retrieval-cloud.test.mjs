@@ -1,5 +1,5 @@
 import Chai from 'chai'; const { expect } = Chai;
-import './helpers/test-conditioning.mjs';
+import { apply } from './helpers/test-conditioning.mjs'; apply();
 
 import {
   retrieveFromCloud,
@@ -24,7 +24,7 @@ describe('File retrieval from cloud', function() {
       expect(result).to.eql('https://somewhere.com');
     })
   })
-  describe.skip.watch('#retrieveFromCloud()', function() {
+  describe.skip.if.watching('#retrieveFromCloud()', function() {
     it('should retrieve file from Dropbox', async function() {
       const url = 'https://www.dropbox.com/s/4krscr943y90gd8/hello.json?dl=0';
       const result = await retrieveFromCloud(url, {});
