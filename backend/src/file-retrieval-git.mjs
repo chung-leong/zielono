@@ -1,6 +1,7 @@
 import startsWith from 'lodash/startsWith.js';
 import includes from 'lodash/includes.js';
 import find from 'lodash/find.js';
+import orderBy from 'lodash/orderBy.js';
 import deasync from 'deasync';
 import fetch from 'cross-fetch';
 import { join } from 'path';
@@ -85,6 +86,7 @@ class GitHubAdapter extends GitAdapter {
     const tags = await this.findTags(apiOpts);
     const branches = await this.findBranches(apiOpts);
     const versions = [];
+    const included = [];
     for (let { sha, commit } of commits) {
       const version =  {
         sha,
@@ -95,14 +97,16 @@ class GitHubAdapter extends GitAdapter {
       const branch = find(branches, { commit: { sha }});
       if (branch) {
         version.branch = branch.name;
+        included.push(branch);
       }
       const tag = find(tags, { commit: { sha }});
       if (tag) {
         version.tag = tag.name;
+        included.push(tag);
       }
       versions.push(version);
     }
-    return versions;
+    return orderBy(versions, 'date', 'desc');
   }
 
   async findBlob(folders, filename, options) {

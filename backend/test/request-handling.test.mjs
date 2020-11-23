@@ -10,15 +10,18 @@ import {
 
 describe('Request handling', function() {
   before(function() {
-    const path = getAssetPath('config');
+    const path = getAssetPath('storage');
     setConfigFolder(path);
   })
-  let nextCalled, nextError, next = (err) => {
-    nextCalled = true;
-    nextError = err;
-  };
+  let nextCalled, next;
   beforeEach(function() {
     nextCalled = false;
+    next = (err) => {
+      nextCalled = true;
+      if (err) {
+        throw err;
+      }
+    };
   })
   describe('#handleError()', function() {
     it('should send the error message as text', function() {
@@ -43,7 +46,7 @@ describe('Request handling', function() {
       const req = createRequest();
       const res = createResponse();
       res.end();
-      handleError(err, req, res, next);
+      expect(() => { handleError(err, req, res, next) }).to.throw();
       expect(res._getData()).to.eql('');
       expect(nextCalled).to.be.true;
     })
@@ -61,7 +64,7 @@ describe('Request handling', function() {
       await handleSiteAssociation(req, res, next);
       expect(req).to.have.property('site').that.is.an('object');
       expect(req).to.have.property('server').that.is.an('object');
-      expect(req.site).to.have.property('name');
+      expect(req.site).to.have.property('name', 'site1');
       expect(nextCalled).to.be.true;
     })
     it('should redirect to canonical domain name', async function() {
@@ -78,6 +81,19 @@ describe('Request handling', function() {
       expect(res._getHeaders()).to.have.property('x-accel-redirect', redirect);
       expect(res.headersSent).to.be.true;
       expect(nextCalled).to.be.false;
+    })
+    it('should match against URL when there is not domain match', async function() {
+      const req = createRequest({
+        port: 80,
+        url: '/site1/somewhere/',
+        originalUrl: '/site1/somewhere/?lang=en',
+        query: { lang: 'en' }
+      });
+      const res = createResponse();
+      await handleSiteAssociation(req, res, next);
+      expect(req.url).to.eql('/somewhere/');
+      expect(req).to.have.property('site').that.is.an('object');
+      expect(req.site).to.have.property('name', 'site1');
     })
   })
 })

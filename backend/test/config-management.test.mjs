@@ -11,7 +11,7 @@ import {
 
 describe('Config management', function() {
   before(function() {
-    const path = getAssetPath('config');
+    const path = getAssetPath('storage');
     setConfigFolder(path);
   })
   describe('#loadConfigFile', function() {
@@ -24,8 +24,9 @@ describe('Config management', function() {
   describe('#getSiteConfigs', function() {
     it('shoud load site configs', async function() {
       const sites = await getSiteConfigs();
-      expect(sites).to.have.keys([ 'site1', 'site2' ]);
-      const { site1, site2 } = sites;
+      expect(sites).to.be.an('array').that.have.lengthOf(2);
+      const [ site1, site2 ] = sites;
+      expect(site1).to.have.property('name', 'site1');
       expect(site1).to.have.property('domains').that.is.an('array');
       expect(site1).to.have.property('files').that.is.an('array');
     })
