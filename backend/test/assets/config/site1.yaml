@@ -1,0 +1,7 @@
+domains:
+  - duck.test
+  - www.duck.test
+files:
+  - name: sushi
+    path: ../sushi.xlsx
+    timeZone: Europe/Warsaw
