@@ -5,6 +5,7 @@ import { setConfigFolder } from '../src/config-management.mjs';
 
 import {
   handleSiteAssociation,
+  handleInvalidRequest,
   handleError,
 } from '../src/request-handling.mjs';
 
@@ -94,6 +95,16 @@ describe('Request handling', function() {
       expect(req.url).to.eql('/somewhere/');
       expect(req).to.have.property('site').that.is.an('object');
       expect(req.site).to.have.property('name', 'site1');
+    })
+  })
+  describe('#handleInvalidRequest', function() {
+    it('should emit a 404 error', function() {
+      const req = createRequest();
+      const res = createResponse();
+      expect(() => {
+        handleInvalidRequest(req, res, next)
+      }).to.throw().with.property('status', 404);
+      expect(nextCalled).to.be.true;
     })
   })
 })

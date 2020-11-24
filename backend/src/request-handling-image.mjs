@@ -4,7 +4,7 @@ import { loadSiteContent } from './content-storage.mjs';
 /**
  * Handle image request
  *
- * @param  {Request} req
+ * @param  {Request}  req
  * @param  {Response} res
  * @param  {function} next
  */
@@ -187,8 +187,8 @@ function extractSVGMeta(svg) {
 /**
  * Find functions for filters and call them on target
  *
- * @param  {Object} target
- * @param  {Object} operators
+ * @param  {object} target
+ * @param  {object} operators
  * @param  {string} filters
  */
 function applyOperators(target, operators, filters) {

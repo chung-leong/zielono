@@ -2,6 +2,11 @@ import createApp from 'express';
 import createCORSHandler from 'cors';
 import createCompressionHandler from 'compression';
 import { getSiteConfigs, getServerConfig } from './config-management.mjs';
+import { handleImageRequest } from './request-handling-image.mjs';
+import { handleDataRequest } from './request-handling-data.mjs';
+import { handlePageRequest } from './request-handling-page.mjs';
+import { handleAdminRequest } from './request-handling-admin.mjs';
+import { HTTPError } from './error-handling.mjs';
 
 async function startHTTPServer() {
   // start up Express
@@ -18,6 +23,12 @@ async function startHTTPServer() {
   // compress responses here so compressed file are stored in the cache
   app.use(createCompressionHandler());
   app.use(handleSiteAssociation);
+  app.get('/-/data/:name', handleDataRequest);
+  app.get('/-/images/:hash/:filename', handleImageRequest);
+  app.get('/-/:path(*)', handleInvalidRequest);
+  app.get('/zielono/:path(*)', handleAdminRequest);
+  app.get('/:path(*)?/:filename(*.*)', handlePageRequest);
+  app.get('/:path(*)', handlePageRequest);
   app.use(handleError);
 
   const server = await new Promise((resolve, reject) => {
@@ -38,6 +49,14 @@ async function stopHTTPServer(server, maxWait) {
   });
 }
 
+/**
+ * Attach site configuration to request object when domain name or folder name
+ * matches
+ *
+ * @param  {Request}  req
+ * @param  {Response} res
+ * @param  {function} next
+ */
 async function handleSiteAssociation(req, res, next) {
   try {
     const { hostname, port, originalUrl, url } = req;
@@ -72,17 +91,37 @@ async function handleSiteAssociation(req, res, next) {
   }
 }
 
+/**
+ * Raise a 404 Not found error when backend request isn't valid
+ *
+ * @param  {Request}  req
+ * @param  {Response} res
+ * @param  {function} next
+ */
+function handleInvalidRequest(req, res, next) {
+  next(new HTTPError(404));
+}
+
+/**
+ * Output error to client
+ *
+ * @param  {Error}    err
+ * @param  {Request}  req
+ * @param  {Response} res
+ * @param  {function} next
+ */
 function handleError(err, req, res, next) {
   if (res.headersSent) {
     return next(err)
   }
-  const status = err.status || err.statusCode || 400;
-  res.type('text').status(status).send(err.message);
+  const { message, status = 400 } = err;
+  res.type('text').status(status).send(message);
 }
 
 export {
   startHTTPServer,
   stopHTTPServer,
   handleSiteAssociation,
+  handleInvalidRequest,
   handleError,
 };
