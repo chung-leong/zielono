@@ -450,10 +450,10 @@ class ExcelConditionalRuleTimeBased extends ExcelConditionalRule {
  * Get intermediate color based on three colors
  *
  * @param  {object[]} colors
- * @param  {number} value
- * @param  {number} min
- * @param  {number} max
- * @param  {number} mid
+ * @param  {number}   value
+ * @param  {number}   min
+ * @param  {number}   max
+ * @param  {number}   mid
  *
  * @return {object}
  */
@@ -472,9 +472,9 @@ function interpolateColor3(colors, value, min, max, mid) {
  * Get intermediate color between two colors
  *
  * @param  {object[]} colors
- * @param  {number} value
- * @param  {number} min
- * @param  {number} max
+ * @param  {number}   value
+ * @param  {number}   min
+ * @param  {number}   max
  *
  * @return {object}
  */
@@ -527,7 +527,7 @@ function getNumeric(value) {
 /**
  * Handle cell references and literals
  *
- * @param  {string} formula
+ * @param  {string}    formula
  * @param  {Worksheet} worksheet
  *
  * @return {*}
@@ -576,7 +576,7 @@ function reduceFormula(regExp, formula) {
  * Get time period based on given time
  *
  * @param  {string} period
- * @param  {Date} now
+ * @param  {Date}   now
  *
  * @return {object}
  */

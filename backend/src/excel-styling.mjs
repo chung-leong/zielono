@@ -8,7 +8,7 @@ import ExcelJS from 'exceljs'; const { ValueType } = ExcelJS;
 /**
  * Extract and translate Excel styling info into CSS
  *
- * @param  {Cell} cell
+ * @param  {Cell}    cell
  * @param  {boolean} withDefault
  *
  * @return {object|undefined}
@@ -48,8 +48,8 @@ function extractRichText(richText) {
 /**
  * Attach rules controlling cell alignment to style object
  *
- * @param  {object} style
- * @param  {Cell} cell
+ * @param  {object}  style
+ * @param  {Cell}    cell
  * @param  {boolean} withDefault
  */
 function addAlignment(style, cell, withDefault) {
@@ -185,7 +185,7 @@ function extractColor(color) {
  * Attach rules controlling cell background to style object
  *
  * @param  {object} style
- * @param  {Cell} cell
+ * @param  {Cell}   cell
  */
 function addFill(style, cell) {
   const { type, pattern, fgColor, bgColor } = cell.fill || {};
@@ -392,6 +392,7 @@ function applyTint(n, tint) {
  * Parse a string representation of an ARGB color
  *
  * @param  {string} s
+ *
  * @return {object|undefined}
  */
 function parseARGB(s) {

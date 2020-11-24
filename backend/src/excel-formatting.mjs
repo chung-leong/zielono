@@ -9,7 +9,7 @@ const { floor, round, abs } = Math;
 /**
  * Format a value in accordance to given format string
  *
- * @param  {*} value
+ * @param  {*}      value
  * @param  {string} formatString
  * @param  {object} options
  *
@@ -260,7 +260,7 @@ class ExcelValueFormatter extends ExcelDataFormatter {
   /**
    * Checks a value's type
    *
-   * @param  {*} value
+   * @param  {*}     value
    * @param  {Class} type
    *
    * @return {Boolean}
@@ -295,7 +295,7 @@ class ExcelValueFormatter extends ExcelDataFormatter {
   /**
    * Pick a value based on the length of the regexp match
    *
-   * @param  {array} match
+   * @param  {array}  match
    * @param  {object} chooses
    *
    * @return {string}

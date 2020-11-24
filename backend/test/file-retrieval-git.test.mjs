@@ -127,14 +127,29 @@ describe('File retrieval from git', function() {
         expect(json).to.eql({ message: 'hello world', version: 1 });
       })
     })
+    describe.skip.if.no.github('#retrieveVersions()', function() {
+      it('should retrieve a list of commits', async function() {
+        const options = {
+          url: 'https://github.com/chung-leong/zielono',
+          ref: 'b3a7b37f86efde136d7601a98614fa458c77d0ff',
+          accessToken,
+        };
+        const versions = await adapter.retrieveVersions('backend/test/assets/hello.json', options);
+        for (let version of versions) {
+          if (!version.branch && !version.tag) {
+            expect(version).to.have.property('message').that.contains('test target');
+          }
+        }
+        console.log(versions);
+      })
+    })
   })
   describe('#overrideRequire()', function() {
     const accessToken = getAccessToken('github');
     const require = createRequire(import.meta.url);
     before(function() {
       const options = {
-        url: 'https://github.com/chung-leong/zielono',
-        ref: 'heads/main',
+        url: 'https://github.com/chung-leong/test',
         accessToken,
       };
       overrideRequire(options);
@@ -145,8 +160,8 @@ describe('File retrieval from git', function() {
     it('should allow the loading of modules on whitelist', function() {
       expect(() => require('stream')).to.not.throw;
     })
-    it.skip.if.no.github('should pull code from a file on GitHub', function() {
-      const { hello } = requireGit('./backend/test/assets/hello.js');
+    it.skip.if.no.github('should pull code from a private repo on GitHub', function() {
+      const { hello } = requireGit('./hello.js');
       const result = hello('Sam');
       expect(result).to.eql('Hello, Sam!');
     })

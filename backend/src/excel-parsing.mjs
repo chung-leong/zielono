@@ -175,9 +175,9 @@ function extractNameFlags(text) {
 /**
  * Extract value from a cell in a worksheet
  *
- * @param  {Cell} wsCell
+ * @param  {Cell}              wsCell
  * @param  {(Image|undefined)} media
- * @param  {object} options
+ * @param  {object}            options
  *
  * @return {(object|string)}
  */
