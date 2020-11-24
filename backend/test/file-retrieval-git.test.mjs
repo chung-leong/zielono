@@ -128,19 +128,35 @@ describe('File retrieval from git', function() {
       })
     })
     describe.skip.if.no.github('#retrieveVersions()', function() {
-      it('should retrieve a list of commits', async function() {
+      it('should retrieve a list of relevant commits', async function() {
         const options = {
           url: 'https://github.com/chung-leong/zielono',
-          ref: 'b3a7b37f86efde136d7601a98614fa458c77d0ff',
           accessToken,
         };
-        const versions = await adapter.retrieveVersions('backend/test/assets/hello.json', options);
-        for (let version of versions) {
-          if (!version.branch && !version.tag) {
-            expect(version).to.have.property('message').that.contains('test target');
-          }
-        }
-        console.log(versions);
+        const path = 'backend/test/assets/hello.json';
+        const versions = await adapter.retrieveVersions(path, options);
+        const shas = versions.map((v) => v.sha);
+        expect(shas).to.eql([
+          '1fde120a0a87d45e9a5df72d6abedf9b5e6ff1a1',
+          'b3a7b37f86efde136d7601a98614fa458c77d0ff',
+          '2482b2b389e8aa3f61415287e1a25893de64ac03',
+        ]);
+      })
+    })
+    describe.skip.if.no.github('#retrieveVersionRefs()', function() {
+      it('should retrieve a branches and tags associated with relavant commits', async function() {
+        const options = {
+          url: 'https://github.com/chung-leong/zielono',
+          accessToken,
+        };
+        const path = 'backend/test/assets/hello.json';
+        const refs = await adapter.retrieveVersionRefs(path, options);
+        expect(refs).to.eql({
+          '1fde120a0a87d45e9a5df72d6abedf9b5e6ff1a1': [
+            'heads/main',
+            'tags/test-target' 
+          ]
+        });
       })
     })
   })

@@ -82,31 +82,73 @@ class GitHubAdapter extends GitAdapter {
     const { url, accessToken } = options;
     const { owner, repo } = this.parseURL(url);
     const apiOpts = { owner, repo, accessToken };
-    const commits = await this.findCommits(path, apiOpts);
+    const relevantCommits = await this.findCommits(path, apiOpts);
     const tags = await this.findTags(apiOpts);
     const branches = await this.findBranches(apiOpts);
     const versions = [];
-    const included = [];
-    for (let { sha, commit } of commits) {
-      const version =  {
+    for (let { sha, commit } of relevantCommits) {
+      versions.push({
         sha,
         author: commit.author.name,
         date: commit.author.date,
         message: commit.message,
-      };
-      const branch = find(branches, { commit: { sha }});
-      if (branch) {
-        version.branch = branch.name;
-        included.push(branch);
-      }
-      const tag = find(tags, { commit: { sha }});
-      if (tag) {
-        version.tag = tag.name;
-        included.push(tag);
-      }
-      versions.push(version);
+      });
     }
-    return orderBy(versions, 'date', 'desc');
+    return versions;
+  }
+
+  async retrieveVersionRefs(path, options) {
+    const { url, accessToken } = options;
+    const { owner, repo } = this.parseURL(url);
+    const apiOpts = { owner, repo, accessToken };
+    // retrieve tags and branches
+    const tags = await this.findTags(apiOpts);
+    const branches = await this.findBranches(apiOpts);
+    // retrieve commits affecting the path
+    const relevantCommitRefs = {};
+    const relevantCommits = await this.findCommits(path, apiOpts);
+    const relevantCommitHash = {};
+    for (let commit of relevantCommits) {
+      relevantCommitHash[commit.sha] = commit;
+    }
+    // retrieve all commits (the recent ones, anyway)
+    const allCommits = await this.findCommits(null, apiOpts);
+    const allCommitHash = {};
+    for (let commit of allCommits) {
+      allCommitHash[commit.sha] = commit;
+    }
+    // go down all branches and tags and see if they
+    for (let ref of [ ...branches, ...tags]) {
+      const stack = [], checked = [];
+      let sha = ref.commit.sha;
+      while (sha) {
+        // see if it's one of the relevant commit
+        checked.push(sha)          ;
+        if (relevantCommitHash[sha]) {
+          const folder = tags.includes(ref) ? 'tags' : 'heads';
+          let refs = relevantCommitRefs[sha];
+          if (!refs) {
+            relevantCommitRefs[sha] = refs = [];
+          }
+          refs.push(`${folder}/${ref.name}`);
+          break;
+        } else {
+          // check parent(s)
+          const commit = allCommitHash[sha];
+          if (commit) {
+            for (let parent of commit.parents) {
+              stack.push(parent.sha);
+            }
+          }
+          sha = stack.pop();
+          // just in case the server returns weird data
+          if (checked.includes(sha)) {
+            break;
+          }
+        }
+      }
+    }
+    return relevantCommitRefs;
   }
 
   async findBlob(folders, filename, options) {

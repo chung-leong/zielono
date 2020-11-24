@@ -6,11 +6,7 @@
  * @param  {function} next
  */
 async function handleAdminRequest(req, res, next) {
-  try {
-    throw new Error('TODO');
-  } catch (err) {
-    next(err);
-  }
+  res.type('text').send('Under construction');
 }
 
 export {
