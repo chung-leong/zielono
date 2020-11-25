@@ -1,6 +1,6 @@
 import Chai from 'chai'; const { expect } = Chai;
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
-import pathToRegExp from 'path-to-regexp';
+import Layer from 'express/lib/router/layer.js';
 import { getAssetPath } from './helpers/file-loading.mjs';
 import { setConfigFolder } from '../src/config-management.mjs';
 
@@ -32,44 +32,34 @@ describe('Request handling', function() {
   })
   describe('#addHandlers()', function() {
     // capture routes with mock app
-    const routes = [];
-    const addRoute = (end, path, handler) => {
-      if (!handler) {
-        return;
-      }
-      const params = [];
+    const layers = [];
+    const addRoute = (end, path, ...handlers) => {
       const options = { sensitive: true, strict: false, end };
-      const regExp = pathToRegExp(path, params, options);
-      const match = (url) => {
-        const m = regExp.exec(url);
-        if (m) {
-          const result = {};
-          for (let [ index, param ] of params.entries()) {
-            if (typeof(param.name) === 'string') {
-              result[param.name] = m[index + 1];
-            }
-          }
-          return result;
-        } else {
-          return false;
-        }
-      };
-      routes.push({ path, handler, match });
+      for (let handler of handlers) {
+        const layer = Layer(path, options, handler);
+        layers.push(layer);
+      }
     };
     const app = {
       set: () => {},
-      use: addRoute.bind(null, false),
-      get: addRoute.bind(null, true),
+      use: (...args) => addRoute(false, ...args),
+      get: (...args) => addRoute(true, ...args),
     };
     addHandlers(app);
     const test = (url, expectedHandler, expectedParams) => {
       it(`should use ${expectedHandler.name} for "${url}"`, function() {
         // find matching route
         let handler, params;
-        for (let route of routes) {
-          params = route.match(url);
-          if (params) {
-            handler = route.handler;
+        for (let layer of layers) {
+          if (layer.match(url)) {
+            handler = layer.handle;
+            params = {};
+            for (let { name } of layer.keys) {
+              // omit captured string by numeric keys
+              if (typeof(name) === 'string') {
+                params[name] = layer.params[name];
+              }
+            }
             break;
           }
         }
