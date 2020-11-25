@@ -1,19 +1,125 @@
 import Chai from 'chai'; const { expect } = Chai;
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
+import pathToRegExp from 'path-to-regexp';
 import { getAssetPath } from './helpers/file-loading.mjs';
 import { setConfigFolder } from '../src/config-management.mjs';
 
 import {
+  addHandlers,
   handleSiteAssociation,
   handleResourceRedirection,
   handleInvalidRequest,
   handleError,
 } from '../src/request-handling.mjs';
+import {
+  handlePageRequest,
+} from '../src/request-handling-page.mjs';
+import {
+  handleImageRequest,
+} from '../src/request-handling-image.mjs';
+import {
+  handleDataRequest,
+} from '../src/request-handling-data.mjs';
+import {
+  handleAdminRequest,
+} from '../src/request-handling-admin.mjs';
+
 
 describe('Request handling', function() {
   before(function() {
     const path = getAssetPath('storage');
     setConfigFolder(path);
+  })
+  describe('#addHandlers()', function() {
+    // capture routes with mock app
+    const routes = [];
+    const addRoute = (end, path, handler) => {
+      if (!handler) {
+        return;
+      }
+      const params = [];
+      const options = { sensitive: true, strict: false, end };
+      const regExp = pathToRegExp(path, params, options);
+      const match = (url) => {
+        const m = regExp.exec(url);
+        if (m) {
+          const result = {};
+          for (let [ index, param ] of params.entries()) {
+            if (typeof(param.name) === 'string') {
+              result[param.name] = m[index + 1];
+            }
+          }
+          return result;
+        } else {
+          return false;
+        }
+      };
+      routes.push({ path, handler, match });
+    };
+    const app = {
+      set: () => {},
+      use: addRoute.bind(null, false),
+      get: addRoute.bind(null, true),
+    };
+    addHandlers(app);
+    const test = (url, expectedHandler, expectedParams) => {
+      it(`should use ${expectedHandler.name} for "${url}"`, function() {
+        // find matching route
+        let handler, params;
+        for (let route of routes) {
+          params = route.match(url);
+          if (params) {
+            handler = route.handler;
+            break;
+          }
+        }
+        expect(handler).to.equal(expectedHandler);
+        expect(params).to.eql(expectedParams);
+      })
+    };
+    test('/', handlePageRequest, {
+      path: ''
+    });
+    test('/somewhere', handlePageRequest, {
+      path: 'somewhere'
+    });
+    test('/somewhere/out/there/index.js', handleResourceRedirection, {
+      page: 'somewhere/out/there',
+      resource: 'index.js'
+    });
+    test('/somewhere/out/there/-/images/abc/w80.jpg', handleResourceRedirection, {
+      page: 'somewhere/out/there',
+      resource: '-/images/abc/w80.jpg'
+    });
+    test('/somewhere/out/there/-/data/sushi', handleResourceRedirection, {
+      page: 'somewhere/out/there',
+      resource: '-/data/sushi'
+    });
+    test('/somewhere/out/there', handlePageRequest, {
+      path: 'somewhere/out/there'
+    });
+    test('/somewhere/out/there/', handlePageRequest, {
+      path: 'somewhere/out/there/'
+    });
+    test('/index.js', handlePageRequest, {
+      filename: 'index.js'
+    });
+    test('/-/images/abc/w80.jpg', handleImageRequest, {
+      hash: 'abc',
+      filename: 'w80.jpg'
+    });
+    test('/-/data/sushi', handleDataRequest, {
+      name: 'sushi',
+    });
+    test('/-/sddd/asddde', handleInvalidRequest, {
+      path: 'sddd/asddde'
+    });
+    test('/zielono', handleAdminRequest, {});
+    test('/zielono/ghhj/', handleAdminRequest, {});
+    test('/zielono/-/data/some', handleAdminRequest, {});
+    test('/zielonooo', handlePageRequest, {
+      path: 'zielonooo'
+    });
   })
   let nextCalled, next;
   beforeEach(function() {
@@ -100,14 +206,14 @@ describe('Request handling', function() {
     })
   })
   describe('#handleResourceRedirection()', function() {
-    it('should redirect addresses relative to page URL', function() {
+    it('should redirect addresses relative to page URL (/-/*)', function() {
       const req = createRequest({
         port: 80,
         url: '/somewhere/else/-/data/sushi',
         originalUrl: '/site1/somewhere/else/-/data/sushi?style=0',
         baseUrl: '/site1',
         query: { style: 'en' },
-        params: { page: '/somewhere/else', resource: '-/data/sushi?style=0' }
+        params: { page: 'somewhere/else', resource: '-/data/sushi?style=0' }
       });
       const res = createResponse();
       const redirect = '/site1/-/data/sushi?style=0';
@@ -116,8 +222,24 @@ describe('Request handling', function() {
       expect(res._getRedirectUrl()).to.eql(redirect);
       expect(nextCalled).to.be.false;
     })
+    it('should redirect addresses relative to page URL (*.*)', function() {
+      const req = createRequest({
+        port: 80,
+        url: '/somewhere/else/index.js',
+        originalUrl: '/site1/somewhere/else/index.js',
+        baseUrl: '/site1',
+        query: { style: 'en' },
+        params: { page: 'somewhere/else', resource: 'index.js' }
+      });
+      const res = createResponse();
+      const redirect = '/site1/index.js';
+      handleResourceRedirection(req, res, next);
+      expect(res.statusCode).to.eql(301);
+      expect(res._getRedirectUrl()).to.eql(redirect);
+      expect(nextCalled).to.be.false;
+    })
   })
-  describe('#handleInvalidRequest', function() {
+  describe('#handleInvalidRequest()', function() {
     it('should emit a 404 error', function() {
       const req = createRequest();
       const res = createResponse();

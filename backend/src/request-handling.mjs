@@ -11,6 +11,35 @@ import { HTTPError } from './error-handling.mjs';
 async function startHTTPServer() {
   // start up Express
   const app = createApp();
+  // attach request handlers
+  addHandlers(app);
+  // get server settings
+  const config = await getServerConfig();
+  // wait for server to start up
+  return new Promise((resolve, reject) => {
+    const args = [ ...config.listen, () => resolve(server) ];
+    const server = app.listen(...args);
+    server.once('error', (evt) => reject(new Error(evt.message)));
+  });
+}
+
+async function stopHTTPServer(server, maxWait) {
+  await new Promise((resolve, reject) => {
+    const timeout = setTimeout(resolve, maxWait);
+    server.on('close', () => {
+      resolve();
+      clearTimeout(timeout);
+    });
+    server.close();
+  });
+}
+
+/**
+ * Add handlers to Express app
+ *
+ * @param {Express} app
+ */
+function addHandlers(app) {
   app.set('json spaces', 2);
   // allow these headers to be seen in cross-site requests
   const exposedHeaders = [
@@ -23,31 +52,15 @@ async function startHTTPServer() {
   // compress responses here so compressed file are stored in the cache
   app.use(createCompressionHandler());
   app.use(handleSiteAssociation);
-  app.use('/:page(*)/:resource(-/*|*.*)', handleResourceRedirection);
+  app.use('/zielono', handleAdminRequest);
+  app.use('/:page(*)/:resource(-/*)', handleResourceRedirection);
   app.get('/-/data/:name', handleDataRequest);
   app.get('/-/images/:hash/:filename?', handleImageRequest);
   app.get('/-/:path(*)', handleInvalidRequest);
-  app.get('/zielono/:path(*)', handleAdminRequest);
+  app.use('/:page(*)/:resource(*.*)', handleResourceRedirection);
   app.get('/:filename(*.*)', handlePageRequest);
   app.get('/:path(*)', handlePageRequest);
   app.use(handleError);
-
-  const server = await new Promise((resolve, reject) => {
-    const server = app.listen(80, () => resolve(server));
-    server.once('error', (evt) => reject(new Error(evt.message)));
-  });
-  return server;
-}
-
-async function stopHTTPServer(server, maxWait) {
-  await new Promise((resolve, reject) => {
-    const timeout = setTimeout(resolve, maxWait);
-    server.on('close', () => {
-      resolve();
-      clearTimeout(timeout);
-    });
-    server.close();
-  });
 }
 
 /**
@@ -105,7 +118,7 @@ async function handleSiteAssociation(req, res, next) {
 function handleResourceRedirection(req, res, next) {
   const { originalUrl, baseUrl } = req;
   const { page } = req.params;
-  const newUrl = baseUrl + originalUrl.substr(baseUrl.length + page.length);
+  const newUrl = baseUrl + originalUrl.substr(baseUrl.length + 1 + page.length);
   res.redirect(301, newUrl);
 }
 
@@ -139,6 +152,7 @@ function handleError(err, req, res, next) {
 export {
   startHTTPServer,
   stopHTTPServer,
+  addHandlers,
   handleSiteAssociation,
   handleResourceRedirection,
   handleInvalidRequest,
