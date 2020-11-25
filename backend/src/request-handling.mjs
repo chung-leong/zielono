@@ -23,11 +23,12 @@ async function startHTTPServer() {
   // compress responses here so compressed file are stored in the cache
   app.use(createCompressionHandler());
   app.use(handleSiteAssociation);
+  app.use('/:page(*)/:resource(-/*|*.*)', handleResourceRedirection);
   app.get('/-/data/:name', handleDataRequest);
-  app.get('/-/images/:hash/:filename', handleImageRequest);
+  app.get('/-/images/:hash/:filename?', handleImageRequest);
   app.get('/-/:path(*)', handleInvalidRequest);
   app.get('/zielono/:path(*)', handleAdminRequest);
-  app.get('/:path(*)?/:filename(*.*)', handlePageRequest);
+  app.get('/:filename(*.*)', handlePageRequest);
   app.get('/:path(*)', handlePageRequest);
   app.use(handleError);
 
@@ -62,6 +63,7 @@ async function handleSiteAssociation(req, res, next) {
     const { hostname, port, originalUrl, url } = req;
     const server = await getServerConfig();
     const sites = await getSiteConfigs();
+    let baseUrl = '';
     let site = sites.find((s) => s.domains && s.domains.includes(hostname));
     if (site) {
       const domainIndex = site.domains.indexOf(hostname);
@@ -79,16 +81,32 @@ async function handleSiteAssociation(req, res, next) {
       // see if the URL starts with the name of a site
       site = sites.find((s) => url.startsWith(`/${s.name}/`));
       if (site) {
-        // trim off the name
-        req.url = url.substr(site.name.length + 1);
+        baseUrl = `/${site.name}`;
       }
     }
+    req.url = url.substr(baseUrl.length);
+    req.baseUrl = baseUrl;
     req.site = site;
     req.server = server;
     next();
   } catch (err) {
     next(err);
   }
+}
+
+/**
+ * Redirect resource request with address relative to page URL to address
+ * relative to base URL
+ *
+ * @param  {Request}  req
+ * @param  {Response} res
+ * @param  {function} next
+ */
+function handleResourceRedirection(req, res, next) {
+  const { originalUrl, baseUrl } = req;
+  const { page } = req.params;
+  const newUrl = baseUrl + originalUrl.substr(baseUrl.length + page.length);
+  res.redirect(301, newUrl);
 }
 
 /**
@@ -122,6 +140,7 @@ export {
   startHTTPServer,
   stopHTTPServer,
   handleSiteAssociation,
+  handleResourceRedirection,
   handleInvalidRequest,
   handleError,
 };

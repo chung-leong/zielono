@@ -5,6 +5,7 @@ import { setConfigFolder } from '../src/config-management.mjs';
 
 import {
   handleSiteAssociation,
+  handleResourceRedirection,
   handleInvalidRequest,
   handleError,
 } from '../src/request-handling.mjs';
@@ -95,6 +96,25 @@ describe('Request handling', function() {
       expect(req.url).to.eql('/somewhere/');
       expect(req).to.have.property('site').that.is.an('object');
       expect(req.site).to.have.property('name', 'site1');
+      expect(req.baseUrl).to.eql('/site1');
+    })
+  })
+  describe('#handleResourceRedirection()', function() {
+    it('should redirect addresses relative to page URL', function() {
+      const req = createRequest({
+        port: 80,
+        url: '/somewhere/else/-/data/sushi',
+        originalUrl: '/site1/somewhere/else/-/data/sushi?style=0',
+        baseUrl: '/site1',
+        query: { style: 'en' },
+        params: { page: '/somewhere/else', resource: '-/data/sushi?style=0' }
+      });
+      const res = createResponse();
+      const redirect = '/site1/-/data/sushi?style=0';
+      handleResourceRedirection(req, res, next);
+      expect(res.statusCode).to.eql(301);
+      expect(res._getRedirectUrl()).to.eql(redirect);
+      expect(nextCalled).to.be.false;
     })
   })
   describe('#handleInvalidRequest', function() {
