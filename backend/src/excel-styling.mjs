@@ -1,8 +1,4 @@
-import includes from 'lodash/includes.js';
 import isEmpty from 'lodash/isEmpty.js';
-import toLower from 'lodash/toLower.js';
-import round from 'lodash/round.js';
-import floor from 'lodash/round.js';
 import ExcelJS from 'exceljs'; const { ValueType } = ExcelJS;
 
 /**
@@ -210,11 +206,11 @@ function addFont(style, cell) {
   const defaultTextColor = '#000000';
   const { name, size, color, italic, underline, bold } = cell.font || {};
   // don't apply the font when it's the default
-  if (name && !includes(defaultFontNames, name)) {
+  if (name && !defaultFontNames.includes(name)) {
     style.fontFamily = name;
   }
   // don't apply font size when it's the default used by Excel (or LibreOffice)
-  if (size && !includes(defaultFontSizes, size)) {
+  if (size && !defaultFontSizes.includes(size)) {
     style.fontSize = size + 'pt';
   }
   const colorStr = convertColor(color);
@@ -250,7 +246,7 @@ function getNamedColor(name) {
     magenta: 7,
     cyan: 8,
   };
-  let index = namedColorIndices[toLower(name)];
+  let index = namedColorIndices[name.toLowerCase()];
   if (!index) {
     index = parseInt(name);
   }
@@ -383,7 +379,7 @@ function applyTint(n, tint) {
   } else if (n < 0) {
     n = 0;
   } else {
-    n = round(n);
+    n = Math.round(n);
   }
   return n;
 }
@@ -421,7 +417,7 @@ function stringifyARGB(argb) {
     if (a === 255) {
       return `#${hex(r)}${hex(g)}${hex(b)}`;
     } else {
-      return `rgba(${r}, ${g}, ${b}, ${round(a / 255, 2)})`;
+      return `rgba(${r}, ${g}, ${b}, ${Math.floor(a * 100 / 255) / 100})`;
     }
   }
 }
@@ -434,7 +430,7 @@ function stringifyARGB(argb) {
  * @return {string}
  */
 function hex(n) {
-  let hex = floor(n).toString(16);
+  let hex = Math.floor(n).toString(16);
   if (hex.length < 2) {
     hex = '0' + hex;
   }

@@ -2,7 +2,6 @@ import FS from 'fs'; const { readFile } = FS.promises;
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { parseExcelFile } from '../../src/excel-parsing.mjs';
-import { createHash } from 'crypto';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const cache = {};
@@ -28,15 +27,8 @@ async function loadAsset(filename) {
   return data;
 }
 
-function getDigest(buffer) {
-  const hash = createHash('sha1');
-  hash.update(buffer);
-  return hash.digest('hex');
-}
-
 export {
   loadExcelFile,
   loadAsset,
   getAssetPath,
-  getDigest,
 };

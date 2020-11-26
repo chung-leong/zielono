@@ -1,7 +1,4 @@
-import trim from 'lodash/trim.js';
 import camelCase from 'lodash/camelCase.js';
-import split from 'lodash/split.js';
-import filter from 'lodash/filter.js';
 import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
 import './exceljs-patching.mjs';
 import { formatValue } from './excel-formatting.mjs';
@@ -21,9 +18,9 @@ async function parseExcelFile(buffer, options) {
   const workbook = new Workbook;
   await workbook.xlsx.load(buffer);
   const keywords = extractKeywords(workbook.keywords);
-  const title = trim(workbook.title);
-  const description = trim(workbook.description);
-  const subject = trim(workbook.subject);
+  const title = (workbook.title || '').trim();
+  const description = (workbook.description || '').trim();
+  const subject = (workbook.subject || '').trim();
   const sheets = [];
   for (let worksheet of workbook.worksheets) {
     const sheet = await parseExcelWorksheet(worksheet, options);
@@ -142,8 +139,8 @@ async function parseExcelWorksheet(worksheet, options) {
  * @return {string[]}
  */
 function extractKeywords(text) {
-  const trimmed = trim(text);
-  const keywords = filter(split(trimmed, /\s*,\s*|\s+/));
+  const trimmed = (text || '').trim();
+  const keywords = trimmed.split(/\s*,\s*|\s+/).filter(Boolean);
   return keywords;
 }
 
@@ -155,7 +152,7 @@ function extractKeywords(text) {
  * @return {(object|undefined)}
  */
 function extractNameFlags(text) {
-  const trimmed = trim(text);
+  const trimmed = (text || '').trim();
   if (trimmed) {
     // look for text in parentheses
     const m = /\s*\(([^\)]+)\)$/.exec(trimmed);
@@ -163,7 +160,7 @@ function extractNameFlags(text) {
     if (m) {
       const name = trimmed.substr(0, trimmed.length - m[0].length);
       const nameCC = camelCase(name);
-      const flags = split(m[1], /\s*,\s*/);
+      const flags = m[1].split(/\s*,\s*/);
       return { name, nameCC, flags };
     } else {
       const nameCC = camelCase(trimmed);

@@ -1,6 +1,4 @@
-import split from 'lodash/split.js';
 import repeat from 'lodash/repeat.js';
-import toLower from 'lodash/toLower.js';
 import sortBy from 'lodash/sortBy.js';
 import Lcid from 'lcid';
 import { getNamedColor, stringifyARGB } from './excel-styling.mjs';
@@ -58,7 +56,7 @@ class ExcelDataFormatter {
 class ExcelValueFormatter extends ExcelDataFormatter {
   constructor(formatString, options, key) {
     super(formatString, options, key);
-    const fsParts = split(formatString, /;/);
+    const fsParts = formatString.split(/;/);
     this.parts = fsParts.map((fsPart) => this.parsePart(fsPart));
   }
 
@@ -103,7 +101,7 @@ class ExcelValueFormatter extends ExcelDataFormatter {
           const lcid = parseInt(m[3], 16);
           const formatLocale = Lcid.from(lcid);
           if (formatLocale) {
-            cxt.locale = toLower(formatLocale).replace(/_/g, '-');
+            cxt.locale = formatLocale.toLowerCase().replace(/_/g, '-');
           }
         }
       }
@@ -137,7 +135,7 @@ class ExcelValueFormatter extends ExcelDataFormatter {
       const { locale } = cxt;
       const tzOffset = value.getTimezoneOffset() * 60 * 1000;
       let count = ((value.getTime() - tzOffset) / 1000) + (25569 * 24 * 3600);
-      const unit = toLower(m[1].charAt(0));
+      const unit = m[1].charAt(0).toLowerCase();
       if (unit == 'h') {
         count /= 3600;
       } else if (unit === 'm') {
@@ -658,7 +656,7 @@ class ExcelNumberFormatter extends ExcelDataFormatter {
 class ExcelFractionFormatter extends ExcelDataFormatter {
   constructor(formatString, options, key) {
     super(formatString, options, key);
-    const [ nomPart, demPart ] = split(formatString, '/');
+    const [ nomPart, demPart ] = formatString.split('/');
     this.denominator = parseInt(demPart);
     this.denominatorWidth = demPart.length;
     this.nominatorWidth = nomPart.length;

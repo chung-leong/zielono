@@ -1,6 +1,3 @@
-import replace from 'lodash/replace.js';
-import trim from 'lodash/trim.js';
-import trimEnd from 'lodash/trimEnd.js';
 import fetch from 'cross-fetch';
 
 async function retrieveFromCloud(url, options) {
@@ -20,10 +17,9 @@ async function retrieveFromCloud(url, options) {
     // get filename
     const disposition = res.headers.get('content-disposition');
     if (disposition) {
-      const m = /filename=(".+?"|\S+)/i.exec(disposition);
+      const m = /filename=("(.+?)"|\S+)/i.exec(disposition);
       if (m) {
-        const filename = trim(m[1], ' "');
-        buffer.filename = filename;
+        buffer.filename = m[2] || m[1];
       }
     }
     return buffer;
@@ -67,8 +63,8 @@ function getDownloadURL(url) {
  */
 function getDropboxURL(url) {
   if (/^https:\/\/(www\.dropbox\.com)\//.test(url)) {
-    url = replace(url, 'www.dropbox.com', 'dl.dropboxusercontent.com');
-    url = replace(url, '?dl=0', '?dl=1');
+    url = url.replace('www.dropbox.com', 'dl.dropboxusercontent.com');
+    url = url.replace('?dl=0', '?dl=1');
     return url;
   }
 }
@@ -84,9 +80,9 @@ function getOneDriveURL(url) {
   if (/^https:\/\/(1drv\.ms|onedrive\.live\.com)\//.test(url)) {
     // encode url as base64
     let token = Buffer.from(url).toString('base64');
-    token = trimEnd(token, '=');
-    token = replace(token, /\//g, '_');
-    token = replace(token, /\+/g, '-');
+    token = token.replace(/=$/, '');
+    token = token.replace(/\//g, '_');
+    token = token.replace(/\+/g, '-');
     token = 'u!' + token;
     return `https://api.onedrive.com/v1.0/shares/${token}/root/content`;
   }

@@ -1,5 +1,4 @@
-import round from 'lodash/round.js';
-import { loadSiteContent } from './content-storage.mjs';
+import { loadSiteContent, loadSiteContentMeta } from './content-storage.mjs';
 
 /**
  * Handle image request
@@ -12,7 +11,8 @@ async function handleImageRequest(req, res, next) {
   try {
     const { site } = req;
     const { hash, filename = '' } = req.params;
-    const { content, meta } = await loadSiteContent(site, 'images', hash);
+    const meta = await loadSiteContentMeta(site, 'images', hash);
+    const content = await loadSiteContent(site, 'images', hash, meta.format);
     const dot = filename.lastIndexOf('.');
     const filters = (dot !== -1) ? filename.substr(0, dot) : filename;
     let format = (dot !== -1) ? filename.substr(dot + 1) : meta.format;
@@ -125,20 +125,19 @@ async function transformSVGDocument(buffer, filters) {
     if (params.crop) {
       const vbScaleX = viewBox[2] / width;
       const vbScaleY = viewBox[3] / height;
-      const vbPrecision = Math.max(0, Math.round(3 - Math.log10(viewBox[2])));
       width = params.crop.width;
       height = params.crop.height;
-      viewBox[0] = round(params.crop.left * vbScaleX + viewBox[0], vbPrecision);
-      viewBox[1] = round(params.crop.top * vbScaleY + viewBox[1], vbPrecision);
-      viewBox[2] = round(params.crop.width * vbScaleX, vbPrecision);
-      viewBox[3] = round(params.crop.height * vbScaleY, vbPrecision);
+      viewBox[0] = params.crop.left * vbScaleX + viewBox[0];
+      viewBox[1] = params.crop.top * vbScaleY + viewBox[1];
+      viewBox[2] = params.crop.width * vbScaleX;
+      viewBox[3] = params.crop.height * vbScaleY;
     }
     if (params.width !== undefined || params.height !== undefined) {
       if (params.width && params.height === undefined) {
-        height = round(height * (params.width / width));
+        height = Math.round(height * (params.width / width));
         width = params.width;
       } else if (params.height && params.width === undefined) {
-        width = round(width * (params.height / height));
+        width = Math.round(width * (params.height / height));
         height = params.height;
       } else {
         width = params.width;

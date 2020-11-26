@@ -1,6 +1,3 @@
-import split from 'lodash/split.js';
-import replace from 'lodash/replace.js';
-import floor from 'lodash/floor.js';
 import meanBy from 'lodash/meanBy.js';
 import countBy from 'lodash/countBy.js';
 import colCache from 'exceljs/lib/utils/col-cache.js';
@@ -195,7 +192,7 @@ class ExcelConditionalRuleValueBased extends ExcelConditionalRule {
           break;
         case 'percentile':
           const pos = (cells.length - 1) * (vo.value / 100);
-          const base = floor(pos);
+          const base = Math.floor(pos);
           const rest = pos - base;
           value = cells[base].number;
           if(base + 1 < cells.length) {
@@ -280,7 +277,7 @@ class ExcelConditionalRuleRankBased extends ExcelConditionalRule {
     let cells = this.sort();
     let count = this.rank;
     if (this.percent) {
-      count = floor(cells.length * (count / 100));
+      count = Math.floor(cells.length * (count / 100));
     }
     if (this.bottom) {
       cells = cells.slice(0, count);
@@ -486,10 +483,10 @@ function interpolateColor2(colors, value, min, max) {
   } else if (fraction <= 0) {
     return c1;
   }
-  const a = floor(c1.a + (c2.a - c1.a) * fraction);
-  const r = floor(c1.r + (c2.r - c1.r) * fraction);
-  const g = floor(c1.g + (c2.g - c1.g) * fraction);
-  const b = floor(c1.b + (c2.b - c1.b) * fraction);
+  const a = Math.floor(c1.a + (c2.a - c1.a) * fraction);
+  const r = Math.floor(c1.r + (c2.r - c1.r) * fraction);
+  const g = Math.floor(c1.g + (c2.g - c1.g) * fraction);
+  const b = Math.floor(c1.b + (c2.b - c1.b) * fraction);
   return { a, r, g, b };
 }
 

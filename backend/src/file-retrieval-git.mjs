@@ -1,7 +1,3 @@
-import startsWith from 'lodash/startsWith.js';
-import includes from 'lodash/includes.js';
-import find from 'lodash/find.js';
-import orderBy from 'lodash/orderBy.js';
 import deasync from 'deasync';
 import fetch from 'cross-fetch';
 import { join } from 'path';
@@ -63,7 +59,7 @@ class GitHubAdapter extends GitAdapter {
 
   canHandle(options) {
     const { url } = options;
-    return startsWith(url, this.baseURL);
+    return url && url.startsWith(this.baseURL);
   }
 
   async retrieveFile(path, options) {
@@ -153,7 +149,7 @@ class GitHubAdapter extends GitAdapter {
 
   async findBlob(folders, filename, options) {
     const folder = await this.findFolder(folders, options);
-    const fileNode = find(folder.tree, { path: filename, type: 'blob' });
+    const fileNode = folder.tree.find((f) => f.type === 'blob' && f.path === filename);
     if (!fileNode) {
       const filePath = [ ...folders, filename ].join('/');
       throw new Error(`Cannot find file in repo: ${filePath}`);
@@ -165,7 +161,7 @@ class GitHubAdapter extends GitAdapter {
   async findFolder(folders, options) {
     let folder = await this.findRoot(options);
     for (let [ index, path ] of folders.entries()) {
-      const folderNode = find(folder.tree, { path, type: 'tree' });
+      const folderNode = folder.tree.find((f) => f.type === 'tree' && f.path === path);
       if (!folderNode) {
         const folderPath = folders.slice(0, index + 1).join('/');
         throw new Error(`Cannot find folder in repo: ${folderPath}`);
@@ -233,7 +229,7 @@ class GitHubAdapter extends GitAdapter {
   parseURL(url) {
     const [ owner, repo ] = url.substr(this.baseURL.length + 1).split('/');
     const re = /^[\w\-]+$/;
-    if (!re.test(owner) || !re.test(repo) || !startsWith(url, this.baseURL)) {
+    if (!re.test(owner) || !re.test(repo) || !url.startsWith(this.baseURL)) {
       throw new Error(`Invalid GitHub URL: ${url}`);
     }
     return { owner, repo };
@@ -253,7 +249,7 @@ const gitAdapters = [
 
 async function retrieveFromGit(path, options) {
   const { url } = options;
-  const adapter = find(gitAdapters, (a) => a.canHandle(options));
+  const adapter = gitAdapters.find((a) => a.canHandle(options));
   if (adapter) {
     const buffer = await adapter.retrieveFile(path, options);
     return buffer;
@@ -283,12 +279,12 @@ function overrideRequire(options) {
   // override filename resolution
   resolveFilenameBefore = Module._resolveFilename;
   Module._resolveFilename = function(request, parent, isMain) {
-    if (startsWith(request, './') && startsWith(parent.filename, gitFS)) {
+    if (request.startsWith('./') && parent.filename.startsWith(gitFS)) {
       const path = join(parent.path, request);
-      if (startsWith(path, gitFS)) {
+      if (path.startsWith(gitFS)) {
         return path;
       }
-    } else if (includes(moduleWhitelist, request)) {
+    } else if (moduleWhitelist.includes(request)) {
       return resolveFilenameBefore(request, parent, isMain);
     }
     throw new Error(`Cannot find module '${request}'`);
@@ -296,7 +292,7 @@ function overrideRequire(options) {
   // override JS loader
   jsExtensionBefore = Module._extensions['.js'];
   Module._extensions['.js'] = function(module, path) {
-    if (startsWith(path, gitFS)) {
+    if (path.startsWith(gitFS)) {
       const repoPath = path.substr(gitFS.length);
       let content = retrieveFromGitSync(repoPath, options);
       if (typeof(content) != 'string') {
