@@ -1,18 +1,23 @@
 import Chai from 'chai'; const { expect } = Chai;
-import { createRequire } from 'module';
 import { apply, getAccessToken } from './helpers/test-conditioning.mjs'; apply();
 
 import {
-  overrideRequire,
-  restoreRequire,
-  requireGit,
-  retrieveFromGit,
-  retrieveFromGitSync,
+  findGitAdapter,
   GitHubAdapter,
-} from '../src/file-retrieval-git.mjs';
+} from '../src/git-adapters.mjs';
 
-describe('File retrieval from git', function() {
+describe('Git adapters', function() {
   this.timeout(10000);
+  describe('#findGitAdapter', function() {
+    it('should find GitHub adapter', function() {
+      const options = {
+        url: 'https://github.com/chung-leong/test',
+      };
+      const adapter = findGitAdapter(options);
+      expect(adapter).to.be.instanceOf(GitHubAdapter);
+      expect(adapter).to.have.property('name', 'github');
+    })
+  })
   describe('#GitHubAdapter', function() {
     const adapter = new GitHubAdapter;
     const accessToken = getAccessToken('github');
@@ -154,35 +159,10 @@ describe('File retrieval from git', function() {
         expect(refs).to.eql({
           '1fde120a0a87d45e9a5df72d6abedf9b5e6ff1a1': [
             'heads/main',
-            'tags/test-target' 
+            'tags/test-target'
           ]
         });
       })
-    })
-  })
-  describe('#overrideRequire()', function() {
-    const accessToken = getAccessToken('github');
-    const require = createRequire(import.meta.url);
-    before(function() {
-      const options = {
-        url: 'https://github.com/chung-leong/test',
-        accessToken,
-      };
-      overrideRequire(options);
-    })
-    it('should not permit the loading of module anymore', function() {
-      expect(() => require('fs')).to.throw;
-    })
-    it('should allow the loading of modules on whitelist', function() {
-      expect(() => require('stream')).to.not.throw;
-    })
-    it.skip.if.no.github('should pull code from a private repo on GitHub', function() {
-      const { hello } = requireGit('./hello.js');
-      const result = hello('Sam');
-      expect(result).to.eql('Hello, Sam!');
-    })
-    after(function() {
-      restoreRequire();
     })
   })
 })

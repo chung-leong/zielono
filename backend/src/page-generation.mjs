@@ -2,7 +2,7 @@ import { fileURLToPath } from 'url';
 import { fork } from 'child_process';
 import HTTP from 'http'; const { Agent } = HTTP;
 import fetch from 'cross-fetch';
-import { requireGit, overrideRequire } from './file-retrieval-git.mjs';
+import { requireGit, overrideRequire } from './file-retrieval.mjs';
 
 async function generatePage(params, timeLimit) {
   // fork Node.js child process, running as "nobody"

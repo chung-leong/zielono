@@ -1,5 +1,4 @@
-import FS from 'fs'; const { readFile, lstat } = FS.promises;
-import { retrieveFromCloud } from './file-retrieval-cloud.mjs';
+import { retrieveFromCloud } from './file-retrieval.mjs';
 import { parseExcelFile } from './excel-parsing.mjs';
 import { getHash }  from './content-storage.mjs';
 import { findSiteContentMeta, loadSiteContent } from './content-storage.mjs';
@@ -69,21 +68,6 @@ async function handleDataRequest(req, res, next) {
   } catch (err) {
     next(err);
   }
-}
-
-async function retrieveFromDisk(path, options) {
-  const stat = await lstat(path);
-  const { lastModifiedDate } = options;
-  const mtime = (lastModifiedDate) ? new Date(lastModifiedDate) : null;
-  if (mtime && mtime.getTime() == stat.mtime.getTime()) {
-    // file isn't modified
-    return null;
-  }
-  const buffer = await readFile(path);
-  buffer.filename = basename(path);
-  buffer.etag = getHash(buffer);
-  buffer.lastModifiedDate = mtime;
-  return buffer;
 }
 
 async function parseSourceFile(buffer, options) {

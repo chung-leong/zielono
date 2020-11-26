@@ -1,7 +1,5 @@
-import deasync from 'deasync';
 import fetch from 'cross-fetch';
-import { join } from 'path';
-import Module, { createRequire } from 'module';
+import { HTTPError } from './error-handling.mjs';
 
 class GitAdapter {
   constructor(name) {
@@ -24,7 +22,9 @@ class GitAdapter {
   canHandle(options) { return false };
   async retrieveFile(path, options) {}
   async retrieveVersions(path, options) {}
+}
 
+class GitRemoteAdapter extends GitAdapter {
   async retrieveJSON(url, options) {
     const { accessToken } = options;
     const headers = {};
@@ -33,7 +33,7 @@ class GitAdapter {
       headers['Authorization'] = `Bearer ${accessToken}`;
     }
     const req = await fetch(url, fetchOptions);
-    if (req.status == 200) {
+    if (req.status === 200) {
       const json = await req.json();
       return json;
     } else {
@@ -45,12 +45,12 @@ class GitAdapter {
         }
       } catch (err) {
       }
-      throw new Error(message);
+      throw new HTTPError(req.status, message);
     }
   }
 }
 
-class GitHubAdapter extends GitAdapter {
+class GitHubAdapter extends GitRemoteAdapter {
   constructor() {
     super('github');
     this.baseURL = 'https://github.com';
@@ -152,7 +152,7 @@ class GitHubAdapter extends GitAdapter {
     const fileNode = folder.tree.find((f) => f.type === 'blob' && f.path === filename);
     if (!fileNode) {
       const filePath = [ ...folders, filename ].join('/');
-      throw new Error(`Cannot find file in repo: ${filePath}`);
+      throw new HTTPError(404, `Cannot find file in repo: ${filePath}`);
     }
     const blob = await this.retrieveJSON(fileNode.url, options);
     return blob;
@@ -164,7 +164,7 @@ class GitHubAdapter extends GitAdapter {
       const folderNode = folder.tree.find((f) => f.type === 'tree' && f.path === path);
       if (!folderNode) {
         const folderPath = folders.slice(0, index + 1).join('/');
-        throw new Error(`Cannot find folder in repo: ${folderPath}`);
+        throw new HTTPError(404, `Cannot find folder in repo: ${folderPath}`);
       }
       folder = await this.retrieveJSON(folderNode.url, options);
     }
@@ -243,86 +243,21 @@ class GitHubAdapter extends GitAdapter {
   }
 }
 
-const gitAdapters = [
-  new GitHubAdapter
-];
+const gitAdapters = [];
 
-async function retrieveFromGit(path, options) {
-  const { url } = options;
-  const adapter = gitAdapters.find((a) => a.canHandle(options));
-  if (adapter) {
-    const buffer = await adapter.retrieveFile(path, options);
-    return buffer;
-  } else {
-    throw new Error(`Cannot find an adapter for repo: ${url}`);
-  }
+function findGitAdapter(options) {
+  return gitAdapters.find((a) => a.canHandle(options));
 }
 
-const retrieveFromGitSync = deasync((path, options, cb) => {
-  retrieveFromGit(path, options).then((data) => {
-    cb(null, data);
-  }).catch((err) => {
-    cb(err, null);
-  });
-});
-
-const gitFS = '/$git/';
-let resolveFilenameBefore, jsExtensionBefore;
-
-/**
- * Override require() so that code can be retrieved from remote location
- *
- * @param  {object} options
- */
-function overrideRequire(options) {
-  const moduleWhitelist = [ 'stream' ];
-  // override filename resolution
-  resolveFilenameBefore = Module._resolveFilename;
-  Module._resolveFilename = function(request, parent, isMain) {
-    if (request.startsWith('./') && parent.filename.startsWith(gitFS)) {
-      const path = join(parent.path, request);
-      if (path.startsWith(gitFS)) {
-        return path;
-      }
-    } else if (moduleWhitelist.includes(request)) {
-      return resolveFilenameBefore(request, parent, isMain);
-    }
-    throw new Error(`Cannot find module '${request}'`);
-  };
-  // override JS loader
-  jsExtensionBefore = Module._extensions['.js'];
-  Module._extensions['.js'] = function(module, path) {
-    if (path.startsWith(gitFS)) {
-      const repoPath = path.substr(gitFS.length);
-      let content = retrieveFromGitSync(repoPath, options);
-      if (typeof(content) != 'string') {
-        content = content.toString();
-      }
-      module._compile(content, path);
-    } else {
-      jsExtensionBefore(module, path);
-    }
-  };
+function addGitAdapter(adapter) {
+  gitAdapters.push(adapter);
 }
 
-function requireGit(path) {
-  const require = createRequire(gitFS);
-  return require(path);
-}
-
-function restoreRequire() {
-  if (resolveFilenameBefore && jsExtensionBefore) {
-    Module._resolveFilename = resolveFilenameBefore;
-    Module._extensions['.js'] = jsExtensionBefore;
-    resolveFilenameBefore = jsExtensionBefore = undefined;
-  }
-}
+addGitAdapter(new GitHubAdapter);
 
 export {
-  requireGit,
-  overrideRequire,
-  restoreRequire,
-  retrieveFromGit,
-  retrieveFromGitSync,
+  findGitAdapter,
+  GitAdapter,
+  GitRemoteAdapter,
   GitHubAdapter,
 };
