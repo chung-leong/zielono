@@ -1,5 +1,6 @@
 import FS from 'fs'; const { readFile, writeFile, lstat } = FS.promises;
-import { join } from 'path';
+import mkdirp from 'mkdirp';
+import { dirname, join } from 'path';
 import { createHash } from 'crypto';
 
 function getHash(data) {
@@ -17,6 +18,12 @@ function getSiteContentPath(site, folder, hash, ext) {
 
 async function loadSiteContent(site, folder, hash, ext) {
   const path = getSiteContentPath(site, folder, hash, ext)
+  // look for file in write queue
+  const op = writeQueue.find((op) => op.path === path);
+  if (op) {
+    // return the copy being written to disk
+    return op.buffer;
+  }
   const content = await readFile(path);
   return content;
 }
@@ -37,9 +44,20 @@ async function checkSiteContent(site, folder, hash, ext, size) {
   }
 }
 
+const writeQueue = [];
+
 async function saveSiteContent(site, folder, hash, ext, buffer) {
   const path = getSiteContentPath(site, folder, hash, ext)
+  // save in queue so the loadSiteContent() can find it
+  const op = { path, buffer };
+  writeQueue.push(op);
+  // ensure folder exists
+  const folderPath = dirname(path);
+  await mkdirp(folderPath);
   await writeFile(path, buffer);
+  // pop it back out
+  const index = writeQueue.indexOf(op);
+  writeQueue.splice(index, 1);
 }
 
 async function saveSiteContentMeta(site, folder, hash, meta) {

@@ -1,8 +1,11 @@
 import { retrieveFromCloud } from './file-retrieval.mjs';
 import { parseExcelFile } from './excel-parsing.mjs';
 import { getHash }  from './content-storage.mjs';
-import { findSiteContentMeta, loadSiteContent } from './content-storage.mjs';
-import { saveSiteContent, saveSiteContentMeta } from './content-storage.mjs';
+import {
+  findSiteContentMeta, loadSiteContent, loadSiteContentMeta,
+  checkSiteContent, saveSiteContent, saveSiteContentMeta
+ } from './content-storage.mjs';
+import {  } from './content-storage.mjs';
 import { getImageMeta } from './request-handling-image.mjs';
 import { HTTPError } from './error-handling.mjs';
 
@@ -43,7 +46,7 @@ async function handleDataRequest(req, res, next) {
         res.status(304).end();
       } else {
         // load the content and send it
-        const content = await loadSiteContent(site, 'data', hash, '.json');
+        const content = await loadSiteContent(site, 'data', hash, 'json');
         res.send(content);
       }
       return;
@@ -58,12 +61,12 @@ async function handleDataRequest(req, res, next) {
     const newMeta = {
       ...file,
       etag: sourceFile.etag,
-      lastModifiedDate: sourceFile.lastModifiedDate,
-      expirationDate: content.expirationDate,
+      lastModifiedDate: sourceFile.lastModifiedDate.toISOString(),
+      expirationDate: content.expirationDate.toISOString(),
       images,
     };
     await saveSiteContentMeta(site, hash, newMeta);
-    await saveSiteContent(site, hash, 'json', content);
+    await saveSiteContent(site, hash, 'json', content),
     res.send(content);
   } catch (err) {
     next(err);
@@ -94,7 +97,7 @@ async function saveEmbeddedMedia(site, json) {
   for (let cell of imageCells) {
     try {
       // get image metadata first
-      const { buffer, format } = cell.image;
+      const { buffer, extension: format } = cell.image;
       const { width, height } = await getImageMeta(buffer, format);
       const hash = getHash(buffer);
       // see if the file exists already
@@ -102,7 +105,7 @@ async function saveEmbeddedMedia(site, json) {
       if (!exists) {
         await saveSiteContent(site, 'images', hash, format, buffer);
       }
-      const meta = await loadSiteContentMeta(site, 'images', hash);
+      const meta = await findSiteContentMeta(site, 'images', hash);
       if (!meta) {
         const newMeta = { width, height, format };
         await saveSiteContentMeta(site, 'images', hash, newMeta);
@@ -118,4 +121,5 @@ async function saveEmbeddedMedia(site, json) {
 
 export {
   handleDataRequest,
+  saveEmbeddedMedia,
 };
