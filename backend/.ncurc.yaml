@@ -1,0 +1,2 @@
+reject:
+  - sharp   # sharp 0.25.0+ requires newer version of glibc
