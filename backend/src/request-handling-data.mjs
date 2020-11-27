@@ -1,11 +1,10 @@
-import { retrieveFromCloud } from './file-retrieval.mjs';
+import { retrieveFromCloud, retrieveFromDisk } from './file-retrieval.mjs';
 import { parseExcelFile } from './excel-parsing.mjs';
 import { getHash }  from './content-storage.mjs';
 import {
   findSiteContentMeta, loadSiteContent, loadSiteContentMeta,
   checkSiteContent, saveSiteContent, saveSiteContentMeta
  } from './content-storage.mjs';
-import {  } from './content-storage.mjs';
 import { getImageMeta } from './request-handling-image.mjs';
 import { HTTPError } from './error-handling.mjs';
 
@@ -30,7 +29,7 @@ async function handleDataRequest(req, res, next) {
     const meta = await findSiteContentMeta(site, 'data', hash);
     if (meta && meta.timeZone === file.timeZone) {
       options.etag = meta.etag;
-      options.lastModifiedDate = meta.lastModifiedDate;
+      options.mtime = meta.mtime;
     }
     let sourceFile;
     if (file.url) {
@@ -52,8 +51,8 @@ async function handleDataRequest(req, res, next) {
       return;
     }
     // parse Excel file
-    const { timeZone } = site;
-    const json = await parseSourceFile(sourceFile, { timeZone });
+    const { timeZone, columnNames } = site;
+    const json = await parseSourceFile(sourceFile, { timeZone, columnNames });
     // save any embedded images
     const images = await saveEmbeddedMedia(site, json);
     const text = JSON.stringify(json, undefined, 2);
@@ -61,12 +60,18 @@ async function handleDataRequest(req, res, next) {
     const newMeta = {
       ...file,
       etag: sourceFile.etag,
-      lastModifiedDate: sourceFile.lastModifiedDate.toISOString(),
-      expirationDate: content.expirationDate.toISOString(),
+      mtime: sourceFile.mtime,
+      etime: content.expiration,
       images,
     };
-    await saveSiteContentMeta(site, hash, newMeta);
-    await saveSiteContent(site, hash, 'json', content),
+    await saveSiteContentMeta(site, 'data', hash, newMeta);
+    await saveSiteContent(site, 'data', hash, 'json', content);
+    if (sourceFile.etag) {
+      res.set('ETag', sourceFile.etag);
+    }
+    if (sourceFile.mtime) {
+      res.set('Last-modified', sourceFile.mtime.toUTCString());
+    }
     res.send(content);
   } catch (err) {
     next(err);
@@ -94,6 +99,7 @@ async function saveEmbeddedMedia(site, json) {
       }
     }
   }
+  const imageHashes = [];
   for (let cell of imageCells) {
     try {
       // get image metadata first
@@ -112,11 +118,13 @@ async function saveEmbeddedMedia(site, json) {
       }
       // replace image with ref
       cell.image = { hash, width, height, format };
+      imageHashes.push(hash);
     } catch (err) {
       // image cannot be read so get rid of it
       delete cell.image;
     }
   }
+  return imageHashes;
 }
 
 export {
