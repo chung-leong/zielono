@@ -208,7 +208,7 @@ function addFont(style, cell) {
   const defaultFontSizes = [ 10, 11 ];
   const defaultTextColor = '#000000';
   const { name, size, color, italic, bold } = cell.font;
-  const { underline, strike, outline, shadow, vertAlign } = cell.font;
+  const { underline, strike, outline, vertAlign } = cell.font;
   // don't apply the font when it's the default
   if (name && !defaultFontNames.includes(name)) {
     style.fontFamily = name;
@@ -252,9 +252,6 @@ function addFont(style, cell) {
   }
   if (outline) {
     style.textStroke = `1px ${colorStr || defaultTextColor}`;
-  }
-  if (shadow) {
-    style.textShadow = '1px 1px 1px #000000';
   }
 }
 

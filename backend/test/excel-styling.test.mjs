@@ -203,6 +203,88 @@ describe('Excel styling', function() {
         }
       });
     })
+    it('should extract rich text with double underline', function() {
+      const [ sheet1 ] = sample.sheets;
+      const [ cellA34, cellB34 ] = sheet1.rows[31];
+      expect(cellA34).to.eql({ value: 'Double underline' });
+      expect(cellB34).to.eql({
+        value: [
+          { text: 'This is a ' },
+          { text: 'test', style: { textDecoration: 'underline double' } },
+          { text: ', and this is only a test' },
+        ],
+        style: {
+          verticalAlign: 'bottom',
+        }
+      });
+    })
+    it('should extract rich text with underline and line-through', function() {
+      const [ sheet1 ] = sample.sheets;
+      const [ cellA35, cellB35 ] = sheet1.rows[32];
+      expect(cellA35).to.eql({ value: 'Strike and underline' });
+      expect(cellB35).to.eql({
+        value: [
+          { text: 'This is a ' },
+          { text: 'test', style: { textDecoration: 'line-through underline' } },
+          { text: ', and this is only a test' },
+        ],
+        style: {
+          verticalAlign: 'bottom',
+        }
+      });
+    })
+    it('should pick up accounting underline', function() {
+      const [ sheet1 ] = sample.sheets;
+      const [ cellA36, cellB36 ] = sheet1.rows[33];
+      expect(cellA36).to.eql({ value: 'Underline accounting' });
+      expect(cellB36).to.eql({
+        value: 'This is a test, and this is only a test',
+        style: {
+          textDecoration: 'underline',
+          textUnderlinePosition: 'under'
+        }
+      });
+    })
+    it('should pick up double accounting underline', function() {
+      const [ sheet1 ] = sample.sheets;
+      const [ cellA37, cellB37 ] = sheet1.rows[34];
+      expect(cellA37).to.eql({ value: 'Double accounting' });
+      expect(cellB37).to.eql({
+        value: 'This is a test, and this is only a test',
+        style: {
+          textDecoration: 'underline double',
+          textUnderlinePosition: 'under'
+        }
+      });
+    })
+    it('should extract rich text superscript section', function() {
+      const [ sheet1 ] = sample.sheets;
+      const [ cellA38, cellB38 ] = sheet1.rows[35];
+      expect(cellA38).to.eql({ value: 'Superscript' });
+      expect(cellB38).to.eql({
+        value: [
+          { text: 'This is a test' },
+          { text: '2', style: { verticalAlign: 'super' } },
+        ],
+        style: {
+          verticalAlign: 'bottom',
+        }
+      });
+    })
+    it('should extract rich text subscript section', function() {
+      const [ sheet1 ] = sample.sheets;
+      const [ cellA39, cellB39 ] = sheet1.rows[36];
+      expect(cellA39).to.eql({ value: 'Subscript' });
+      expect(cellB39).to.eql({
+        value: [
+          { text: 'This is a test' },
+          { text: '2', style: { verticalAlign: 'sub' } },
+        ],
+        style: {
+          verticalAlign: 'bottom',
+        }
+      });
+    })
     it('should extract rich text with section in different font', function() {
       const [ sheet1 ] = sample.sheets;
       const [ cellA15, cellB15 ] = sheet1.rows[13];
