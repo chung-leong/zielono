@@ -1,5 +1,6 @@
 import FS from 'fs'; const { readFile, lstat } = FS.promises;
 import deasync from 'deasync';
+import { getAgent as agent } from './http-agents.mjs';
 import fetch from 'cross-fetch';
 import { join, basename } from 'path';
 import Module, { createRequire } from 'module';
@@ -16,7 +17,7 @@ async function retrieveFromCloud(url, options) {
   } else if (mtime) {
     headers['If-Modified-Since'] = (new Date(mtime)).toUTCString();
   }
-  const res = await fetch(fileURL, { headers, timeout });
+  const res = await fetch(fileURL, { headers, timeout, agent });
   if (res.status === 200) {
     const buffer = await res.buffer();
     buffer.type = res.headers.get('content-type');

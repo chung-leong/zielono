@@ -1,4 +1,5 @@
 import fetch from 'cross-fetch';
+import { getAgent as agent } from './http-agents.mjs';
 import { HTTPError } from './error-handling.mjs';
 
 class GitAdapter {
@@ -28,16 +29,16 @@ class GitRemoteAdapter extends GitAdapter {
   async retrieveJSON(url, options) {
     const { accessToken } = options;
     const headers = {};
-    const fetchOptions = { headers };
+    const timeout = 5000;
     if (accessToken) {
       headers['Authorization'] = `Bearer ${accessToken}`;
     }
-    const req = await fetch(url, fetchOptions);
-    if (req.status === 200) {
-      const json = await req.json();
+    const res = await fetch(url, { headers, timeout, agent });
+    if (res.status === 200) {
+      const json = await res.json();
       return json;
     } else {
-      let message = await req.text();
+      let message = await res.text();
       try {
         const json = JSON.parse(message);
         if (json && json.message) {
@@ -45,7 +46,7 @@ class GitRemoteAdapter extends GitAdapter {
         }
       } catch (err) {
       }
-      throw new HTTPError(req.status, message);
+      throw new HTTPError(res.status, message);
     }
   }
 }
