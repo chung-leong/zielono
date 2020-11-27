@@ -1,6 +1,7 @@
 import camelCase from 'lodash/camelCase.js';
 import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
 import './exceljs-patching.mjs';
+import { Readable } from 'stream';
 import { formatValue } from './excel-formatting.mjs';
 import { extractCellStyle, extractRichText, applyStyle } from './excel-styling.mjs';
 import { ExcelConditionalStyling } from './excel-styling-conditional.mjs';
@@ -17,18 +18,41 @@ import { setTimeZone, restoreTimeZone } from './time-zone-management.mjs';
 async function parseExcelFile(buffer, options) {
   const workbook = new Workbook;
   await workbook.xlsx.load(buffer);
-  const keywords = extractKeywords(workbook.keywords);
-  const title = (workbook.title || '').trim();
-  const description = (workbook.description || '').trim();
-  const subject = (workbook.subject || '').trim();
+  const { keywords, title, description, subject, category } = workbook;
+  const { contentStatus: status } = workbook;
+  const meta = { title, subject, description, keywords, category, status };
   const sheets = [];
+  let expiration;
   for (let worksheet of workbook.worksheets) {
     const sheet = await parseExcelWorksheet(worksheet, options);
     if (sheet) {
+      if (sheet.expiration) {
+        if (!expiration || sheet.expiration < expiration) {
+          expiration = sheet.expiration;
+        }
+        sheet.expiration = undefined;
+      }
       sheets.push(sheet);
     }
   }
-  return { title, subject, description, keywords, sheets };
+  return { ...meta, sheets, expiration };
+}
+
+/**
+ * Parse an CVS file
+ *
+ * @param  {Buffer} buffer
+ * @param  {object} options
+ *
+ * @return {object}
+ */
+async function parseCSVFile(buffer, options) {
+  const workbook = new Workbook;
+  const stream = Readable.from(buffer);
+  await workbook.csv.read(stream);
+  const worksheet = workbook.worksheets[0];
+  const sheet = await parseExcelWorksheet(worksheet, options);
+  return { sheets: [ sheet ] };
 }
 
 /**
@@ -235,7 +259,7 @@ function reinterpretDate(date) {
 
 export {
   parseExcelFile,
-  extractKeywords,
+  parseCSVFile,
   extractNameFlags,
   reinterpretDate,
 };

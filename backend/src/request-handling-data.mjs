@@ -1,5 +1,5 @@
 import { retrieveFromCloud, retrieveFromDisk } from './file-retrieval.mjs';
-import { parseExcelFile } from './excel-parsing.mjs';
+import { parseExcelFile, parseCSVFile } from './excel-parsing.mjs';
 import { getHash }  from './content-storage.mjs';
 import {
   findSiteContentMeta, loadSiteContent, loadSiteContentMeta,
@@ -79,11 +79,15 @@ async function handleDataRequest(req, res, next) {
 }
 
 async function parseSourceFile(buffer, options) {
-  if (/\.json$/.test(buffer.filename)) {
+  if (/\.json$/i.test(buffer.filename)) {
     const json = JSON.parse(buffer.toString());
     return json;
-  } else {
+  } else if (/\.csv$/i.test(buffer.filename)) {
+    return parseCSVFile(buffer, options);
+  } else if (/\.xlsx$/i.test(buffer.filename)) {
     return parseExcelFile(buffer, options);
+  } else {
+    throw new Error(`Unknown file type: ${buffer.filename}`);
   }
 }
 

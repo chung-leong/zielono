@@ -1,29 +1,13 @@
 import Chai from 'chai'; const { expect } = Chai;
-import { loadExcelFile } from './helpers/file-loading.mjs'
+import { loadExcelFile, loadAsset } from './helpers/file-loading.mjs'
 import { getHash }  from '../src/content-storage.mjs';
 
 import {
-  extractKeywords,
+  parseCSVFile,
   extractNameFlags,
 } from '../src/excel-parsing.mjs';
 
 describe('Excel parsing', function() {
-  describe('#extractKeywords()', function() {
-    it('should handle null input', function() {
-      const keywords1 = extractKeywords(undefined);
-      const keywords2 = extractKeywords('');
-      expect(keywords1).to.eql([]);
-      expect(keywords2).to.eql([]);
-    })
-    it('should correctly extract keywords', function() {
-      const keywords = extractKeywords(' Hello world  cat ');
-      expect(keywords).to.eql([ 'Hello', 'world', 'cat' ]);
-    })
-    it('should handle comma-delimited list', function() {
-      const keywords = extractKeywords(' Hello, world,  cat ');
-      expect(keywords).to.eql([ 'Hello', 'world', 'cat' ]);
-    })
-  })
   describe('#extractNameFlags()', function() {
     it('should handle null input', function() {
       const nameFlags1 = extractNameFlags(undefined);
@@ -65,7 +49,9 @@ describe('Excel parsing', function() {
       expect(sample.title).to.eql('This is a title');
       expect(sample.subject).to.eql('This is the subject');
       expect(sample.description).to.eql('This is a description!');
-      expect(sample.keywords).to.eql([ 'chicken', 'duck', 'morons' ]);
+      expect(sample.keywords).to.eql('chicken duck morons');
+      expect(sample.category).to.eql('Category');
+      expect(sample.status).to.eql('ready');
     })
     it('should ignore empty and hidden sheets', function() {
       expect(sample.sheets).to.have.lengthOf(5);
@@ -162,6 +148,18 @@ describe('Excel parsing', function() {
       // values from sha1sum
       expect(hash1).to.eql('1a1e9e305b5a132560e861531430f9b881b35cd1');
       expect(hash2).to.eql('32e4106d369959addd2abed33f59f78ea92c0c28');
+    })
+  })
+  describe('#parseCSVFile()', function() {
+    let sample;
+    before(async () => {
+      const buffer = await loadAsset('sample.csv');
+      sample = await parseCSVFile(buffer, {});
+    })
+    it('should have the right columns', function() {
+      const [ col1, col2 ] = sample.sheets[0].columns;
+      expect(col1).to.have.property('name', 'Month');
+      expect(col2).to.have.property('name', 'Average');
     })
   })
 })
