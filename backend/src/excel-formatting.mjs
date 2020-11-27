@@ -14,7 +14,7 @@ const { floor, round, abs } = Math;
  * @return {object|undefined}
  */
 function formatValue(value, formatString, options) {
-  if (!formatString || formatString === '@') {
+  if (!formatString || formatString === '@' || formatString === 'General') {
     return;
   }
   const formatter = ExcelValueFormatter.get(formatString, options);

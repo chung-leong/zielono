@@ -201,10 +201,14 @@ function addFill(style, cell) {
  * @param  {Cell} cell
  */
 function addFont(style, cell) {
+  if (!cell.font) {
+    return;
+  }
   const defaultFontNames = [ 'Calibri', 'Arial' ];
   const defaultFontSizes = [ 10, 11 ];
   const defaultTextColor = '#000000';
-  const { name, size, color, italic, underline, bold } = cell.font || {};
+  const { name, size, color, italic, bold } = cell.font;
+  const { underline, strike, outline, shadow, vertAlign } = cell.font;
   // don't apply the font when it's the default
   if (name && !defaultFontNames.includes(name)) {
     style.fontFamily = name;
@@ -223,8 +227,34 @@ function addFont(style, cell) {
   if (bold) {
     style.fontWeight = 'bold';
   }
-  if (underline) {
+  if (underline === true || underline === 'single') {
     style.textDecoration = 'underline';
+  } else if (underline === 'singleAccounting') {
+    style.textDecoration = 'underline';
+    style.textUnderlinePosition = 'under';
+  } else if (underline === 'double') {
+    style.textDecoration = 'underline double';
+  } else if (underline === 'doubleAccounting') {
+    style.textDecoration = 'underline double';
+    style.textUnderlinePosition = 'under';
+  }
+  if (strike) {
+    if (style.textDecoration) {
+      style.textDecoration = 'line-through ' + style.textDecoration;
+    } else {
+      style.textDecoration = 'line-through';
+    }
+  }
+  if (vertAlign === 'superscript') {
+    style.verticalAlign = 'super';
+  } else if (vertAlign === 'subscript') {
+    style.verticalAlign = 'sub';
+  }
+  if (outline) {
+    style.textStroke = `1px ${colorStr || defaultTextColor}`;
+  }
+  if (shadow) {
+    style.textShadow = '1px 1px 1px #000000';
   }
 }
 
