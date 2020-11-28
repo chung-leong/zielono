@@ -2,7 +2,7 @@ import Chai from 'chai'; const { expect } = Chai;
 import FS from 'fs'; const { lstat } = FS.promises;
 import { createRequire } from 'module';
 import { getAssetPath } from './helpers/file-loading.mjs';
-import { apply, getAccessToken } from './helpers/test-conditioning.mjs'; apply();
+import { skip, getAccessToken } from './helpers/conditional-testing.mjs';
 
 import {
   overrideRequire,
@@ -45,7 +45,8 @@ describe('File retrieval', function() {
       expect(buffer).to.be.instanceOf(Buffer);
     })
   })
-  describe.skip.if.no.github('#retrieveFromGitSync', function() {
+  skip.if.no.github.
+  describe('#retrieveFromGitSync', function() {
     const accessToken = getAccessToken('github');
     it('should retrieve file from a git repo synchronously', async function() {
       const options = {
@@ -56,7 +57,8 @@ describe('File retrieval', function() {
       expect(buffer).to.be.instanceOf(Buffer);
     })
   })
-  describe.skip.if.no.github('#overrideRequire()', function() {
+  skip.if.no.github.
+  describe('#overrideRequire()', function() {
     const accessToken = getAccessToken('github');
     const require = createRequire(import.meta.url);
     before(function() {
@@ -72,7 +74,8 @@ describe('File retrieval', function() {
     it('should allow the loading of modules on whitelist', function() {
       expect(() => require('stream')).to.not.throw;
     })
-    it.skip.if.no.github('should pull code from a private repo on GitHub', function() {
+    skip.if.no.github.
+    it('should pull code from a private repo on GitHub', function() {
       const { hello } = requireGit('./hello.js');
       const result = hello('Sam');
       expect(result).to.eql('Hello, Sam!');
@@ -98,7 +101,8 @@ describe('File retrieval', function() {
       expect(result).to.eql('https://somewhere.com');
     })
   })
-  describe.skip.if.watching('#retrieveFromCloud()', function() {
+  skip.if.watching.
+  describe('#retrieveFromCloud()', function() {
     it('should retrieve file from Dropbox', async function() {
       const url = 'https://www.dropbox.com/s/4krscr943y90gd8/hello.json?dl=0';
       const result = await retrieveFromCloud(url, {});

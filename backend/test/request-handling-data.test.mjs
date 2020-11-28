@@ -3,7 +3,7 @@ import FS from 'fs'; const { lstat } = FS.promises;
 import tmp from 'tmp-promise';
 import del from 'del';
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
-import { apply, getAccessToken } from './helpers/test-conditioning.mjs'; apply();
+import { skip, getAccessToken } from './helpers/conditional-testing.mjs';
 import { loadExcelFile, getAssetPath } from './helpers/file-loading.mjs'
 import { findSiteContentMeta, loadSiteContent, getHash } from '../src/content-storage.mjs'
 
@@ -128,7 +128,8 @@ describe('Data request handling', function() {
       await handleDataRequest(req3, res3, next);
       expect(res3.statusCode).to.eql(200);
     })
-    it.skip.if.watching('should return data from an Excel file at Dropbox', async function() {
+    skip.if.watching.
+    it('should return data from an Excel file at Dropbox', async function() {
       this.timeout(5000);
       const req = createRequest({
         params: { name: 'example' }

@@ -1,5 +1,5 @@
 import Chai from 'chai'; const { expect } = Chai;
-import { apply, getAccessToken } from './helpers/test-conditioning.mjs'; apply();
+import { skip, getAccessToken } from './helpers/conditional-testing.mjs';
 
 import {
   findGitAdapter,
@@ -67,14 +67,16 @@ describe('Git adapters', function() {
         expect(result).to.be.false;
       })
     })
-    describe.skip.if.no.github('#retrieveJSON()', function() {
+    skip.if.no.github.
+    describe('#retrieveJSON()', function() {
       it('should retrieve a JSON object from remote server', async function() {
         const url = 'https://api.github.com/repos/chung-leong/zielono/git/ref/heads/main';
         const json = await adapter.retrieveJSON(url, { accessToken });
         expect(json).to.have.keys([ 'ref', 'url', 'node_id', 'object' ]);
       })
     })
-    describe.skip.if.no.github('#findRepo()', function() {
+    skip.if.no.github.
+    describe('#findRepo()', function() {
       it('should retrieve info about repo', async function() {
         const options = {
           ref: 'heads/main',
@@ -89,7 +91,8 @@ describe('Git adapters', function() {
         expect(repo).to.have.property('private', false);
       })
     })
-    describe.skip.if.no.github('#retrieveFile()', function() {
+    skip.if.no.github.
+    describe('#retrieveFile()', function() {
       it('should retrieve file from default branch of repo', async function() {
         const path = 'backend/test/assets/hello.json';
         const options = {
@@ -132,7 +135,8 @@ describe('Git adapters', function() {
         expect(json).to.eql({ message: 'hello world', version: 1 });
       })
     })
-    describe.skip.if.no.github('#retrieveVersions()', function() {
+    skip.if.no.github.
+    describe('#retrieveVersions()', function() {
       it('should retrieve a list of relevant commits', async function() {
         const options = {
           url: 'https://github.com/chung-leong/zielono',
@@ -148,7 +152,8 @@ describe('Git adapters', function() {
         ]);
       })
     })
-    describe.skip.if.no.github('#retrieveVersionRefs()', function() {
+    skip.if.no.github.
+    describe('#retrieveVersionRefs()', function() {
       it('should retrieve a branches and tags associated with relavant commits', async function() {
         const options = {
           url: 'https://github.com/chung-leong/zielono',
