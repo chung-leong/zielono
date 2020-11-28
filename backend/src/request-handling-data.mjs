@@ -32,10 +32,24 @@ async function handleDataRequest(req, res, next) {
       options.mtime = meta.mtime;
     }
     let sourceFile;
-    if (file.url) {
-      sourceFile = await retrieveFromCloud(file.url, options);
-    } else {
-      sourceFile = await retrieveFromDisk(file.path, options);
+    try {
+      if (file.url) {
+        sourceFile = await retrieveFromCloud(file.url, options);
+      } else {
+        sourceFile = await retrieveFromDisk(file.path, options);
+      }
+    } catch (err) {
+      if (meta) {
+        // keep sending the data that were extracted earlier
+        // but save the error
+        const error = {
+          status: err.status,
+          message: err.message,
+        };
+        await saveSiteContentMeta(site, 'data', hash, { ...meta, error });
+      } else {
+        throw err;
+      }
     }
     let content, etag, mtime;
     if (!sourceFile) {

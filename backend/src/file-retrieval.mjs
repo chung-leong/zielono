@@ -1,11 +1,12 @@
 import Fs from 'fs'; const { readFile, lstat } = Fs.promises;
 import deasync from 'deasync';
-import { getAgent as agent } from './http-agents.mjs';
 import fetch from 'cross-fetch';
+import { getAgent as agent } from './http-agents.mjs';
 import { join, basename } from 'path';
 import Module, { createRequire } from 'module';
 import { findGitAdapter } from './git-adapters.mjs';
 import { getHash }  from './content-storage.mjs';
+import { HttpError } from './error-handling.mjs';
 
 async function retrieveFromCloud(url, options) {
   const { etag, mtime } = options;
@@ -22,7 +23,6 @@ async function retrieveFromCloud(url, options) {
     const buffer = await res.buffer();
     buffer.type = res.headers.get('content-type');
     buffer.etag = res.headers.get('etag');
-
     // get filename
     const disposition = res.headers.get('content-disposition');
     if (disposition) {
@@ -42,14 +42,12 @@ async function retrieveFromCloud(url, options) {
     let message;
     try {
       const json = await res.json();
-      message = json.error;
-    } catch (err) {
-      try {
-        message = await res.text();
-      } catch (err) {
+      if (json && json.error) {
+        message = json.error;
       }
+    } catch (err) {
     }
-    throw new Error(message);
+    throw new HttpError(res.status, message);
   }
 }
 

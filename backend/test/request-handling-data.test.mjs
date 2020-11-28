@@ -1,9 +1,9 @@
 import Chai from 'chai'; const { expect } = Chai;
-import Fs from 'fs'; const { lstat } = Fs.promises;
+import Fs from 'fs'; const { lstat, rename } = Fs.promises;
 import Tmp from 'tmp-promise';
 import del from 'del';
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
-import { skip, getAccessToken } from './helpers/conditional-testing.mjs';
+import { skip } from './helpers/conditional-testing.mjs';
 import { loadExcelFile, getAssetPath } from './helpers/file-loading.mjs'
 import { findSiteContentMeta, loadSiteContent, getHash } from '../src/content-storage.mjs'
 
@@ -54,6 +54,10 @@ describe('Data request handling', function() {
           {
             name: 'example',
             url: 'https://www.dropbox.com/s/bjjxwodb3kvf4ni/example.xlsx?dl=0'
+          },
+          {
+            name: 'bad',
+            url: 'https://www.dropbox.com/s/jjjjjjjjjjjjjjj/example.xlsx?dl=0'
           }
         ]
       };
@@ -89,7 +93,8 @@ describe('Data request handling', function() {
       req.site = site;
       req.server = {};
       await handleDataRequest(req, res, next);
-      const hash = getHash(site.files[0].path);
+      const file = site.files.find((f) => f.name === 'sushi');
+      const hash = getHash(file.path);
       const meta = await findSiteContentMeta(site, 'data', hash);
       expect(meta).to.be.an('object');
       expect(meta).to.have.property('etag');
@@ -143,6 +148,67 @@ describe('Data request handling', function() {
       expect(headers).to.have.property('etag').that.is.a('string');
       const json = JSON.parse(data);
       expect(json).to.have.property('sheets').that.is.an('array');
+    })
+    it('should raise 404 error if file is not listed in config', async function() {
+      const req1 = createRequest({
+        params: { name: 'missing' }
+      });
+      const res1 = createResponse();
+      req1.site = site;
+      req1.server = {};
+      let error;
+      const next = (err) => {
+        error = err;
+      };
+      await handleDataRequest(req1, res1, next);
+      expect(error).to.be.instanceOf(Error).with.property('status', 404);
+    })
+    skip.if.watching.
+    it('should return error from Dropbox', async function() {
+      const req = createRequest({
+        params: { name: 'bad' }
+      });
+      const res = createResponse();
+      req.site = site;
+      req.server = {};
+      let error;
+      const next = (err) => {
+        error = err;
+      };
+      await handleDataRequest(req, res, next);
+      expect(error).to.be.instanceOf(Error).with.property('status', 404);
+    })
+    it('should send cached copy of content when source becomes unavailable', async function() {
+      const req1 = createRequest({
+        params: { name: 'sushi' }
+      });
+      const res1 = createResponse();
+      req1.site = site;
+      req1.server = {};
+      await handleDataRequest(req1, res1, next);
+      expect(res1.statusCode).to.eql(200);
+      // rename file temporarily
+      const file = site.files.find((f) => f.name === 'sushi');
+      const oldPath = file.path, newPath = file.path + '.bak';
+      await rename(oldPath, newPath);
+      after(async function() {
+        await rename(newPath, oldPath);
+      })
+      // then request it again
+      const req2 = createRequest({
+        params: { name: 'sushi' }
+      });
+      const res2 = createResponse();
+      req2.site = site;
+      req2.server = {};
+      await handleDataRequest(req1, res1, next);
+      expect(res1.statusCode).to.eql(200);
+      const hash = getHash(file.path);
+      const meta = await findSiteContentMeta(site, 'data', hash);
+      expect(meta).to.be.an('object');
+      expect(meta).to.have.property('error')
+        .with.property('message')
+        .that.contains('ENOENT: no such file or directory');
     })
   })
 })
