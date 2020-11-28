@@ -37,52 +37,53 @@ async function handleDataRequest(req, res, next) {
     } else {
       sourceFile = await retrieveFromDisk(file.path, options);
     }
+    let content, etag, mtime;
     if (!sourceFile) {
       // no change has occurred since the file was last read
       // see if the browser has given us an etag to check against
       const ifNoneMatch = req.headers['if-none-match'];
       if (ifNoneMatch === meta.etag) {
         res.status(304).end();
+        return;
       } else {
-        // load the content and send it
-        const content = await loadSiteContent(site, 'data', hash, 'json');
-        res.send(content);
+        // load the content
+        content = await loadSiteContent(site, 'data', hash, 'json');
+        etag = meta.etag;
+        mtime = new Date(meta.mtime);
       }
-      return;
-    }
-    // parse source file
-    const { timeZone, columnNames } = site;
-    const { filename } = sourceFile;
-    let json, expiration;
-    if (/\.json$/i.test(filename)) {
-      json = JSON.parse(sourceFile);
-    } else if (/\.csv$/i.test(filename)) {
-      const sheetName = filename.substr(0, filename.length - 4)
-      json = await parseCSVFile(sourceFile, { timeZone, sheetName });
-    } else if (/\.xlsx$/i.test(filename)) {
-      json = await parseExcelFile(sourceFile, { timeZone, columnNames });
-      expiration = json.expiration;
     } else {
-      throw new Error(`Unknown file type: ${filename}`);
+      // parse source file
+      const { timeZone, columnNames } = site;
+      const { filename } = sourceFile;
+      let json, etime;
+      if (/\.json$/i.test(filename)) {
+        json = JSON.parse(sourceFile);
+      } else if (/\.csv$/i.test(filename)) {
+        const sheetName = filename.substr(0, filename.length - 4);
+        json = await parseCSVFile(sourceFile, { timeZone, sheetName });
+      } else if (/\.xlsx$/i.test(filename)) {
+        json = await parseExcelFile(sourceFile, { timeZone, columnNames });
+        etime = json.expiration;
+      } else {
+        throw new Error(`Unknown file type: ${buffer.filename}`);
+      }
+      // save any embedded images
+      const images = await saveEmbeddedMedia(site, json);
+      // save content
+      const text = JSON.stringify(json, undefined, 2);
+      content = Buffer.from(text);
+      etag = sourceFile.etag;
+      mtime = sourceFile.mtime;
+      await saveSiteContent(site, 'data', hash, 'json', content);
+      // save metadata
+      const meta = { ...file, etag, mtime, etime, images };
+      await saveSiteContentMeta(site, 'data', hash, meta);
     }
-    // save any embedded images
-    const images = await saveEmbeddedMedia(site, json);
-    const text = JSON.stringify(json, undefined, 2);
-    const content = Buffer.from(text);
-    const newMeta = {
-      ...file,
-      etag: sourceFile.etag,
-      mtime: sourceFile.mtime,
-      etime: content.expiration,
-      images,
-    };
-    await saveSiteContentMeta(site, 'data', hash, newMeta);
-    await saveSiteContent(site, 'data', hash, 'json', content);
-    if (sourceFile.etag) {
-      res.set('ETag', sourceFile.etag);
+    if (etag) {
+      res.set('ETag', etag);
     }
-    if (sourceFile.mtime) {
-      res.set('Last-modified', sourceFile.mtime.toUTCString());
+    if (mtime) {
+      res.set('Last-modified', mtime.toUTCString());
     }
     res.send(content);
   } catch (err) {
@@ -127,7 +128,7 @@ async function saveEmbeddedMedia(site, json) {
       delete cell.image;
     }
   }
-  return imageHashes;
+  return (imageHashes.length > 0) ? imageHashes : undefined;
 }
 
 export {
