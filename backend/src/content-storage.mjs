@@ -1,4 +1,4 @@
-import FS from 'fs'; const { readFile, writeFile, lstat } = FS.promises;
+import Fs from 'fs'; const { readFile, writeFile, lstat } = Fs.promises;
 import mkdirp from 'mkdirp';
 import { dirname, join } from 'path';
 import { createHash } from 'crypto';

@@ -1,7 +1,7 @@
 import { fileURLToPath } from 'url';
 import { fork } from 'child_process';
-import HTTP from 'http'; const { Agent } = HTTP;
 import fetch from 'cross-fetch';
+import { getAgent } from './http-agents.mjs';
 import { requireGit, overrideRequire } from './file-retrieval.mjs';
 
 async function generatePage(params, timeLimit) {

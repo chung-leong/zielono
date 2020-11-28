@@ -1,8 +1,8 @@
-import HTTP from 'http';
-import HTTPS from 'https';
+import Http from 'http';
+import Https from 'https';
 
-const httpAgent = new HTTP.Agent({ keepAlive: true });
-const httpsAgent = new HTTPS.Agent({ keepAlive: true });
+const httpAgent = new Http.Agent({ keepAlive: true });
+const httpsAgent = new Https.Agent({ keepAlive: true });
 
 function getAgent(url) {
 	if (url.protocol == 'http:') {

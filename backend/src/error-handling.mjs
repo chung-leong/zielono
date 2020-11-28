@@ -1,4 +1,4 @@
-class HTTPError extends Error {
+class HttpError extends Error {
   constructor(...args) {
     super();
     for (let arg of args) {
@@ -46,5 +46,5 @@ class HTTPError extends Error {
 }
 
 export {
-  HTTPError,
+  HttpError,
 };

@@ -1,4 +1,4 @@
-import FS from 'fs'; const { readFile } = FS.promises;
+import Fs from 'fs'; const { readFile } = Fs.promises;
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import { parseExcelFile } from '../../src/excel-parsing.mjs';

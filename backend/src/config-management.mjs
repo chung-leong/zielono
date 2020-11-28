@@ -1,6 +1,6 @@
-import FS from 'fs'; const { readFile, readdir } = FS.promises;
+import Fs from 'fs'; const { readFile, readdir } = Fs.promises;
 import { join } from 'path';
-import JSYaml from 'js-yaml'; const { safeLoad } = JSYaml;
+import JsYaml from 'js-yaml'; const { safeLoad } = JsYaml;
 
 let configFolder;
 

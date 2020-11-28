@@ -1,6 +1,6 @@
 import Chai from 'chai'; const { expect } = Chai;
-import FS from 'fs'; const { lstat } = FS.promises;
-import tmp from 'tmp-promise';
+import Fs from 'fs'; const { lstat } = Fs.promises;
+import Tmp from 'tmp-promise';
 import del from 'del';
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
 import { skip, getAccessToken } from './helpers/conditional-testing.mjs';
@@ -16,7 +16,7 @@ describe('Data request handling', function() {
   describe('#saveEmbeddedMedia()', function() {
     let tmpFolder;
     before(async function() {
-      tmpFolder = await tmp.dir();
+      tmpFolder = await Tmp.dir();
     })
     after(async function() {
       await del([ tmpFolder.path ], { force: true });
@@ -42,7 +42,7 @@ describe('Data request handling', function() {
   describe('#handleDataRequest()', function() {
     let tmpFolder, site;
     before(async function() {
-      tmpFolder = await tmp.dir();
+      tmpFolder = await Tmp.dir();
       site = {
         name: 'tmp',
         storage: tmpFolder,

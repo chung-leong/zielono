@@ -1,6 +1,6 @@
 import fetch from 'cross-fetch';
 import { getAgent as agent } from './http-agents.mjs';
-import { HTTPError } from './error-handling.mjs';
+import { HttpError } from './error-handling.mjs';
 
 class GitAdapter {
   constructor(name) {
@@ -46,7 +46,7 @@ class GitRemoteAdapter extends GitAdapter {
         }
       } catch (err) {
       }
-      throw new HTTPError(res.status, message);
+      throw new HttpError(res.status, message);
     }
   }
 }
@@ -153,7 +153,7 @@ class GitHubAdapter extends GitRemoteAdapter {
     const fileNode = folder.tree.find((f) => f.type === 'blob' && f.path === filename);
     if (!fileNode) {
       const filePath = [ ...folders, filename ].join('/');
-      throw new HTTPError(404, `Cannot find file in repo: ${filePath}`);
+      throw new HttpError(404, `Cannot find file in repo: ${filePath}`);
     }
     const blob = await this.retrieveJSON(fileNode.url, options);
     return blob;
@@ -165,7 +165,7 @@ class GitHubAdapter extends GitRemoteAdapter {
       const folderNode = folder.tree.find((f) => f.type === 'tree' && f.path === path);
       if (!folderNode) {
         const folderPath = folders.slice(0, index + 1).join('/');
-        throw new HTTPError(404, `Cannot find folder in repo: ${folderPath}`);
+        throw new HttpError(404, `Cannot find folder in repo: ${folderPath}`);
       }
       folder = await this.retrieveJSON(folderNode.url, options);
     }

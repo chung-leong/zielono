@@ -1,5 +1,5 @@
 import Chai from 'chai'; const { expect } = Chai;
-import FS from 'fs'; const { lstat } = FS.promises;
+import Fs from 'fs'; const { lstat } = Fs.promises;
 import { createRequire } from 'module';
 import { getAssetPath } from './helpers/file-loading.mjs';
 import { skip, getAccessToken } from './helpers/conditional-testing.mjs';

@@ -1,4 +1,4 @@
-import FS from 'fs'; const { readFile, lstat } = FS.promises;
+import Fs from 'fs'; const { readFile, lstat } = Fs.promises;
 import deasync from 'deasync';
 import { getAgent as agent } from './http-agents.mjs';
 import fetch from 'cross-fetch';

@@ -6,7 +6,7 @@ import {
   checkSiteContent, saveSiteContent, saveSiteContentMeta
  } from './content-storage.mjs';
 import { getImageMeta } from './request-handling-image.mjs';
-import { HTTPError } from './error-handling.mjs';
+import { HttpError } from './error-handling.mjs';
 
 /**
  * Handle data request
@@ -21,7 +21,7 @@ async function handleDataRequest(req, res, next) {
     const { name } = req.params;
     const file = site.files.find((f) => f.name === name);
     if (!file) {
-      throw new HTTPError(404);
+      throw new HttpError(404);
     }
     // find the file's metadata (if it's been used before)
     const hash = getHash(file.url || file.path);
@@ -37,53 +37,52 @@ async function handleDataRequest(req, res, next) {
     } else {
       sourceFile = await retrieveFromDisk(file.path, options);
     }
-    let content, etag, mtime;
     if (!sourceFile) {
       // no change has occurred since the file was last read
       // see if the browser has given us an etag to check against
       const ifNoneMatch = req.headers['if-none-match'];
       if (ifNoneMatch === meta.etag) {
         res.status(304).end();
-        return;
       } else {
-        // load the content
-        content = await loadSiteContent(site, 'data', hash, 'json');
-        etag = meta.etag;
-        mtime = new Date(meta.mtime);
+        // load the content and send it
+        const content = await loadSiteContent(site, 'data', hash, 'json');
+        res.send(content);
       }
+      return;
+    }
+    // parse source file
+    const { timeZone, columnNames } = site;
+    const { filename } = sourceFile;
+    let json, expiration;
+    if (/\.json$/i.test(filename)) {
+      json = JSON.parse(sourceFile);
+    } else if (/\.csv$/i.test(filename)) {
+      const sheetName = filename.substr(0, filename.length - 4)
+      json = await parseCSVFile(sourceFile, { timeZone, sheetName });
+    } else if (/\.xlsx$/i.test(filename)) {
+      json = await parseExcelFile(sourceFile, { timeZone, columnNames });
+      expiration = json.expiration;
     } else {
-      // parse source file
-      const { timeZone, columnNames } = site;
-      const { filename } = sourceFile;
-      let json, etime;
-      if (/\.json$/i.test(filename)) {
-        json = JSON.parse(sourceFile);
-      } else if (/\.csv$/i.test(filename)) {
-        const sheetName = filename.substr(0, filename.length - 4);
-        json = await parseCSVFile(sourceFile, { timeZone, sheetName });
-      } else if (/\.xlsx$/i.test(filename)) {
-        json = await parseExcelFile(sourceFile, { timeZone, columnNames });
-        etime = json.expiration;
-      } else {
-        throw new Error(`Unknown file type: ${buffer.filename}`);
-      }
-      // save any embedded images
-      const images = await saveEmbeddedMedia(site, json);
-      // save content
-      const text = JSON.stringify(json, undefined, 2);
-      content = Buffer.from(text);
-      etag = sourceFile.etag;
-      mtime = sourceFile.mtime;
-      await saveSiteContent(site, 'data', hash, 'json', content);
-      // save metadata
-      const meta = { ...file, etag, mtime, etime, images };
-      await saveSiteContentMeta(site, 'data', hash, meta);
+      throw new Error(`Unknown file type: ${filename}`);
     }
-    if (etag) {
-      res.set('ETag', etag);
+    // save any embedded images
+    const images = await saveEmbeddedMedia(site, json);
+    const text = JSON.stringify(json, undefined, 2);
+    const content = Buffer.from(text);
+    const newMeta = {
+      ...file,
+      etag: sourceFile.etag,
+      mtime: sourceFile.mtime,
+      etime: content.expiration,
+      images,
+    };
+    await saveSiteContentMeta(site, 'data', hash, newMeta);
+    await saveSiteContent(site, 'data', hash, 'json', content);
+    if (sourceFile.etag) {
+      res.set('ETag', sourceFile.etag);
     }
-    if (mtime) {
-      res.set('Last-modified', mtime.toUTCString());
+    if (sourceFile.mtime) {
+      res.set('Last-modified', sourceFile.mtime.toUTCString());
     }
     res.send(content);
   } catch (err) {
@@ -128,7 +127,7 @@ async function saveEmbeddedMedia(site, json) {
       delete cell.image;
     }
   }
-  return (imageHashes.length > 0) ? imageHashes : undefined;
+  return imageHashes;
 }
 
 export {

@@ -6,7 +6,7 @@ import { handleImageRequest } from './request-handling-image.mjs';
 import { handleDataRequest } from './request-handling-data.mjs';
 import { handlePageRequest } from './request-handling-page.mjs';
 import { handleAdminRequest } from './request-handling-admin.mjs';
-import { HTTPError } from './error-handling.mjs';
+import { HttpError } from './error-handling.mjs';
 
 async function startHTTPServer() {
   // start up Express
@@ -130,7 +130,7 @@ function handleResourceRedirection(req, res, next) {
  * @param  {function} next
  */
 function handleInvalidRequest(req, res, next) {
-  next(new HTTPError(404));
+  next(new HttpError(404));
 }
 
 /**
