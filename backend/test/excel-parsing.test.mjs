@@ -154,10 +154,12 @@ describe('Excel parsing', function() {
     let sample;
     before(async () => {
       const buffer = await loadAsset('sample.csv');
-      sample = await parseCSVFile(buffer, {});
+      sample = await parseCSVFile(buffer, { sheetName: 'sample' });
     })
-    it('should have the right columns', function() {
-      const [ col1, col2 ] = sample.sheets[0].columns;
+    it('should have the right sheet name and columns', function() {
+      const [ sheet ] = sample.sheets;
+      expect(sheet).to.have.property('name', 'sample');
+      const [ col1, col2 ] = sheet.columns;
       expect(col1).to.have.property('name', 'Month');
       expect(col2).to.have.property('name', 'Average');
     })

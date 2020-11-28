@@ -47,9 +47,10 @@ async function parseExcelFile(buffer, options) {
  * @return {object}
  */
 async function parseCSVFile(buffer, options) {
+  const { sheetName } = options;
   const workbook = new Workbook;
   const stream = Readable.from(buffer);
-  await workbook.csv.read(stream);
+  await workbook.csv.read(stream, { sheetName });
   const worksheet = workbook.worksheets[0];
   const sheet = await parseExcelWorksheet(worksheet, options);
   return { sheets: [ sheet ] };

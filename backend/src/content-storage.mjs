@@ -68,7 +68,7 @@ async function saveSiteContentMeta(site, folder, hash, meta) {
 
 async function findSiteContentMeta(site, folder, hash) {
   try {
-    loadSiteContentMeta(site, folder, hash)
+    return await loadSiteContentMeta(site, folder, hash)
   } catch (err){
   }
 }
