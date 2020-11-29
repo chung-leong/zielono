@@ -2,7 +2,8 @@ import Chai from 'chai'; const { expect } = Chai;
 import Fs from 'fs'; const { lstat } = Fs.promises;
 import { createRequire } from 'module';
 import { getAssetPath } from './helpers/file-loading.mjs';
-import { skip, getAccessToken } from './helpers/conditional-testing.mjs';
+import { getAccessToken } from './helpers/access-tokens.mjs';
+import './helpers/conditional-testing.mjs';
 
 import {
   overrideRequire,
@@ -45,7 +46,7 @@ describe('File retrieval', function() {
       expect(buffer).to.be.instanceOf(Buffer);
     })
   })
-  skip.if.no.github.
+  skip.if.watching.or.no.github.
   describe('#retrieveFromGitSync', function() {
     const accessToken = getAccessToken('github');
     it('should retrieve file from a git repo synchronously', async function() {
@@ -57,7 +58,7 @@ describe('File retrieval', function() {
       expect(buffer).to.be.instanceOf(Buffer);
     })
   })
-  skip.if.no.github.
+  skip.if.watching.or.no.github.
   describe('#overrideRequire()', function() {
     const accessToken = getAccessToken('github');
     const require = createRequire(import.meta.url);
@@ -74,7 +75,6 @@ describe('File retrieval', function() {
     it('should allow the loading of modules on whitelist', function() {
       expect(() => require('stream')).to.not.throw;
     })
-    skip.if.no.github.
     it('should pull code from a private repo on GitHub', function() {
       const { hello } = requireGit('./hello.js');
       const result = hello('Sam');

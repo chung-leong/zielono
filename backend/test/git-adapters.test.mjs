@@ -1,5 +1,5 @@
 import Chai from 'chai'; const { expect } = Chai;
-import { skip, getAccessToken } from './helpers/conditional-testing.mjs';
+import { getAccessToken } from './helpers/access-tokens.mjs';
 
 import {
   findGitAdapter,
@@ -67,7 +67,7 @@ describe('Git adapters', function() {
         expect(result).to.be.false;
       })
     })
-    skip.if.no.github.
+    skip.if.watching.or.no.github.
     describe('#retrieveJSON()', function() {
       it('should retrieve a JSON object from remote server', async function() {
         const url = 'https://api.github.com/repos/chung-leong/zielono/git/ref/heads/main';
@@ -75,7 +75,7 @@ describe('Git adapters', function() {
         expect(json).to.have.keys([ 'ref', 'url', 'node_id', 'object' ]);
       })
     })
-    skip.if.no.github.
+    skip.if.watching.or.no.github.
     describe('#findRepo()', function() {
       it('should retrieve info about repo', async function() {
         const options = {
@@ -91,7 +91,7 @@ describe('Git adapters', function() {
         expect(repo).to.have.property('private', false);
       })
     })
-    skip.if.no.github.
+    skip.if.watching.or.no.github.
     describe('#retrieveFile()', function() {
       it('should retrieve file from default branch of repo', async function() {
         const path = 'backend/test/assets/hello.json';
@@ -135,7 +135,7 @@ describe('Git adapters', function() {
         expect(json).to.eql({ message: 'hello world', version: 1 });
       })
     })
-    skip.if.no.github.
+    skip.if.watching.or.no.github.
     describe('#retrieveVersions()', function() {
       it('should retrieve a list of relevant commits', async function() {
         const options = {
@@ -152,7 +152,7 @@ describe('Git adapters', function() {
         ]);
       })
     })
-    skip.if.no.github.
+    skip.if.watching.or.no.github.
     describe('#retrieveVersionRefs()', function() {
       it('should retrieve a branches and tags associated with relavant commits', async function() {
         const options = {

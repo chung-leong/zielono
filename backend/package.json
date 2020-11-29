@@ -31,6 +31,7 @@
     "chai": "^4.2.0",
     "del": "^6.0.0",
     "mocha": "^8.2.1",
+    "mocha-skip-if": "0.0.1",
     "node-mocks-http": "^1.9.0",
     "tmp-promise": "^3.0.2"
   }

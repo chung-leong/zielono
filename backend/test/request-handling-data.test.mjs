@@ -3,9 +3,9 @@ import Fs from 'fs'; const { lstat, rename } = Fs.promises;
 import Tmp from 'tmp-promise';
 import del from 'del';
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
-import { skip } from './helpers/conditional-testing.mjs';
 import { loadExcelFile, getAssetPath } from './helpers/file-loading.mjs'
 import { findSiteContentMeta, loadSiteContent, getHash } from '../src/content-storage.mjs'
+import './helpers/conditional-testing.mjs';
 
 import {
   handleDataRequest,
