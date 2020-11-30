@@ -35,7 +35,7 @@ async function handleDataRequest(req, res, next) {
     try {
       if (file.url) {
         sourceFile = await retrieveFromCloud(file.url, options);
-      } else {
+      } else if (file.path) {
         sourceFile = await retrieveFromDisk(file.path, options);
       }
     } catch (err) {

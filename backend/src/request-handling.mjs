@@ -77,7 +77,7 @@ async function handleSiteAssociation(req, res, next) {
     const server = await getServerConfig();
     const sites = await getSiteConfigs();
     let baseUrl = '';
-    let site = sites.find((s) => s.domains && s.domains.includes(hostname));
+    let site = sites.find((s) => s.domains.includes(hostname));
     if (site) {
       const domainIndex = site.domains.indexOf(hostname);
       if (domainIndex > 0) {
