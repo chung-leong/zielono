@@ -1,13 +1,13 @@
 import Chai from 'chai'; const { expect } = Chai;
 import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
 import { loadAsset, loadExcelFile } from './helpers/file-loading.mjs';
-import { reinterpretDate } from '../src/excel-parsing.mjs';
+import { reinterpretDate } from '../lib/excel-parsing.mjs';
 
 import {
   formatValue,
   ExcelFractionFormatter,
   ExcelNumberFormatter,
-} from '../src/excel-formatting.mjs';
+} from '../lib/excel-formatting.mjs';
 
 describe('Excel data formatting', function() {
   describe('#ExcelNumberFormatter', function() {

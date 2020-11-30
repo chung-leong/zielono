@@ -1,7 +1,7 @@
 import Fs from 'fs'; const { readFile } = Fs.promises;
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
-import { parseExcelFile } from '../../src/excel-parsing.mjs';
+import { parseExcelFile } from '../../lib/excel-parsing.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const cache = {};

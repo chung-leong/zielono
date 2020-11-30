@@ -8,7 +8,7 @@ import {
   getThemeColor,
   parseARGB,
   stringifyARGB,
-} from '../src/excel-styling.mjs';
+} from '../lib/excel-styling.mjs';
 
 describe('Excel styling', function() {
   describe('#parseARGB()', function() {

@@ -5,7 +5,7 @@ import {
   setTimeZone,
   restoreTimeZone,
   checkTimeZone,
-} from '../src/time-zone-management.mjs';
+} from '../lib/time-zone-management.mjs';
 
 describe('Time zone management', function() {
   describe('#checkTimeZone()', function() {

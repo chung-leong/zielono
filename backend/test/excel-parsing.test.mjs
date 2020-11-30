@@ -1,11 +1,11 @@
 import Chai from 'chai'; const { expect } = Chai;
 import { loadExcelFile, loadAsset } from './helpers/file-loading.mjs'
-import { getHash }  from '../src/content-storage.mjs';
+import { getHash }  from '../lib/content-storage.mjs';
 
 import {
   parseCSVFile,
   extractNameFlags,
-} from '../src/excel-parsing.mjs';
+} from '../lib/excel-parsing.mjs';
 
 describe('Excel parsing', function() {
   describe('#extractNameFlags()', function() {

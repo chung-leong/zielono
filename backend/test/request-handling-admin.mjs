@@ -3,7 +3,7 @@ import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse }
 
 import {
   handleAdminRequest,
-} from '../src/request-handling-admin.mjs';
+} from '../lib/request-handling-admin.mjs';
 
 describe('Admin request handling', function() {
   describe('#handleAdminRequest()', function() {

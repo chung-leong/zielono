@@ -6,7 +6,7 @@ import {
   interpolateColor3,
   getTimePeriod,
   setCurrentTime,
-} from '../src/excel-styling-conditional.mjs';
+} from '../lib/excel-styling-conditional.mjs';
 
 describe('Excel conditional styling', function() {
   describe('#interpolateColor2()', function() {

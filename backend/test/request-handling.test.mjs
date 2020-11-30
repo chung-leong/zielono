@@ -2,7 +2,7 @@ import Chai from 'chai'; const { expect } = Chai;
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
 import Layer from 'express/lib/router/layer.js';
 import { getAssetPath } from './helpers/file-loading.mjs';
-import { setConfigFolder } from '../src/config-management.mjs';
+import { setConfigFolder } from '../lib/config-management.mjs';
 
 import {
   addHandlers,
@@ -10,19 +10,19 @@ import {
   handleResourceRedirection,
   handleInvalidRequest,
   handleError,
-} from '../src/request-handling.mjs';
+} from '../lib/request-handling.mjs';
 import {
   handlePageRequest,
-} from '../src/request-handling-page.mjs';
+} from '../lib/request-handling-page.mjs';
 import {
   handleImageRequest,
-} from '../src/request-handling-image.mjs';
+} from '../lib/request-handling-image.mjs';
 import {
   handleDataRequest,
-} from '../src/request-handling-data.mjs';
+} from '../lib/request-handling-data.mjs';
 import {
   handleAdminRequest,
-} from '../src/request-handling-admin.mjs';
+} from '../lib/request-handling-admin.mjs';
 
 
 describe('Request handling', function() {

@@ -1,13 +1,13 @@
 import Chai from 'chai'; const { expect } = Chai;
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
 import { loadAsset, getAssetPath } from './helpers/file-loading.mjs';
-import { setConfigFolder, findSiteConfig } from '../src/config-management.mjs';
+import { setConfigFolder, findSiteConfig } from '../lib/config-management.mjs';
 
 import {
   handleImageRequest,
   transformImage,
   getImageMeta,
-} from '../src/request-handling-image.mjs';
+} from '../lib/request-handling-image.mjs';
 
 describe('Image request handling', function() {
   describe('#getImageMeta()', function() {

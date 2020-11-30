@@ -14,7 +14,7 @@ import {
   retrieveFromCloud,
   retrieveFromDisk,
   getDownloadURL,
-} from '../src/file-retrieval.mjs';
+} from '../lib/file-retrieval.mjs';
 
 describe('File retrieval', function() {
   this.timeout(5000);

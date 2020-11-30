@@ -5,7 +5,7 @@ import { getAccessToken } from './helpers/access-tokens.mjs';
 import {
   findGitAdapter,
   GitHubAdapter,
-} from '../src/git-adapters.mjs';
+} from '../lib/git-adapters.mjs';
 
 describe('Git adapters', function() {
   this.timeout(10000);

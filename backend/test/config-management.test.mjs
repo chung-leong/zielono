@@ -9,7 +9,7 @@ import {
   getSiteConfigs,
   processSiteConfig,
   loadConfigFile,
-} from '../src/config-management.mjs';
+} from '../lib/config-management.mjs';
 
 describe('Config management', function() {
   before(function() {

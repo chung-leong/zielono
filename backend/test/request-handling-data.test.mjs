@@ -4,13 +4,13 @@ import Tmp from 'tmp-promise';
 import del from 'del';
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
 import { loadExcelFile, getAssetPath } from './helpers/file-loading.mjs'
-import { findSiteContentMeta, loadSiteContent, getHash } from '../src/content-storage.mjs'
+import { findSiteContentMeta, loadSiteContent, getHash } from '../lib/content-storage.mjs'
 import './helpers/conditional-testing.mjs';
 
 import {
   handleDataRequest,
   saveEmbeddedMedia,
-} from '../src/request-handling-data.mjs';
+} from '../lib/request-handling-data.mjs';
 
 describe('Data request handling', function() {
   describe('#saveEmbeddedMedia()', function() {
