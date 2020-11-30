@@ -16,6 +16,20 @@ const Listen = coerce(array(), number(), (port) => [ port ]);
 // timezone
 const TimeZone = define('valid time zone', checkTimeZone);
 
+function pathOrUrl(struct) {
+  const type = 'url-or-path';
+  const check = (value, struct) => {
+    if ((!value.path && !value.url) || (value.path && value.url)) {
+      const { branch, path } = struct;
+      const message = `Expected either url or path to be present`;
+      return [ { message, value, branch, path, type } ];
+    } else {
+      return true;
+    }
+  };
+  return refine(struct, type, check);
+}
+
 // server config definition
 const Server = object({
   listen: optional(Listen),
@@ -30,28 +44,25 @@ const Server = object({
 const Site = object({
   domains: optional(array(string())),
   files: optional(array(
-    refine(object({
+    pathOrUrl(object({
       name: string(),
       path: optional(Path),
       url: optional(string()),
       download: optional(boolean()),
       timeZone: optional(TimeZone),
       withNames: optional(number()),
-    }), 'url-or-path', (value, struct) => {
-      if ((!value.path && !value.url) || (value.path && value.url)) {
-        const { branch, path } = struct;
-        const type = 'url-or-path';
-        const message = `Expected either url or path to be present`;
-        return [ { message, value, branch, path, type } ];
-      } else {
-        return true;
-      }
-    }),
+    })),
   )),
   locale: optional(string()),
   storage: optional(object({
     path: Path
-  }))
+  })),
+  template: optional(
+    pathOrUrl(object({
+      path: optional(Path),
+      url: optional(string()),
+    }))
+  )
 });
 
 let configFolder;

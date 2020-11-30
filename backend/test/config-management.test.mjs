@@ -49,6 +49,7 @@ describe('Config management', function() {
         domains: [],
         files: [],
         storage: { path: `${folder}/hello` },
+        template: undefined,
         locale: undefined
       });
     })
