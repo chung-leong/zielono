@@ -2,17 +2,19 @@ import Fs from 'fs'; const { readFile, readdir } = Fs.promises;
 import { join, resolve } from 'path';
 import defaults from 'lodash/defaults.js';
 import sortedIndexBy from 'lodash/sortedIndexBy.js';
+import get from 'lodash/get.js';
 import JsYaml from 'js-yaml'; const { safeLoad } = JsYaml;
 import { object, number, string, array, boolean, never } from 'superstruct';
 import { create, coerce, define, refine, optional, assert } from 'superstruct';
 import { checkTimeZone } from './time-zone-management.mjs';
+import { ErrorCollection } from './error-handling.mjs';
 
 // path resolve against config folder
 const Path = coerce(string(), string(), (path) => resolve(getConfigFolder(), path));
 // listen arguments can be number or array
 const Listen = coerce(array(), number(), (port) => [ port ]);
 // timezone
-const TimeZone = define('Time zone', checkTimeZone);
+const TimeZone = define('valid time zone', checkTimeZone);
 
 // server config definition
 const Server = object({
@@ -65,14 +67,6 @@ function getConfigFolder() {
   return configFolder;
 }
 
-async function loadConfigFile(name) {
-  const folder = getConfigFolder();
-  const path = join(folder, `${name}.yaml`);
-  const text = await readFile(path, 'utf8');
-  const config = safeLoad(text);
-  return config;
-}
-
 function processServerConfig(config) {
   const userValues = create(config, Server);
   const defaultValues = { listen: [ 80 ] };
@@ -91,11 +85,16 @@ async function getServerConfig() {
 }
 
 async function loadServerConfig() {
+  const folder = getConfigFolder();
+  const filename = `zielono.yaml`;
+  const path = join(folder, filename);
+  const text = await readFile(path, 'utf-8');
+  const config = safeLoad(text);
   try {
-    const config = await loadConfigFile('zielono');
     serverConfig = processServerConfig(config);
   } catch (err) {
-    displayConfigError('zielono.yaml', err);
+    err.filename = filename;
+    err.lineno = findLineNumber(text, err.path);
     throw err;
   }
 }
@@ -116,8 +115,12 @@ function processSiteConfig(name, config) {
 let siteConfigs;
 
 async function loadSiteConfig(name) {
+  const folder = getConfigFolder();
+  const filename = `${name}.yaml`;
+  const path = join(folder, filename);
+  const text = await readFile(path, 'utf-8');
+  const config = safeLoad(text);
   try {
-    const config = await loadConfigFile(name);
     const site = processSiteConfig(name, config);
     const index = sortedIndexBy(siteConfigs, site, 'name');
     const slot = siteConfigs[index];
@@ -127,7 +130,8 @@ async function loadSiteConfig(name) {
       siteConfigs.splice(index, 0, site);
     }
   } catch (err) {
-    displayConfigError(`${name}.yaml`, err);
+    err.filename = filename;
+    err.lineno = findLineNumber(text, err.path);
     throw err;
   }
 }
@@ -147,37 +151,64 @@ async function getSiteConfigs() {
       }
     }
   }
-  let error;
+  const errors = [];
   for (let name of names) {
     try {
       await loadSiteConfig(name);
     } catch (err) {
-      // save the first one
-      if (!error) {
-        error = err;
-      }
+      errors.push(err);
     }
   }
-  if (error) {
-    // throw the error if there aren't other sites
-    if (siteConfigs.length === 0) {
-      throw error;
-    }
+  if (errors.length > 0) {
+    throw new ErrorCollection(errors);
   }
   return siteConfigs;
 }
 
-function displayConfigError(filename, err) {
-  console.error(`Error encountered while processing ${filename}\n${err.message}`);
+function findLineNumber(text, path) {
+  if (!(path instanceof Array)) {
+    return;
+  }
+  const lines = text.split(/\r?\n/);
+  // add lines one at a time until the object appears at the path
+  for (let i = 0, t = ''; i < lines.length; i++) {
+    try {
+      t += lines[i] + '\n';
+      const tree = safeLoad(t);
+      if (get(tree, path) !== undefined) {
+        return i + 1;
+      }
+    } catch (err) {
+    }
+  }
+}
+
+async function preloadConfig() {
+  const errors = [];
+  let server, sites;
+  try {
+    server = await getServerConfig();
+  } catch (err) {
+    errors.push(err);
+  }
+  try {
+    sites = await getSiteConfigs();
+  } catch (err) {
+    errors.push(err);
+  }
+  if (errors.length > 0) {
+    throw new ErrorCollection(errors);
+  }
+  return { server, sites };
 }
 
 export {
   setConfigFolder,
   getConfigFolder,
+  preloadConfig,
   getServerConfig,
   processServerConfig,
   findSiteConfig,
   getSiteConfigs,
   processSiteConfig,
-  loadConfigFile,
 };

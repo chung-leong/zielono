@@ -8,20 +8,12 @@ import {
   findSiteConfig,
   getSiteConfigs,
   processSiteConfig,
-  loadConfigFile,
 } from '../lib/config-management.mjs';
 
 describe('Config management', function() {
   before(function() {
     const path = getAssetPath('storage');
     setConfigFolder(path);
-  })
-  describe('#loadConfigFile()', function() {
-    it('should correctly load a yaml file', async function() {
-      const config = await loadConfigFile('zielono');
-      expect(config).to.have.property('listen', 80);
-      expect(config).to.have.property('nginx').that.is.an('object');
-    })
   })
   describe('#processServerConfig()', function() {
     it('should return a default configuration', function() {
@@ -81,6 +73,18 @@ describe('Config management', function() {
       };
       expect(() => processSiteConfig('hello', input1)).to.throw();
       expect(() => processSiteConfig('hello', input2)).to.throw();
+    })
+    it('should throw when time zone is not valid', function() {
+      const input = {
+        files: [
+          {
+            name: 'something',
+            url: 'https://something',
+            timeZone: 'Europe/Pcim'
+          }
+        ]
+      };
+      expect(() => processSiteConfig('hello', input)).to.throw();
     })
     it('should throw when extra fields are present', function() {
       const input = { extra: 1 };

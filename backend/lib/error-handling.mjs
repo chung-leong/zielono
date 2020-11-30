@@ -1,3 +1,5 @@
+import { StructError } from 'superstruct';
+
 class HttpError extends Error {
   constructor(...args) {
     super();
@@ -45,6 +47,45 @@ class HttpError extends Error {
   }
 }
 
+class ErrorCollection extends Error {
+  constructor(errors) {
+    super();
+    const [ first ] = errors;
+    this.message = first.message;
+    this.errors = [];
+    this.add(errors);
+  }
+
+  add(errors) {
+    for (let err of errors) {
+      if (err instanceof this.constructor) {
+        this.add(err.errors);
+      } else {
+        this.errors.push(err);
+      }
+    }
+  }
+}
+
+function displayError(error, context) {
+  if (error instanceof ErrorCollection) {
+    for (let err of error.errors) {
+      displayError(err, context);
+    }
+    return;
+  }
+  let msg;
+  if (error instanceof StructError) {
+    // TODO
+    msg = error.message;
+  } else {
+    msg = error.message;
+  }
+  console.error(msg);
+}
+
 export {
   HttpError,
+  ErrorCollection,
+  displayError,
 };
