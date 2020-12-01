@@ -52,6 +52,10 @@ describe('Data request handling', function() {
             path: getAssetPath('sushi.xlsx')
           },
           {
+            name: 'sample',
+            path: getAssetPath('sample.xlsx')
+          },
+          {
             name: 'example',
             url: 'https://www.dropbox.com/s/bjjxwodb3kvf4ni/example.xlsx?dl=0'
           },
@@ -209,6 +213,21 @@ describe('Data request handling', function() {
       expect(meta).to.have.property('error')
         .with.property('message')
         .that.contains('ENOENT: no such file or directory');
+    })
+    it('should strip out style when style=0 is given', async function() {
+      const req = createRequest({
+        params: { name: 'sample' },
+        query: { style: '0' },
+      });
+      const res = createResponse();
+      req.site = site;
+      req.server = {};
+      await handleDataRequest(req, res, next);
+      const data = res._getData();
+      const json = JSON.parse(data);
+      const [ sheet1 ] = json.sheets;
+      const [ cellA2, cellB2 ] = sheet1.rows[0];
+      expect(cellB2).to.not.have.property('style');
     })
   })
 })

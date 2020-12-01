@@ -17,6 +17,7 @@ import { setTimeZone, restoreTimeZone } from './time-zone-management.mjs';
  * @return {object}
  */
 async function parseExcelFile(buffer, options) {
+  const { omitStyle } = options;
   const workbook = new Workbook;
   await workbook.xlsx.load(buffer);
   const { keywords, title, description, subject, category } = workbook;
@@ -36,7 +37,11 @@ async function parseExcelFile(buffer, options) {
       sheets.push(sheet);
     }
   }
-  return { ...meta, sheets, expiration };
+  const json = { ...meta, sheets, expiration };
+  if (omitStyle) {
+    stripCellStyle(json);
+  }
+  return json;
 }
 
 /**
@@ -274,9 +279,32 @@ function reinterpretDate(date) {
   return new Date(year, month, day, hours, minutes, seconds, milliseconds);
 }
 
+/**
+ * Remove style object from cells and columns
+ *
+ * @param  {Object} json
+ */
+function stripCellStyle(json) {
+  for (let sheet of json.sheets){
+    for (let column of sheet.columns) {
+      if (column.style) {
+        delete column.style;
+      }
+    }
+    for (let row of sheet.rows) {
+      for (let cell of row) {
+        if (cell.style) {
+          delete cell.style;
+        }
+      }
+    }
+  }
+}
+
 export {
   parseExcelFile,
   parseCSVFile,
   extractNameFlags,
   reinterpretDate,
+  stripCellStyle,
 };

@@ -1,5 +1,5 @@
 import { retrieveFromCloud, retrieveFromDisk } from './file-retrieval.mjs';
-import { parseExcelFile, parseCSVFile } from './excel-parsing.mjs';
+import { parseExcelFile, parseCSVFile, stripCellStyle } from './excel-parsing.mjs';
 import { getHash }  from './content-storage.mjs';
 import {
   findSiteContentMeta, loadSiteContent, loadSiteContentMeta,
@@ -92,6 +92,12 @@ async function handleDataRequest(req, res, next) {
       // save metadata
       const meta = { ...file, etag, mtime, etime, images };
       await saveSiteContentMeta(site, 'data', hash, meta);
+    }
+    if (req.query.style === '0') {
+      const json = JSON.parse(content);
+      stripCellStyle(json);
+      const text = JSON.stringify(json, undefined, 2);
+      content = Buffer.from(text);
     }
     if (etag) {
       res.set('ETag', etag);

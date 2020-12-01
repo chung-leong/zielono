@@ -170,6 +170,14 @@ describe('Excel parsing', function() {
       expect(cellA1).to.have.property('value', 'Name');
       expect(cellB1).to.have.property('value', 'Description (en)');
     })
+    it('should remove style from cells when "omitStyle = true"', async function() {
+      const sushi = await loadExcelFile('sushi.xlsx', { omitStyle: true });
+      const [ sheet1 ] = sushi.sheets;
+      const [ col1 ] = sheet1.columns;
+      expect(col1).to.not.have.property('style');
+      const [ cellA1 ] = sheet1.rows[0];
+      expect(cellA1).to.not.have.property('style');
+    })
   })
   describe('#parseCSVFile()', function() {
     let sample;
