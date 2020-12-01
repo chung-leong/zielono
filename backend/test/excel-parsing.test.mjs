@@ -149,6 +149,27 @@ describe('Excel parsing', function() {
       expect(hash1).to.eql('1a1e9e305b5a132560e861531430f9b881b35cd1');
       expect(hash2).to.eql('32e4106d369959addd2abed33f59f78ea92c0c28');
     })
+    it('should preserve styling on cells used as column headers', function() {
+      const [ sheet1 ] = sushi.sheets;
+      const [ col1 ] = sheet1.columns;
+      expect(col1).to.have.property('style');
+      expect(col1.style).to.eql({
+        verticalAlign: 'bottom',
+        fontWeight: 'bold',
+        borderBottom: '1px solid #000000'
+      });
+    })
+    it('should not use first row as column name when "withNames = 0"', async function() {
+      const sushi = await loadExcelFile('sushi.xlsx', { withNames: 0 });
+      const [ sheet1 ] = sushi.sheets;
+      expect(sheet1).to.have.property('nameless', true);
+      const [ col1, col2 ] = sheet1.columns;
+      expect(col1).to.have.property('name', 'A');
+      expect(col2).to.have.property('name', 'B');
+      const [ cellA1, cellB1 ] = sheet1.rows[0];
+      expect(cellA1).to.have.property('value', 'Name');
+      expect(cellB1).to.have.property('value', 'Description (en)');
+    })
   })
   describe('#parseCSVFile()', function() {
     let sample;

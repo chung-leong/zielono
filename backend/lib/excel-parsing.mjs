@@ -1,6 +1,7 @@
 import camelCase from 'lodash/camelCase.js';
 import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
 import './exceljs-patching.mjs';
+import colCache from 'exceljs/lib/utils/col-cache.js';
 import { Readable } from 'stream';
 import { formatValue } from './excel-formatting.mjs';
 import { extractCellStyle, extractRichText, applyStyle } from './excel-styling.mjs';
@@ -66,7 +67,7 @@ async function parseCSVFile(buffer, options) {
  */
 async function parseExcelWorksheet(worksheet, options) {
   const { state, rowCount, columnCount } = worksheet;
-  const { locale, timeZone } = options;
+  const { locale, timeZone, withNames = 1 } = options;
   const sheetNameFlags = extractNameFlags(worksheet.name);
   if (state === 'visible' && sheetNameFlags) {
     // set time zone so dates are interpreted correctly
@@ -89,20 +90,55 @@ async function parseExcelWorksheet(worksheet, options) {
     const columns = [];
     const rows = [];
     const isUsing = {};
+    if (withNames < 1) {
+      for (let c = 1; c <= columnCount; c++) {
+        const wsColumn = worksheet.getColumn(c);
+        if (!wsColumn.hidden) {
+          const name = colCache.n2l(c);
+          const column = { name };
+          columns.push(column);
+          isUsing[c] = true;
+        }
+      }
+      sheetNameFlags.nameless = true;
+    }
     let lowestNonEmptyRow = 1;
     for (let r = 1; r <= rowCount; r++) {
       const wsRow = worksheet.getRow(r);
-      if (r === 1) {
-        // use first row as column names
+      if (wsRow.hidden) {
+        // skip hidden rows
+        continue;
+      }
+      if (wsRow.hasValues) {
+        const prevNonEmptyRow = lowestNonEmptyRow;
+        if (r > lowestNonEmptyRow) {
+          lowestNonEmptyRow = r;
+          if (r !== prevNonEmptyRow + 1) {
+            // go back and process the empty rows above this one
+            r = prevNonEmptyRow;
+            continue;
+          }
+        }
+      } else {
+        if (r > lowestNonEmptyRow) {
+          // don't process an empty row unless there's something beneath it
+          continue;
+        }
+      }
+      if (r === withNames) {
+        // use the row as column names
         for (let c = 1; c <= columnCount; c++) {
-          const workshetColumn = worksheet.getColumn(c);
-          if (workshetColumn.hidden) {
+          const wsColumn = worksheet.getColumn(c);
+          if (wsColumn.hidden) {
             continue;
           }
           const wsCell = wsRow.getCell(c);
-          const columnNameFlags = extractNameFlags(wsCell.text);
+          const media = wsMedia[`${c}:${r}`];
+          const contents = extractCellContents(wsCell, media, { locale });
+          const { value, ...remaining } = contents;
+          const columnNameFlags = extractNameFlags(value + '');
           if (columnNameFlags) {
-            const column = columnNameFlags;
+            const column = { ...columnNameFlags, ...remaining };
             columns.push(column);
             isUsing[c] = true;
           }
@@ -110,28 +146,8 @@ async function parseExcelWorksheet(worksheet, options) {
         if (columns.length === 0) {
           break;
         }
-      } else {
+      } else if (r > withNames) {
         // all the remaining rows are treated as data rows
-        if (wsRow.hidden) {
-          // skip hidden rows
-          continue;
-        }
-        if (wsRow.hasValues) {
-          const prevNonEmptyRow = lowestNonEmptyRow;
-          if (r > lowestNonEmptyRow) {
-            lowestNonEmptyRow = r;
-            if (r !== prevNonEmptyRow + 1) {
-              // go back and process the empty rows above this one
-              r = prevNonEmptyRow;
-              continue;
-            }
-          }
-        } else {
-          if (r > lowestNonEmptyRow) {
-            // don't process an empty row unless there's something beneath it
-            continue;
-          }
-        }
         const row = [];
         for (let c = 1; c <= columnCount; c++) {
           if (isUsing[c]) {
