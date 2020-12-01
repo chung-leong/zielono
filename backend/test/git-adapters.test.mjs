@@ -1,10 +1,18 @@
 import Chai from 'chai'; const { expect } = Chai;
+import { dirname, resolve } from 'path';
 import './helpers/conditional-testing.mjs';
 import { getAccessToken } from './helpers/access-tokens.mjs';
+import { fileURLToPath } from 'url';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const repoPath = resolve(__dirname, '../..');
 
 import {
   findGitAdapter,
+  GitAdapter,
+  GitRemoteAdapter,
   GitHubAdapter,
+  GitLocalAdapter,
 } from '../lib/git-adapters.mjs';
 
 describe('Git adapters', function() {
@@ -18,10 +26,17 @@ describe('Git adapters', function() {
       expect(adapter).to.be.instanceOf(GitHubAdapter);
       expect(adapter).to.have.property('name', 'github');
     })
+    it('should find GitHub adapter', function() {
+      const options = {
+        path: repoPath,
+      };
+      const adapter = findGitAdapter(options);
+      expect(adapter).to.be.instanceOf(GitLocalAdapter);
+      expect(adapter).to.have.property('name', 'local');
+    })
   })
-  describe('#GitHubAdapter', function() {
-    const adapter = new GitHubAdapter;
-    const accessToken = getAccessToken('github');
+  describe('#GitAdapter', function() {
+    const adapter = new GitAdapter('test');
     describe('#parsePath()', function() {
       it('should parse a path into folders and filename', function() {
         const path = 'hello/world/something.png';
@@ -32,6 +47,31 @@ describe('Git adapters', function() {
         })
       })
     })
+    describe('#isCommitID()', function() {
+      it('should return true if the given string seems to be a sha1 hash', function() {
+        const result = adapter.isCommitID('b3a7b37f86efde136d7601a98614fa458c77d0ff');
+        expect(result).to.be.true;
+      })
+      it('should return false if the string is something else', function() {
+        const result = adapter.isCommitID('heads/main');
+        expect(result).to.be.false;
+      })
+    })
+  })
+  describe('#GitRemoteAdapter', function() {
+    const adapter = new GitRemoteAdapter('test');
+    skip.if.watching.or.no.github.
+    describe('#retrieveJSON()', function() {
+      it('should retrieve a JSON object from remote server', async function() {
+        const url = 'https://api.github.com/repos/chung-leong/zielono/git/ref/heads/main';
+        const json = await adapter.retrieveJSON(url, { accessToken });
+        expect(json).to.have.keys([ 'ref', 'url', 'node_id', 'object' ]);
+      })
+    })
+  })
+  describe('#GitHubAdapter', function() {
+    const adapter = new GitHubAdapter;
+    const accessToken = getAccessToken('github');
     describe('#parseURL()', function() {
       it('should extract user and repo name from GitHub URL', function() {
         const url = 'https://github.com/chung-leong/zielono';
@@ -57,24 +97,6 @@ describe('Git adapters', function() {
         const result  = adapter.getURL('repos/:owner/:repo/git/ref/:ref', options);
         expect(result).to.eql(url);
       });
-    })
-    describe('#isCommitID()', function() {
-      it('should return true if the given string seems to be a sha1 hash', function() {
-        const result = adapter.isCommitID('b3a7b37f86efde136d7601a98614fa458c77d0ff');
-        expect(result).to.be.true;
-      })
-      it('should return false if the string is something else', function() {
-        const result = adapter.isCommitID('heads/main');
-        expect(result).to.be.false;
-      })
-    })
-    skip.if.watching.or.no.github.
-    describe('#retrieveJSON()', function() {
-      it('should retrieve a JSON object from remote server', async function() {
-        const url = 'https://api.github.com/repos/chung-leong/zielono/git/ref/heads/main';
-        const json = await adapter.retrieveJSON(url, { accessToken });
-        expect(json).to.have.keys([ 'ref', 'url', 'node_id', 'object' ]);
-      })
     })
     skip.if.watching.or.no.github.
     describe('#findRepo()', function() {
@@ -165,6 +187,76 @@ describe('Git adapters', function() {
         expect(refs).to.eql({
           '1fde120a0a87d45e9a5df72d6abedf9b5e6ff1a1': [
             'heads/main',
+            'tags/test-target'
+          ]
+        });
+      })
+    })
+  })
+  describe('#GitLocalAdapter', function() {
+    const adapter = new GitLocalAdapter;
+    describe('#retrieveFile()', function() {
+      it('should retrieve file from default branch of repo', async function() {
+        const path = 'backend/test/assets/hello.json';
+        const options = {
+          path: repoPath,
+        };
+        const buffer = await adapter.retrieveFile(path, options);
+        expect(buffer).to.be.instanceOf(Buffer);
+        expect(buffer).to.have.property('filename', 'hello.json');
+        const json = JSON.parse(buffer);
+        expect(json).to.eql({ message: 'hello world', version: 2 });
+      })
+      it('should retrieve file from a tagged commit', async function() {
+        const path = 'backend/test/assets/hello.json';
+        const options = {
+          path: repoPath,
+          ref: 'tags/test-target',
+        };
+        const buffer = await adapter.retrieveFile(path, options);
+        expect(buffer).to.be.instanceOf(Buffer);
+        expect(buffer).to.have.property('filename', 'hello.json');
+        const json = JSON.parse(buffer);
+        expect(json).to.eql({ message: 'hello world', version: 2 });
+      })
+      it('should retrieve file from a specific commit', async function() {
+        const path = 'backend/test/assets/hello.json';
+        const options = {
+          path: repoPath,
+          ref: 'b3a7b37f86efde136d7601a98614fa458c77d0ff',
+        };
+        const buffer = await adapter.retrieveFile(path, options);
+        expect(buffer).to.be.instanceOf(Buffer);
+        expect(buffer).to.have.property('filename', 'hello.json');
+        const json = JSON.parse(buffer);
+        expect(json).to.eql({ message: 'hello world', version: 1 });
+      })
+    })
+    describe('#retrieveVersions()', function() {
+      it('should retrieve a list of relevant commits', async function() {
+        const options = {
+          path: repoPath,
+        };
+        const path = 'backend/test/assets/hello.json';
+        const versions = await adapter.retrieveVersions(path, options);
+        const shas = versions.map((v) => v.sha);
+        expect(shas).to.eql([
+          '1fde120a0a87d45e9a5df72d6abedf9b5e6ff1a1',
+          'b3a7b37f86efde136d7601a98614fa458c77d0ff',
+          '2482b2b389e8aa3f61415287e1a25893de64ac03',
+        ]);
+      })
+    })
+    describe('#retrieveVersionRefs()', function() {
+      it('should retrieve a branches and tags associated with relavant commits', async function() {
+        const options = {
+          path: repoPath,
+        };
+        const path = 'backend/test/assets/hello.json';
+        const refs = await adapter.retrieveVersionRefs(path, options);
+        expect(refs).to.eql({
+          '1fde120a0a87d45e9a5df72d6abedf9b5e6ff1a1': [
+            'heads/origin/main',
             'tags/test-target'
           ]
         });

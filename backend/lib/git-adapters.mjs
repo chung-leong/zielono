@@ -1,3 +1,6 @@
+import { exec } from 'child_process';
+import Fs from 'fs'; const { readFile } = Fs.promises;
+import { join } from 'path';
 import fetch from 'cross-fetch';
 import { getAgent as agent } from './http-agents.mjs';
 import { HttpError } from './error-handling.mjs';
@@ -79,11 +82,9 @@ class GitHubAdapter extends GitRemoteAdapter {
     const { url, accessToken } = options;
     const { owner, repo } = this.parseURL(url);
     const apiOpts = { owner, repo, accessToken };
-    const relevantCommits = await this.findCommits(path, apiOpts);
-    const tags = await this.findTags(apiOpts);
-    const branches = await this.findBranches(apiOpts);
+    const commits = await this.findCommits(path, apiOpts);
     const versions = [];
-    for (let { sha, commit } of relevantCommits) {
+    for (let { sha, commit } of commits) {
       versions.push({
         sha,
         author: commit.author.name,
@@ -120,7 +121,7 @@ class GitHubAdapter extends GitRemoteAdapter {
       let sha = ref.commit.sha;
       while (sha) {
         // see if it's one of the relevant commit
-        checked.push(sha)          ;
+        checked.push(sha);
         if (relevantCommitHash[sha]) {
           const folder = tags.includes(ref) ? 'tags' : 'heads';
           let refs = relevantCommitRefs[sha];
@@ -244,6 +245,181 @@ class GitHubAdapter extends GitRemoteAdapter {
   }
 }
 
+class GitLocalAdapter extends GitAdapter {
+  constructor() {
+    super('local');
+  }
+
+  canHandle(options) {
+    const { path } = options;
+    return !!path;
+  }
+
+  async retrieveFile(path, options) {
+    const { filename } = this.parsePath(path);
+    const { ref, path: workingFolder } = options;
+    let buffer;
+    if (!ref) {
+      // load file from working folder directly
+      const fullPath = join(workingFolder, path);
+      buffer = await readFile(fullPath);
+    } else {
+      const ref2 = ref.replace(/^heads\/origin\//, 'origin/');
+      const command = `git show ${ref2}:${path}`;
+      buffer = await this.runGit(command, options);
+    }
+    buffer.filename = filename;
+    return buffer;
+  }
+
+  async retrieveVersions(path, options) {
+    const commits = await this.findCommits(path, options);
+    const versions = [];
+    for (let { sha, author, date, message } of commits) {
+      versions.push({ sha, author, date, message });
+    }
+    return versions;
+  }
+
+  async retrieveVersionRefs(path, options) {
+    // retrieve tags and branches
+    const tags = await this.findTags(options);
+    const branches = await this.findBranches(options);
+    // retrieve commits affecting the path
+    const relevantCommitRefs = {};
+    const relevantCommits = await this.findCommits(path, options);
+    const relevantCommitHash = {};
+    for (let commit of relevantCommits) {
+      relevantCommitHash[commit.sha] = commit;
+    }
+    // retrieve all commits (the recent ones, anyway)
+    const allCommits = await this.findCommits(null, options);
+    const allCommitHash = {};
+    for (let commit of allCommits) {
+      allCommitHash[commit.sha] = commit;
+    }
+    // go down all branches and tags and see if they
+    for (let ref of [ ...branches, ...tags]) {
+      const stack = [], checked = [];
+      let sha = ref.sha;
+      while (sha) {
+        // see if it's one of the relevant commit
+        checked.push(sha);
+        if (relevantCommitHash[sha]) {
+          const folder = tags.includes(ref) ? 'tags' : 'heads';
+          let refs = relevantCommitRefs[sha];
+          if (!refs) {
+            relevantCommitRefs[sha] = refs = [];
+          }
+          refs.push(`${folder}/${ref.name}`);
+          break;
+        } else {
+          // check parent(s)
+          const commit = allCommitHash[sha];
+          if (commit) {
+            const parents = commit.parent.split(/\s+/);
+            for (let parent of parents) {
+              stack.push(parent);
+            }
+          }
+          sha = stack.pop();
+          // just in case the server returns weird data
+          if (checked.includes(sha)) {
+            break;
+          }
+        }
+      }
+    }
+    return relevantCommitRefs;
+  }
+
+  async findCommits(path, options) {
+    const fields = {
+      sha: '%H',
+      parent: '%P',
+      message: '%s',
+      author: '%aN',
+      date: '%aD',
+    };
+    const fieldEntries = Object.entries(fields);
+    const fieldStrings = fieldEntries.map(([ n, v ]) => `${n}: ${v}`);
+    const format = fieldStrings.join('%n') + '%n';
+    const command = `git log -100 --pretty=format:'${format}' '${path || '.'}'`;
+    const buffer = await this.runGit(command, options);
+    const commits = [];
+    const sections = buffer.toString().split(/(\r?\n){2}/).map((s) => s.trim());
+    for (let section of sections) {
+      if (section) {
+        const lines = section.split(/\r?\n/);
+        const commit = {};
+        for (let line of lines) {
+          if (line) {
+            const index = line.indexOf(':');
+            const name = line.substr(0, index);
+            const value = line.substr(index + 2);
+            commit[name] = value;
+          }
+        }
+        commits.push(commit);
+      }
+    }
+    return commits;
+  }
+
+  async findTags(options) {
+    const format = '%(refname:lstrip=2)\t%(objectname)';
+    const command = `git tag --format '${format}'`;
+    const buffer = await this.runGit(command, options);
+    const lines = buffer.toString().split(/\r?\n/);
+    const tags = [];
+    for (let line of lines) {
+      if (line) {
+        const [ name, sha ] = line.split('\t');
+        tags.push({ name, sha });
+      }
+    }
+    return tags;
+  }
+
+  async findBranches(options) {
+    const format = '%(refname:lstrip=2)\t%(objectname)';
+    const command = `git branch -r --format '${format}'`;
+    const buffer = await this.runGit(command, options);
+    const lines = buffer.toString().split(/\r?\n/);
+    const branches = [];
+    for (let line of lines) {
+      if (line) {
+        const [ name, sha ] = line.split('\t');
+        const parts = name.split('/');
+        // don't include HEAD
+        if (parts[parts.length - 1] !== 'HEAD') {
+          branches.push({ name, sha });
+        }
+      }
+    }
+    return branches;
+  }
+
+  async runGit(command, options) {
+    const { path } = options;
+    const buffer = await new Promise((resolve, reject) => {
+      const execOpts = {
+        cwd: path,
+        encoding: 'buffer',
+        timeout: 5000,
+      };
+      exec(command, execOpts, (err, stdout) => {
+        if (!err) {
+          resolve(stdout);
+        } else {
+          reject(err);
+        }
+      });
+    });
+    return buffer;
+  }
+}
+
 const gitAdapters = [];
 
 function findGitAdapter(options) {
@@ -255,10 +431,13 @@ function addGitAdapter(adapter) {
 }
 
 addGitAdapter(new GitHubAdapter);
+addGitAdapter(new GitLocalAdapter);
 
 export {
   findGitAdapter,
+  addGitAdapter,
   GitAdapter,
   GitRemoteAdapter,
   GitHubAdapter,
+  GitLocalAdapter,
 };

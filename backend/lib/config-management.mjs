@@ -18,9 +18,9 @@ const TimeZone = define('valid time zone', checkTimeZone);
 
 function pathOrUrl(struct) {
   const type = 'url-or-path';
-  const check = (value, struct) => {
+  const check = (value, ctx) => {
     if ((!value.path && !value.url) || (value.path && value.url)) {
-      const { branch, path } = struct;
+      const { branch, path } = ctx;
       const message = `Expected either url or path to be present`;
       return [ { message, value, branch, path, type } ];
     } else {
