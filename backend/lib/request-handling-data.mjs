@@ -19,6 +19,17 @@ async function handleDataRequest(req, res, next) {
   try {
     const { site } = req;
     const { name } = req.params;
+    const fileIndex = parseInt(name);
+    if (fileIndex >= 0) {
+      const file = site.files[fileIndex];
+      if (file) {
+        const url = req.originalUrl.replace(`/data/${name}`, `/data/${file.name}`);
+        res.redirect(url);
+        return;
+      } else {
+        throw new HttpError(404);
+      }
+    }
     const file = site.files.find((f) => f.name === name);
     if (!file) {
       throw new HttpError(404);

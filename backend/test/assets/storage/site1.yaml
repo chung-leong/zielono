@@ -5,3 +5,5 @@ files:
   - name: sushi
     path: ../sushi.xlsx
     timeZone: Europe/Warsaw
+  - name: sample
+    path: ../sample.xlsx

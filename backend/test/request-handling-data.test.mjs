@@ -229,5 +229,18 @@ describe('Data request handling', function() {
       const [ cellA2, cellB2 ] = sheet1.rows[0];
       expect(cellB2).to.not.have.property('style');
     })
+    it('should redirect to URL with name of file when index is given', async function () {
+      const req = createRequest({
+        originalUrl: '/tmp/-/data/1',
+        url: '/tmp/-/data/1',
+        params: { name: '1' },
+      });
+      const res = createResponse();
+      req.site = site;
+      req.server = {};
+      await handleDataRequest(req, res, next);
+      expect(res.statusCode).to.eql(302);
+      expect(res._getRedirectUrl()).to.eql('/tmp/-/data/sample');
+    })
   })
 })
