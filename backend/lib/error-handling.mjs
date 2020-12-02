@@ -76,8 +76,29 @@ function displayError(error, context) {
   }
   let msg;
   if (error instanceof StructError) {
-    // TODO
-    msg = error.message;
+    const { type, value, refinement, key, filename, lineno } = error;
+    let reason = error.message;
+    if (refinement) {
+      if (refinement === 'url-or-path') {
+        if (value.url) {
+          reason = `property "url" and "path" cannot both be present`;
+        } else {
+          reason = `property "url" or "path" is required`;
+        }
+      }
+    } else {
+      if (type === 'never') {
+        reason = `unrecognized property "${key}"`;
+      } else {
+        const article = /^[aeiou]/i.test(type) ? 'an' : 'a';
+        if (value === undefined) {
+          reason = `required property "${key}" is missing`;
+        } else {
+          reason = `property "${key}" should be ${article} ${type}`;
+        }
+      }
+    }
+    msg = `Error encounter in ${filename} (line ${lineno}): ${reason}`;
   } else {
     msg = error.message;
   }

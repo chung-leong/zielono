@@ -10,24 +10,25 @@ import { checkTimeZone } from './time-zone-management.mjs';
 import { ErrorCollection } from './error-handling.mjs';
 
 // path resolve against config folder
-const Path = coerce(string(), string(), (path) => resolve(getConfigFolder(), path));
+const Path = coerce(string(), string(), (path) => resolve(configFolder, path));
 // listen arguments can be number or array
 const Listen = coerce(array(), number(), (port) => [ port ]);
 // timezone
 const TimeZone = define('valid time zone', checkTimeZone);
 
 function pathOrUrl(struct) {
-  const type = 'url-or-path';
+  const refinement = 'url-or-path';
   const check = (value, ctx) => {
     if ((!value.path && !value.url) || (value.path && value.url)) {
       const { branch, path } = ctx;
+      const { type } = ctx.struct;
       const message = `Expected either url or path to be present`;
       return [ { message, value, branch, path, type } ];
     } else {
       return true;
     }
   };
-  return refine(struct, type, check);
+  return refine(struct, 'url-or-path', check);
 }
 
 // server config definition
