@@ -1,9 +1,7 @@
 import Chai from 'chai'; const { expect } = Chai;
 import Fs from 'fs'; const { lstat, rename } = Fs.promises;
-import Tmp from 'tmp-promise';
-import del from 'del';
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
-import { loadExcelFile, getAssetPath } from './helpers/file-loading.mjs'
+import { loadExcelFile, getAssetPath, createTempFolder } from './helpers/file-loading.mjs'
 import { findSiteContentMeta, loadSiteContent, getHash } from '../lib/content-storage.mjs'
 import './helpers/conditional-testing.mjs';
 
@@ -14,13 +12,7 @@ import {
 
 describe('Data request handling', function() {
   describe('#saveEmbeddedMedia()', function() {
-    let tmpFolder;
-    before(async function() {
-      tmpFolder = await Tmp.dir();
-    })
-    after(async function() {
-      await del([ tmpFolder.path ], { force: true });
-    })
+    const tmpFolder = createTempFolder();
     it('should save images to disk and add references to cells', async function() {
       const json = await loadExcelFile('sushi.xlsx');
       const site = {
@@ -40,35 +32,29 @@ describe('Data request handling', function() {
     })
   })
   describe('#handleDataRequest()', function() {
-    let tmpFolder, site;
-    before(async function() {
-      tmpFolder = await Tmp.dir();
-      site = {
-        name: 'tmp',
-        storage: tmpFolder,
-        files: [
-          {
-            name: 'sushi',
-            path: getAssetPath('sushi.xlsx')
-          },
-          {
-            name: 'sample',
-            path: getAssetPath('sample.xlsx')
-          },
-          {
-            name: 'example',
-            url: 'https://www.dropbox.com/s/bjjxwodb3kvf4ni/example.xlsx?dl=0'
-          },
-          {
-            name: 'bad',
-            url: 'https://www.dropbox.com/s/jjjjjjjjjjjjjjj/example.xlsx?dl=0'
-          }
-        ]
-      };
-    })
-    after(async function() {
-      await del([ tmpFolder.path ], { force: true });
-    })
+    const tmpFolder = createTempFolder();
+    const site = {
+      name: 'tmp',
+      storage: tmpFolder,
+      files: [
+        {
+          name: 'sushi',
+          path: getAssetPath('sushi.xlsx')
+        },
+        {
+          name: 'sample',
+          path: getAssetPath('sample.xlsx')
+        },
+        {
+          name: 'example',
+          url: 'https://www.dropbox.com/s/bjjxwodb3kvf4ni/example.xlsx?dl=0'
+        },
+        {
+          name: 'bad',
+          url: 'https://www.dropbox.com/s/jjjjjjjjjjjjjjj/example.xlsx?dl=0'
+        }
+      ]
+    };
     const next = (err) => {
       if (err) {
         throw err;

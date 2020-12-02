@@ -4,13 +4,13 @@ import fetch from 'cross-fetch';
 import { getAgent } from './http-agents.mjs';
 import { requireGit, overrideRequire } from './file-retrieval.mjs';
 
-async function generatePage(params, timeLimit) {
+async function generatePage(pageParams, gitParams) {
   // fork Node.js child process, running as "nobody"
   const scriptPath = fileURLToPath(import.meta.url);
   const env = {}, uid = 65534, gid = 65534;
   const child = fork(scriptPath, [ 'fork' ], { });
   // impose time limit
-  const timeout = setTimeout(() => child.kill(), timeLimit);
+  const timeout = setTimeout(() => child.kill(), 5000);
   // listen for initial message from child
   const messageInit = new Promise((resolve, reject) => {
     child.on('message', (msg) => {
@@ -19,7 +19,7 @@ async function generatePage(params, timeLimit) {
   });
   const response = await messageInit;
   // send parameters
-  child.send(params);
+  child.send({ page: pageParams, git: gitParams });
   // listen for final message from child
   const messageFinal = new Promise((resolve, reject) => {
     child.on('message', (msg) => {
@@ -36,7 +36,9 @@ async function generatePage(params, timeLimit) {
   clearTimeout(timeout);
   child.disconnect();
   if (result.error) {
-    throw new Error(result.error.message);
+    const error = new Error;
+    Object.assign(error, result.error);
+    throw error;
   }
   return result;
 }
@@ -44,31 +46,36 @@ async function generatePage(params, timeLimit) {
 /**
  * Run HTML rendering code stored in a git repo
  *
- * @param  {object} options
+ * @param  {object} pageParams
+ * @param  {object} gitParams
  *
  * @return {object}
  */
-async function runRemoteCode(options) {
-  overrideRequire(options);
-  const ssr = requireGit('./backend/test/assets/hello.js');
-
-  // TODO: run the code
+async function runRemoteCode(pageParams, gitParams) {
+  overrideRequire(gitParams);
+  const ssr = requireGit('./ssr/index.js');
   const sources = [];
-  const html = `<html>${ssr.hello('Sam')}</html>`;
-
+  // create fetch()
+  global.fetch = (url, options) => {
+    fetch(url, options);
+  };
+  const html = await ssr.render(pageParams);
   // prevent eval from being used afterward
   delete global.eval;
+  delete global.fetch;
   return { html, sources };
 }
 
 if (process.argv[2] === 'fork') {
   process.once('message', async (msg) => {
     try {
-      const result = await runRemoteCode(msg);
+      const { page, git } = msg;
+      const result = await runRemoteCode(page, git);
       process.send(result);
     } catch (err) {
-      console.error(err);
-      process.send({ err: err.message });
+      process.send({
+        error: { message: err.message, stack: err.stack }
+      });
     }
   });
   process.send({ status: 'ready' });

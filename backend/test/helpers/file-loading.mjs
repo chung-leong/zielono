@@ -1,6 +1,8 @@
 import Fs from 'fs'; const { readFile } = Fs.promises;
 import { join, dirname } from 'path';
 import { fileURLToPath } from 'url';
+import Tmp from 'tmp-promise';
+import del from 'del';
 import { parseExcelFile } from '../../lib/excel-parsing.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -27,8 +29,21 @@ async function loadAsset(filename) {
   return data;
 }
 
+function createTempFolder() {
+  const folder = {};
+  before(async function() {
+    const tmp = await Tmp.dir();
+    folder.path = tmp.path;
+  })
+  after(async function() {
+    await del([ folder.path ], { force: true });
+  })
+  return folder;
+}
+
 export {
   loadExcelFile,
   loadAsset,
   getAssetPath,
+  createTempFolder,
 };

@@ -48,7 +48,6 @@ const Site = object({
       name: string(),
       path: optional(Path),
       url: optional(string()),
-      download: optional(boolean()),
       timeZone: optional(TimeZone),
       withNames: optional(number()),
     })),
@@ -57,7 +56,7 @@ const Site = object({
   storage: optional(object({
     path: Path
   })),
-  template: optional(
+  code: optional(
     pathOrUrl(object({
       path: optional(Path),
       url: optional(string()),

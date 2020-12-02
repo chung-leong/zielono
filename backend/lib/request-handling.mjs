@@ -53,13 +53,14 @@ function addHandlers(app) {
   app.use(createCompressionHandler());
   app.use(handleSiteAssociation);
   app.use('/zielono', handleAdminRequest);
+  app.use(handleRefExtraction);
   app.use('/:page(*)/:resource(-/*)', handleResourceRedirection);
   app.get('/-/data/:name', handleDataRequest);
   app.get('/-/images/:hash/:filename?', handleImageRequest);
-  app.get('/-/:path(*)', handleInvalidRequest);
+  app.get('/-/*', handleInvalidRequest);
   app.use('/:page(*)/:resource(*.*)', handleResourceRedirection);
   app.get('/:filename(*.*)', handlePageRequest);
-  app.get('/:path(*)', handlePageRequest);
+  app.get('/:page(*)', handlePageRequest);
   app.use(handleError);
 }
 
@@ -105,6 +106,23 @@ async function handleSiteAssociation(req, res, next) {
   } catch (err) {
     next(err);
   }
+}
+
+/**
+ * Extract ref (branch, tag, or commit id) from URL
+ *
+ * @param  {Request}  req
+ * @param  {Response} res
+ * @param  {function} next
+ */
+function handleRefExtraction(req, res, next) {
+  const { url } = req;
+  const m = /^\/\(([^\)\s]+)\)/.exec(url);
+  if (m) {
+    req.ref= m[1];
+    req.url = url.substr(m[0].length);
+  }
+  next();
 }
 
 /**
@@ -154,6 +172,7 @@ export {
   stopHTTPServer,
   addHandlers,
   handleSiteAssociation,
+  handleRefExtraction,
   handleResourceRedirection,
   handleInvalidRequest,
   handleError,

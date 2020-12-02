@@ -26,8 +26,6 @@ async function handleDataRequest(req, res, next) {
         const url = req.originalUrl.replace(`/data/${name}`, `/data/${file.name}`);
         res.redirect(url);
         return;
-      } else {
-        throw new HttpError(404);
       }
     }
     const file = site.files.find((f) => f.name === name);
@@ -78,16 +76,17 @@ async function handleDataRequest(req, res, next) {
       }
     } else {
       // parse source file
-      const { timeZone, columnNames } = site;
+      const { locale } = site;
+      const { timeZone, withNames } = file;
       const { filename } = sourceFile;
       let json, etime;
       if (/\.json$/i.test(filename)) {
         json = JSON.parse(sourceFile);
       } else if (/\.csv$/i.test(filename)) {
         const sheetName = filename.substr(0, filename.length - 4);
-        json = await parseCSVFile(sourceFile, { timeZone, sheetName });
+        json = await parseCSVFile(sourceFile, { locale, timeZone, sheetName });
       } else if (/\.xlsx$/i.test(filename)) {
-        json = await parseExcelFile(sourceFile, { timeZone, columnNames });
+        json = await parseExcelFile(sourceFile, { locale, timeZone, withNames });
         etime = json.expiration;
       } else {
         throw new Error(`Unknown file type: ${buffer.filename}`);

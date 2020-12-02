@@ -7,6 +7,7 @@ import { setConfigFolder } from '../lib/config-management.mjs';
 import {
   addHandlers,
   handleSiteAssociation,
+  handleRefExtraction,
   handleResourceRedirection,
   handleInvalidRequest,
   handleError,
@@ -193,6 +194,19 @@ describe('Request handling', function() {
       expect(req).to.have.property('site').that.is.an('object');
       expect(req.site).to.have.property('name', 'site1');
       expect(req.baseUrl).to.eql('/site1');
+    })
+  })
+  describe('#handleRefExtraction', function() {
+    it('should extract brach ref from URL', function() {
+      const req = createRequest({
+        port: 80,
+        url: '/(heads/main)/somewhere/else/',
+        originalUrl: '/(heads/main)/somewhere/else/',
+      });
+      const res = createResponse();
+      handleRefExtraction(req, res, next);
+      expect(req.url).to.eql('/somewhere/else/');
+      expect(req.ref).to.eql('heads/main');
     })
   })
   describe('#handleResourceRedirection()', function() {
