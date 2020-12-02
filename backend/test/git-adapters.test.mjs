@@ -125,7 +125,7 @@ describe('Git adapters', function() {
         const buffer = await adapter.retrieveFile(path, options);
         expect(buffer).to.be.instanceOf(Buffer);
         expect(buffer).to.have.property('filename', 'hello.json');
-        expect(buffer).to.have.property('sha');
+        expect(buffer).to.have.property('sha', 'b4fefce728d51a59bcf3f4a022d145f0ba7cc8d2');
         const json = JSON.parse(buffer);
         expect(json).to.eql({ message: 'hello world', version: 2 });
       })
@@ -139,7 +139,7 @@ describe('Git adapters', function() {
         const buffer = await adapter.retrieveFile(path, options);
         expect(buffer).to.be.instanceOf(Buffer);
         expect(buffer).to.have.property('filename', 'hello.json');
-        expect(buffer).to.have.property('sha');
+        expect(buffer).to.have.property('sha', 'b4fefce728d51a59bcf3f4a022d145f0ba7cc8d2');
         const json = JSON.parse(buffer);
         expect(json).to.eql({ message: 'hello world', version: 2 });
       })
@@ -153,7 +153,7 @@ describe('Git adapters', function() {
         const buffer = await adapter.retrieveFile(path, options);
         expect(buffer).to.be.instanceOf(Buffer);
         expect(buffer).to.have.property('filename', 'hello.json');
-        expect(buffer).to.have.property('sha');
+        expect(buffer).to.have.property('sha', 'a03f21b9d6c25fd82ac3496cb1ab91dd5126c55f');
         const json = JSON.parse(buffer);
         expect(json).to.eql({ message: 'hello world', version: 1 });
       })
@@ -204,6 +204,7 @@ describe('Git adapters', function() {
         const buffer = await adapter.retrieveFile(path, options);
         expect(buffer).to.be.instanceOf(Buffer);
         expect(buffer).to.have.property('filename', 'hello.json');
+        expect(buffer).to.have.property('sha', 'b4fefce728d51a59bcf3f4a022d145f0ba7cc8d2');
         const json = JSON.parse(buffer);
         expect(json).to.eql({ message: 'hello world', version: 2 });
       })
@@ -216,6 +217,7 @@ describe('Git adapters', function() {
         const buffer = await adapter.retrieveFile(path, options);
         expect(buffer).to.be.instanceOf(Buffer);
         expect(buffer).to.have.property('filename', 'hello.json');
+        expect(buffer).to.have.property('sha', 'b4fefce728d51a59bcf3f4a022d145f0ba7cc8d2');
         const json = JSON.parse(buffer);
         expect(json).to.eql({ message: 'hello world', version: 2 });
       })
@@ -228,6 +230,7 @@ describe('Git adapters', function() {
         const buffer = await adapter.retrieveFile(path, options);
         expect(buffer).to.be.instanceOf(Buffer);
         expect(buffer).to.have.property('filename', 'hello.json');
+        expect(buffer).to.have.property('sha', 'a03f21b9d6c25fd82ac3496cb1ab91dd5126c55f');
         const json = JSON.parse(buffer);
         expect(json).to.eql({ message: 'hello world', version: 1 });
       })

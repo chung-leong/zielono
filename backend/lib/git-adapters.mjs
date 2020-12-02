@@ -1,6 +1,7 @@
 import { exec } from 'child_process';
 import Fs from 'fs'; const { readFile } = Fs.promises;
 import { join } from 'path';
+import { createHash } from 'crypto';
 import fetch from 'cross-fetch';
 import { getAgent as agent } from './http-agents.mjs';
 import { HttpError } from './error-handling.mjs';
@@ -269,6 +270,10 @@ class GitLocalAdapter extends GitAdapter {
       buffer = await this.runGit(command, options);
     }
     buffer.filename = filename;
+    const hash = createHash('sha1');
+    hash.update(`blob ${buffer.length}\0`);
+    hash.update(buffer);
+    buffer.sha = hash.digest('hex');
     return buffer;
   }
 
