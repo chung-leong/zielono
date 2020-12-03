@@ -57,10 +57,12 @@ class ExcelValueFormatter extends ExcelDataFormatter {
   constructor(formatString, options, key) {
     super(formatString, options, key);
     const fsParts = formatString.split(/;/);
-    this.parts = fsParts.map((fsPart) => this.parsePart(fsPart));
+    this.parts = fsParts.map((fsPart, index, fsParts) => {
+      return this.parsePart(fsPart, index, fsParts);
+    });
   }
 
-  parsePart(fsPart) {
+  parsePart(fsPart, index, fsParts) {
     // create a closure for replacing matching patterns
     let remaining = fsPart;
     let operations = [];
@@ -93,6 +95,64 @@ class ExcelValueFormatter extends ExcelDataFormatter {
         return false;
       }
     });
+    if (fsParts.length === 1) {
+      // handle locale-specific fomrat
+      find(/^\[\$\-F800\].*/i, (m, value, cxt) => {
+        const { locale } = cxt;
+        const options = { dateStyle: 'full' };
+        return value.toLocaleDateString(locale, options);
+      });
+      find(/^mm\-dd\-yy$/, (m, value, cxt) => {
+        const { locale } = cxt;
+        const options = { day: 'numeric', month: 'numeric', year: 'numeric' };
+        return value.toLocaleDateString(locale, options);
+      }, Date);
+      find(/^d\-mmm\-yy$/, (m, value, cxt) => {
+        const { locale } = cxt;
+        const options = { day: 'numeric', month: 'short', year: 'numeric' };
+        return value.toLocaleDateString(locale, options);
+      }, Date);
+      find(/^d\-mmm$/, (m, value, cxt) => {
+        const { locale } = cxt;
+        const options = { day: 'numeric', month: 'short' };
+        return value.toLocaleDateString(locale, options);
+      }, Date);
+      find(/^mmm\-yy$/, (m, value, cxt) => {
+        const { locale } = cxt;
+        const options = { month: 'short', year: 'numeric' };
+        return value.toLocaleDateString(locale, options);
+      }, Date);
+      find(/^m\/d\/yy "h":mm$/, (m, value, cxt) => {
+        const { locale } = cxt;
+        const options = { month: 'numeric', date: 'numeric', year: 'numeric', hour: 'numeric', minute: '2-digit' };
+        return value.toLocaleDateString(locale, options);
+      }, Date);
+      find(/^\[\$\-F400\].*/i, (m, value, cxt) => {
+        const { locale } = cxt;
+        const options = { timeStyle: 'medium' };
+        return value.toLocaleTimeString(locale, options);
+      });
+      find(/^h:mm$/, (m, value, cxt) => {
+        const { locale } = cxt;
+        const options = { hour: 'numeric', minute: '2-digit', hour24: true };
+        return value.toLocaleTimeString(locale, options);
+      }, Date);
+      find(/^h:mm AM\/PM$/, (m, value, cxt) => {
+        const { locale } = cxt;
+        const options = { hour: 'numeric', minute: '2-digit', hour24: true };
+        return value.toLocaleTimeString(locale, options);
+      }, Date);
+      find(/^h:mm:ss$/, (m, value, cxt) => {
+        const { locale } = cxt;
+        const options = { hour: 'numeric', minute: '2-digit', second: '2-digit' };
+        return value.toLocaleTimeString(locale, options);
+      }, Date);
+      find(/^h:mm:ss AM\/PM$/, (m, value, cxt) => {
+        const { locale } = cxt;
+        const options = { hour: 'numeric', minute: '2-digit', second: '2-digit', hour24: true };
+        return value.toLocaleTimeString(locale, options);
+      }, Date);
+    }
     // find currency symbol/locale
     find(/\[\$([^-\]]*)(-([0-9a-f]+))?]/i, (m, value, cxt) => {
       if (m[3]) {
