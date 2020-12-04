@@ -152,8 +152,9 @@ describe('Excel parsing', function() {
     it('should preserve styling on cells used as column headers', function() {
       const [ sheet1 ] = sushi.sheets;
       const [ col1 ] = sheet1.columns;
-      expect(col1).to.have.property('style');
-      expect(col1.style).to.eql({
+      expect(col1).to.have.property('header');
+      expect(col1.header).to.have.property('style');
+      expect(col1.header.style).to.eql({
         verticalAlign: 'bottom',
         fontWeight: 'bold',
         borderBottom: '1px solid #000000'
@@ -162,8 +163,8 @@ describe('Excel parsing', function() {
     it('should not use first row as column name when "withNames = 0"', async function() {
       const sushi = await loadExcelFile('sushi.xlsx', { withNames: 0 });
       const [ sheet1 ] = sushi.sheets;
-      expect(sheet1).to.have.property('nameless', true);
       const [ col1, col2 ] = sheet1.columns;
+      expect(col1).to.not.have.property('header');
       expect(col1).to.have.property('name', 'A');
       expect(col2).to.have.property('name', 'B');
       const [ cellA1, cellB1 ] = sheet1.rows[0];

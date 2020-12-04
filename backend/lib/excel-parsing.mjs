@@ -105,7 +105,6 @@ async function parseExcelWorksheet(worksheet, options) {
           isUsing[c] = true;
         }
       }
-      sheetNameFlags.nameless = true;
     }
     let lowestNonEmptyRow = 1;
     for (let r = 1; r <= rowCount; r++) {
@@ -139,11 +138,10 @@ async function parseExcelWorksheet(worksheet, options) {
           }
           const wsCell = wsRow.getCell(c);
           const media = wsMedia[`${c}:${r}`];
-          const contents = extractCellContents(wsCell, media, { locale });
-          const { value, ...remaining } = contents;
-          const columnNameFlags = extractNameFlags(value + '');
+          const header = extractCellContents(wsCell, media, { locale });
+          const columnNameFlags = extractNameFlags(wsCell.text);
           if (columnNameFlags) {
-            const column = { ...columnNameFlags, ...remaining };
+            const column = { ...columnNameFlags, header };
             columns.push(column);
             isUsing[c] = true;
           }
