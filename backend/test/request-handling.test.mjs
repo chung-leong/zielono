@@ -69,10 +69,10 @@ describe('Request handling', function() {
       })
     };
     test('/', handlePageRequest, {
-      path: ''
+      page: ''
     });
     test('/somewhere', handlePageRequest, {
-      path: 'somewhere'
+      page: 'somewhere'
     });
     test('/somewhere/out/there/index.js', handleResourceRedirection, {
       page: 'somewhere/out/there',
@@ -87,10 +87,10 @@ describe('Request handling', function() {
       resource: '-/data/sushi'
     });
     test('/somewhere/out/there', handlePageRequest, {
-      path: 'somewhere/out/there'
+      page: 'somewhere/out/there'
     });
     test('/somewhere/out/there/', handlePageRequest, {
-      path: 'somewhere/out/there/'
+      page: 'somewhere/out/there/'
     });
     test('/index.js', handlePageRequest, {
       filename: 'index.js'
@@ -102,14 +102,12 @@ describe('Request handling', function() {
     test('/-/data/sushi', handleDataRequest, {
       name: 'sushi',
     });
-    test('/-/sddd/asddde', handleInvalidRequest, {
-      path: 'sddd/asddde'
-    });
+    test('/-/sddd/asddde', handleInvalidRequest, {});
     test('/zielono', handleAdminRequest, {});
     test('/zielono/ghhj/', handleAdminRequest, {});
     test('/zielono/-/data/some', handleAdminRequest, {});
     test('/zielonooo', handlePageRequest, {
-      path: 'zielonooo'
+      page: 'zielonooo'
     });
   })
   let nextCalled, next;

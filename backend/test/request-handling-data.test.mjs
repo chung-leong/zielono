@@ -25,7 +25,7 @@ describe('Data request handling', function() {
         await lstat(`${tmpFolder.path}/images/${hash}.jpeg`);
       }
       const sheet = json.sheets[0];
-      const cellD2 = sheet.rows[0][3];
+      const cellD2 = sheet.columns[3].cells[0];
       expect(cellD2.image).to.have.property('hash', '1a1e9e305b5a132560e861531430f9b881b35cd1');
       expect(cellD2.image).to.have.property('width', 440);
       expect(cellD2.image).to.have.property('height', 440);
@@ -211,8 +211,9 @@ describe('Data request handling', function() {
       await handleDataRequest(req, res, next);
       const data = res._getData();
       const json = JSON.parse(data);
-      const [ sheet1 ] = json.sheets;
-      const [ cellA2, cellB2 ] = sheet1.rows[0];
+      const sheet1 = json.sheets[0];
+      const cellA2 = sheet1.columns[0].cells[0];
+      const cellB2 = sheet1.columns[1].cells[0];
       expect(cellB2).to.not.have.property('style');
     })
     it('should redirect to URL with name of file when index is given', async function () {

@@ -86,23 +86,21 @@ async function parseExcelWorksheet(worksheet, options) {
         const { nativeCol, nativeRow } = wsImage.range.tl;
         const c = nativeCol + 1;
         const r = nativeRow + 1;
-        const workbookImage = worksheet.workbook.getImage(wsImage.imageId);
-        wsMedia[`${c}:${r}`] = workbookImage;
+        wsMedia[`${c}:${r}`] = worksheet.workbook.getImage(wsImage.imageId);
       }
     }
     const conditionalStyling = new ExcelConditionalStyling(worksheet, { locale });
     // process the cells
     const columns = [];
-    const rows = [];
-    const isUsing = {};
+    const columnHash = {};
     if (withNames < 1) {
       for (let c = 1; c <= columnCount; c++) {
         const wsColumn = worksheet.getColumn(c);
         if (!wsColumn.hidden) {
           const name = colCache.n2l(c);
-          const column = { name };
+          const column = { name, cells: [] };
           columns.push(column);
-          isUsing[c] = true;
+          columnHash[c] = column;
         }
       }
     }
@@ -141,9 +139,9 @@ async function parseExcelWorksheet(worksheet, options) {
           const header = extractCellContents(wsCell, media, { locale });
           const columnNameFlags = extractNameFlags(wsCell.text);
           if (columnNameFlags) {
-            const column = { ...columnNameFlags, header };
+            const column = { ...columnNameFlags, header, cells: [] };
             columns.push(column);
-            isUsing[c] = true;
+            columnHash[c] = column;
           }
         }
         if (columns.length === 0) {
@@ -151,17 +149,16 @@ async function parseExcelWorksheet(worksheet, options) {
         }
       } else if (r > withNames) {
         // all the remaining rows are treated as data rows
-        const row = [];
         for (let c = 1; c <= columnCount; c++) {
-          if (isUsing[c]) {
+          const column = columnHash[c];
+          if (column) {
             const wsCell = wsRow.getCell(c);
             const media = wsMedia[`${c}:${r}`];
             const contents = extractCellContents(wsCell, media, { locale });
-            row.push(contents);
+            column.cells.push(contents);
             conditionalStyling.check(wsCell, contents);
           }
         }
-        rows.push(row);
       }
     }
     // apply conditional styling
@@ -170,7 +167,7 @@ async function parseExcelWorksheet(worksheet, options) {
     restoreTimeZone();
     // don't return empty sheets
     if (columns.length > 0) {
-      return { ...sheetNameFlags, columns, rows };
+      return { ...sheetNameFlags, columns };
     }
   }
 }
@@ -285,15 +282,11 @@ function reinterpretDate(date) {
 function stripCellStyle(json) {
   for (let sheet of json.sheets){
     for (let column of sheet.columns) {
-      if (column.style) {
-        delete column.style;
+      if (column.header) {
+        delete column.header.style;
       }
-    }
-    for (let row of sheet.rows) {
-      for (let cell of row) {
-        if (cell.style) {
-          delete cell.style;
-        }
+      for (let cell of column.cells) {
+        delete cell.style;
       }
     }
   }

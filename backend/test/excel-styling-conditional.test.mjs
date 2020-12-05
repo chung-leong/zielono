@@ -177,9 +177,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[0];
       expect(column).to.have.property('name', 'Number 2');
-      const cellA2 = sheet.rows[0][0];
-      const cellA5 = sheet.rows[3][0];
-      const cellA10 = sheet.rows[8][0];
+      const cellA2 = column.cells[0];
+      const cellA5 = column.cells[3];
+      const cellA10 = column.cells[8];
       expect(cellA2).to.eql({ value: 10,
         style: {
           textAlign: 'center',
@@ -204,9 +204,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[1];
       expect(column).to.have.property('name', 'Percentile 3');
-      const cellB2 = sheet.rows[0][1];
-      const cellB5 = sheet.rows[3][1];
-      const cellB10 = sheet.rows[8][1];
+      const cellB2 = column.cells[0];
+      const cellB5 = column.cells[3];
+      const cellB10 = column.cells[8];
       expect(cellB2).to.eql({ value: 1,
         style: {
           textAlign: 'center',
@@ -231,9 +231,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[2];
       expect(column).to.have.property('name', 'Percent 3');
-      const cellC2 = sheet.rows[0][2];
-      const cellC5 = sheet.rows[3][2];
-      const cellC10 = sheet.rows[8][2];
+      const cellC2 = column.cells[0];
+      const cellC5 = column.cells[3];
+      const cellC10 = column.cells[8];
       expect(cellC2).to.eql({ value: -5000,
         style: {
           textAlign: 'center',
@@ -258,9 +258,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[3];
       expect(column).to.have.property('name', 'MinMax 3');
-      const cellD2 = sheet.rows[0][3];
-      const cellD5 = sheet.rows[3][3];
-      const cellD10 = sheet.rows[8][3];
+      const cellD2 = column.cells[0];
+      const cellD5 = column.cells[3];
+      const cellD10 = column.cells[8];
       expect(cellD2).to.eql({ value: new Date(2020, 0, 1), text: '01/01/20',
         style: {
           textAlign: 'center',
@@ -285,9 +285,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[4];
       expect(column).to.have.property('name', 'Ref');
-      const cellE2 = sheet.rows[0][4];
-      const cellE5 = sheet.rows[3][4];
-      const cellE10 = sheet.rows[8][4];
+      const cellE2 = column.cells[0];
+      const cellE5 = column.cells[3];
+      const cellE10 = column.cells[8];
       expect(cellE2).to.eql({ value: 1,
         style: {
           textAlign: 'center',
@@ -312,7 +312,7 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[5];
       expect(column).to.have.property('name', 'Formula');
-      const cellF2 = sheet.rows[0][5];
+      const cellF2 = column.cells[0];
       expect(cellF2).to.eql({ value: 1, style: { textAlign: 'center' } });
     })
     it('should attach parameters for data bar', function() {
@@ -320,9 +320,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[6];
       expect(column).to.have.property('name', 'Data bar 1');
-      const cellG2 = sheet.rows[0][6];
-      const cellG7 = sheet.rows[5][6];
-      const cellG11 = sheet.rows[9][6];
+      const cellG2 = column.cells[0];
+      const cellG7 = column.cells[5];
+      const cellG11 = column.cells[9];
       expect(cellG2).to.eql({ value: 1, style: { textAlign: 'right' },
         bar: {
           width: (1 - 1) / (10 - 1),
@@ -347,8 +347,8 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[7];
       expect(column).to.have.property('name', 'Data bar 2');
-      const cellH2 = sheet.rows[0][7];
-      const cellH7 = sheet.rows[5][7];
+      const cellH2 = column.cells[0];
+      const cellH7 = column.cells[5];
       expect(cellH2).to.eql({ value: 5, style: { textAlign: 'right' },
         hideValue: true,
         bar: {
@@ -373,9 +373,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[8];
       expect(column).to.have.property('name', 'Top 20%');
-      const cellI2 = sheet.rows[0][8];
-      const cellI9 = sheet.rows[7][8];
-      const cellI10 = sheet.rows[8][8];
+      const cellI2 = column.cells[0];
+      const cellI9 = column.cells[7];
+      const cellI10 = column.cells[8];
       expect(cellI2).to.eql({ value: 1,
         style: {
           textAlign: 'right'
@@ -399,9 +399,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[9];
       expect(column).to.have.property('name', 'Top 5');
-      const cellJ2 = sheet.rows[0][9];
-      const cellJ6 = sheet.rows[4][9];
-      const cellJ7 = sheet.rows[5][9];
+      const cellJ2 = column.cells[0];
+      const cellJ6 = column.cells[4];
+      const cellJ7 = column.cells[5];
       expect(cellJ2).to.eql({ value: 10,
         style: {
           textAlign: 'right'
@@ -425,9 +425,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[10];
       expect(column).to.have.property('name', 'Bottom 5');
-      const cellK2 = sheet.rows[0][10];
-      const cellK6 = sheet.rows[4][10];
-      const cellK7 = sheet.rows[5][10];
+      const cellK2 = column.cells[0];
+      const cellK6 = column.cells[4];
+      const cellK7 = column.cells[5];
       expect(cellK2).to.eql({ value: 10,
         style: {
           textAlign: 'right',
@@ -453,9 +453,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[11];
       expect(column).to.have.property('name', 'Above avg');
-      const cellL2 = sheet.rows[0][11];
-      const cellL6 = sheet.rows[4][11];
-      const cellL7 = sheet.rows[5][11];
+      const cellL2 = column.cells[0];
+      const cellL6 = column.cells[4];
+      const cellL7 = column.cells[5];
       expect(cellL2).to.eql({ value: 10,
         style: {
           textAlign: 'right',
@@ -479,9 +479,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[12];
       expect(column).to.have.property('name', 'Below avg');
-      const cellM2 = sheet.rows[0][12];
-      const cellM6 = sheet.rows[4][12];
-      const cellM7 = sheet.rows[5][12];
+      const cellM2 = column.cells[0];
+      const cellM6 = column.cells[4];
+      const cellM7 = column.cells[5];
       expect(cellM2).to.eql({ value: -10, text: '(10.00)',
         style: {
           textAlign: 'right',
@@ -507,10 +507,10 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[13];
       expect(column).to.have.property('name', 'Icon set 1');
-      const cellN2 = sheet.rows[0][13];
-      const cellN5 = sheet.rows[3][13];
-      const cellN8 = sheet.rows[6][13];
-      const cellN9 = sheet.rows[7][13];
+      const cellN2 = column.cells[0];
+      const cellN5 = column.cells[3];
+      const cellN8 = column.cells[6];
+      const cellN9 = column.cells[7];
       expect(cellN2).to.eql({ value: 1, style: { textAlign: 'right' },
         icon: {
           set: '3Flags',
@@ -541,11 +541,11 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[14];
       expect(column).to.have.property('name', 'Icon set 2');
-      const cellO2 = sheet.rows[0][14];
-      const cellO4 = sheet.rows[2][14];
-      const cellO6 = sheet.rows[4][14];
-      const cellO8 = sheet.rows[6][14];
-      const cellO10 = sheet.rows[8][14];
+      const cellO2 = column.cells[0];
+      const cellO4 = column.cells[2];
+      const cellO6 = column.cells[4];
+      const cellO8 = column.cells[6];
+      const cellO10 = column.cells[8];
       expect(cellO2).to.eql({ value: 1, style: { textAlign: 'right' },
         icon: {
           set: '5ArrowsGray',
@@ -582,7 +582,7 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[15];
       expect(column).to.have.property('name', 'Icon set 3');
-      const cellP2 = sheet.rows[0][15];
+      const cellP2 = column.cells[0];
       expect(cellP2).to.eql({ value: 1, style: { textAlign: 'right' },
         hideValue: true,
         icon: {
@@ -596,10 +596,10 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[16];
       expect(column).to.have.property('name', 'Duplicate');
-      const cellQ2 = sheet.rows[0][16];
-      const cellQ6 = sheet.rows[4][16];
-      const cellQ9 = sheet.rows[7][16];
-      const cellQ11 = sheet.rows[9][16];
+      const cellQ2 = column.cells[0];
+      const cellQ6 = column.cells[4];
+      const cellQ9 = column.cells[7];
+      const cellQ11 = column.cells[9];
       expect(cellQ2).to.eql({ value: 1,
         style: {
           textAlign: 'right'
@@ -631,10 +631,10 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[17];
       expect(column).to.have.property('name', 'Unique');
-      const cellR2 = sheet.rows[0][17];
-      const cellR4 = sheet.rows[2][17];
-      const cellR6 = sheet.rows[4][17];
-      const cellR9 = sheet.rows[7][17];
+      const cellR2 = column.cells[0];
+      const cellR4 = column.cells[2];
+      const cellR6 = column.cells[4];
+      const cellR9 = column.cells[7];
       expect(cellR2).to.eql({ value: 10,
         style: {
           textAlign: 'right'
@@ -659,8 +659,8 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[18];
       expect(column).to.have.property('name', 'Greater than');
-      const cellS6 = sheet.rows[4][18];
-      const cellS7 = sheet.rows[5][18];
+      const cellS6 = column.cells[4];
+      const cellS7 = column.cells[5];
       expect(cellS6).to.eql({ value: 5,
         style: {
           textAlign: 'right'
@@ -679,8 +679,8 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[19];
       expect(column).to.have.property('name', 'Less than');
-      const cellT6 = sheet.rows[4][19];
-      const cellT7 = sheet.rows[5][19];
+      const cellT6 = column.cells[4];
+      const cellT7 = column.cells[5];
       expect(cellT6).to.eql({ value: 5,
         style: {
           textAlign: 'right',
@@ -699,8 +699,8 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[20];
       expect(column).to.have.property('name', 'Equal');
-      const cellU3 = sheet.rows[1][20];
-      const cellU4 = sheet.rows[2][20];
+      const cellU3 = column.cells[1];
+      const cellU4 = column.cells[2];
       expect(cellU3).to.eql({ value: 2,
         style: {
           textAlign: 'right',
@@ -719,9 +719,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[21];
       expect(column).to.have.property('name', 'Not equal');
-      const cellV5 = sheet.rows[3][21];
-      const cellV6 = sheet.rows[4][21];
-      const cellV7 = sheet.rows[5][21];
+      const cellV5 = column.cells[3];
+      const cellV6 = column.cells[4];
+      const cellV7 = column.cells[5];
       expect(cellV5).to.eql({ value: 4,
         style: {
           textAlign: 'right',
@@ -747,8 +747,8 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[22];
       expect(column).to.have.property('name', 'Greater or equal');
-      const cellW4 = sheet.rows[2][22];
-      const cellW5 = sheet.rows[3][22];
+      const cellW4 = column.cells[2];
+      const cellW5 = column.cells[3];
       expect(cellW4).to.eql({ value: 3,
         style: {
           textAlign: 'right',
@@ -767,10 +767,10 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[23];
       expect(column).to.have.property('name', 'Between');
-      const cellX3 = sheet.rows[1][23];
-      const cellX4 = sheet.rows[2][23];
-      const cellX9 = sheet.rows[7][23];
-      const cellX10 = sheet.rows[8][23];
+      const cellX3 = column.cells[1];
+      const cellX4 = column.cells[2];
+      const cellX9 = column.cells[7];
+      const cellX10 = column.cells[8];
       expect(cellX3).to.eql({ value: 2,
         style: {
           textAlign: 'right',
@@ -801,9 +801,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[24];
       expect(column).to.have.property('name', 'Contains');
-      const cellY2 = sheet.rows[0][24];
-      const cellY3 = sheet.rows[1][24];
-      const cellY9 = sheet.rows[7][24];
+      const cellY2 = column.cells[0];
+      const cellY3 = column.cells[1];
+      const cellY9 = column.cells[7];
       expect(cellY2).to.eql({ value: 'Poland',
         style: {
           border: '1px solid #000000',
@@ -823,9 +823,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[25];
       expect(column).to.have.property('name', 'Ends with');
-      const cellZ2 = sheet.rows[0][25];
-      const cellZ4 = sheet.rows[2][25];
-      const cellZ6 = sheet.rows[4][25];
+      const cellZ2 = column.cells[0];
+      const cellZ4 = column.cells[2];
+      const cellZ6 = column.cells[4];
       expect(cellZ2).to.eql({ value: 'Poland' });
       expect(cellZ4).to.eql({ value: 'Slovakia',
         style: {
@@ -843,9 +843,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[26];
       expect(column).to.have.property('name', 'Starts with');
-      const cellAA2 = sheet.rows[0][26];
-      const cellAA4 = sheet.rows[2][26];
-      const cellAA8 = sheet.rows[6][26];
+      const cellAA2 = column.cells[0];
+      const cellAA4 = column.cells[2];
+      const cellAA8 = column.cells[6];
       expect(cellAA2).to.eql({ value: 'Poland' });
       expect(cellAA4).to.eql({ value: 'Slovakia',
         style: {
@@ -865,9 +865,9 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[27];
       expect(column).to.have.property('name', 'Format');
-      const cellAB3 = sheet.rows[1][27];
-      const cellAB4 = sheet.rows[2][27];
-      const cellAB6 = sheet.rows[4][27];
+      const cellAB3 = column.cells[1];
+      const cellAB4 = column.cells[2];
+      const cellAB6 = column.cells[4];
       expect(cellAB3).to.eql({ value: 2, text: '$2.00',
         style: {
           textAlign: 'right',
@@ -893,22 +893,22 @@ describe('Excel conditional styling', function() {
       expect(sheet).to.have.property('name', 'Conditional formatting');
       const column = sheet.columns[28];
       expect(column).to.have.property('name', 'Date');
-      const cellAC8 = sheet.rows[6][28];
-      const cellAC9 = sheet.rows[7][28];
-      const cellAC11 = sheet.rows[9][28];
-      expect(cellAC8).to.eql({ value: new Date('2020/11/07'), text: '11-07-20',
+      const cellAC8 = column.cells[6];
+      const cellAC9 = column.cells[7];
+      const cellAC11 = column.cells[9];
+      expect(cellAC8).to.eql({ value: new Date('2020/11/07'), text: '11/7/2020',
         style: {
           textAlign: 'right',
         },
       });
-      expect(cellAC9).to.eql({ value: new Date('2020/11/08'), text: '11-08-20',
+      expect(cellAC9).to.eql({ value: new Date('2020/11/08'), text: '11/8/2020',
         style: {
           textAlign: 'right',
           color: '#9c0006',
           backgroundColor: '#ffc7ce'
         },
       });
-      expect(cellAC11).to.eql({ value: new Date('2020/11/10'), text: '11-10-20',
+      expect(cellAC11).to.eql({ value: new Date('2020/11/10'), text: '11/10/2020',
         style: {
           textAlign: 'right',
           color: '#9c0006',

@@ -198,9 +198,12 @@ describe('Excel data formatting', function() {
     })
     it('should format data in the same manner as Excel', function() {
       for (let sheet of formatting.sheets) {
-        for (let [ index, row ] of sheet.rows.entries()) {
+        const [ patternCol, valueCol, resultCol, formattedCol ] = sheet.columns;
+        for (let [ index, pattern ] of patternCol.cells.entries()) {
           try {
-            const [ pattern, value, result, formatted ] = row;
+            const value = valueCol.cells[index];
+            const result = resultCol.cells[index];
+            const formatted = formattedCol.cells[index];
             if (result.style && result.style.backgroundColor) {
               continue;
             }

@@ -125,8 +125,14 @@ async function saveEmbeddedMedia(site, json) {
   // find all the cells with images
   const imageCells = [];
   for (let sheet of json.sheets) {
-    for (let row of sheet.rows) {
-      for (let cell of row) {
+    for (let column of sheet.columns) {
+      if (column.header) {
+        if (column.header.image) {
+          imageCells.push(column.header);
+        }
+
+      }
+      for (let cell of column.cells) {
         if (cell.image) {
           imageCells.push(cell);
         }

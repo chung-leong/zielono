@@ -57,12 +57,12 @@ describe('Excel parsing', function() {
       expect(sample.sheets).to.have.lengthOf(5);
     })
     it('should extract flags from sheet names', function() {
-      const [ sheet1 ] = sample.sheets;
+      const sheet1 = sample.sheets[0];
       expect(sheet1.name).to.eql('Text');
       expect(sheet1.flags).to.eql([ 'with styles' ]);
     })
     it('should extract flags from column names', function() {
-      const [ sheet1 ] = sushi.sheets;
+      const sheet1 = sushi.sheets[0];
       const [ col1, col2, col3, col4 ] = sheet1.columns;
       expect(col1.name).to.eql('Name');
       expect(col2.name).to.eql('Description');
@@ -72,8 +72,9 @@ describe('Excel parsing', function() {
       expect(col4.name).to.eql('Picture');
     })
     it('should extract plain text from cells', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA2, cellB2 ] = sheet1.rows[0];
+      const sheet1 = sample.sheets[0];
+      const cellA2 = sheet1.columns[0].cells[0];
+      const cellB2 = sheet1.columns[1].cells[0];
       expect(cellA2).to.eql({ value: 'Normal' });
       expect(cellB2).to.eql({ value: 'This is a test',
         style: {
@@ -82,28 +83,31 @@ describe('Excel parsing', function() {
       });
     })
     it('should keep empty rows', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA17, cellB17 ] = sheet1.rows[15];
+      const sheet1 = sample.sheets[0];
+      const cellA17 = sheet1.columns[0].cells[15];
+      const cellB17 = sheet1.columns[1].cells[15];
       expect(cellA17).to.eql({ value: null });
       expect(cellB17).to.eql({ value: null, style: { verticalAlign: 'bottom' } });
-      const [ cellA19, cellB19 ] = sheet1.rows[17];
+      const cellA19 = sheet1.columns[0].cells[17];
+      const cellB19 = sheet1.columns[1].cells[17];
       expect(cellA17).to.eql({ value: null });
       expect(cellB17).to.eql({ value: null, style: { verticalAlign: 'bottom' } });
     })
     it('should skip hidden rows', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA31 ] = sheet1.rows[29];
+      const sheet1 = sample.sheets[0];
+      const cellA31 = sheet1.columns[0].cells[29];
       expect(cellA31).to.eql({ value: null });
-      const [ cellA33 ] = sheet1.rows[30];
+      const cellA33 = sheet1.columns[0].cells[30];
       expect(cellA33).to.eql({ value: 'Visible' });
     })
     it('should skip hidden columns', function() {
-      const [ sheet1 ] = sample.sheets;
+      const sheet1 = sample.sheets[0];
       expect(sheet1.columns).to.have.lengthOf(2);
     });
     it('should obtain values from calculated cells', function() {
       const sheet3 = sample.sheets[2];
-      const [ cellA2, cellB2 ] = sheet3.rows[0];
+      const cellA2 = sheet3.columns[0].cells[0];
+      const cellB2 = sheet3.columns[1].cells[0];
       expect(cellA2).to.eql({
         value: 4,
         text: '$4.0',
@@ -123,7 +127,8 @@ describe('Excel parsing', function() {
     })
     it('should handle cells in error condition', function() {
       const sheet3 = sample.sheets[2];
-      const [ cellA6, cellB6 ] = sheet3.rows[4];
+      const cellA6 = sheet3.columns[0].cells[4];
+      const cellB6 = sheet3.columns[1].cells[4];
       expect(cellA6).to.eql({
         value: { error: '#DIV/0!' },
         style: {
@@ -139,8 +144,8 @@ describe('Excel parsing', function() {
     })
     it('should attach images to cells', function() {
       const sheet1 = sushi.sheets[0];
-      const cellD2 = sheet1.rows[0][3];
-      const cellD3 = sheet1.rows[1][3];
+      const cellD2 = sheet1.columns[3].cells[0];
+      const cellD3 = sheet1.columns[3].cells[1];
       expect(cellD2).to.have.property('image');
       expect(cellD3).to.have.property('image');
       const hash1 = getHash(cellD2.image.buffer);
@@ -167,7 +172,8 @@ describe('Excel parsing', function() {
       expect(col1).to.not.have.property('header');
       expect(col1).to.have.property('name', 'A');
       expect(col2).to.have.property('name', 'B');
-      const [ cellA1, cellB1 ] = sheet1.rows[0];
+      const cellA1 = sheet1.columns[0].cells[0];
+      const cellB1 = sheet1.columns[1].cells[0];
       expect(cellA1).to.have.property('value', 'Name');
       expect(cellB1).to.have.property('value', 'Description (en)');
     })
@@ -176,7 +182,7 @@ describe('Excel parsing', function() {
       const [ sheet1 ] = sushi.sheets;
       const [ col1 ] = sheet1.columns;
       expect(col1).to.not.have.property('style');
-      const [ cellA1 ] = sheet1.rows[0];
+      const cellA1 = sheet1.columns[0].cells[0];
       expect(cellA1).to.not.have.property('style');
     })
   })

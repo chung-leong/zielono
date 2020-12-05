@@ -81,8 +81,9 @@ describe('Excel styling', function() {
       sample = await loadExcelFile('sample.xlsx');
     })
     it('should apply indentation', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA3, cellB3 ] = sheet1.rows[1];
+      const sheet1 = sample.sheets[0];
+      const cellA3 = sheet1.columns[0].cells[1];
+      const cellB3 = sheet1.columns[1].cells[1];
       expect(cellA3).to.eql({ value: 'Indent' });
       expect(cellB3).to.eql({ value: 'This is a test',
         style: {
@@ -92,8 +93,9 @@ describe('Excel styling', function() {
       });
     })
     it('should apply horizontal alignment', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA4, cellB4 ] = sheet1.rows[2];
+      const sheet1 = sample.sheets[0];
+      const cellA4 = sheet1.columns[0].cells[2];
+      const cellB4 = sheet1.columns[1].cells[2];
       expect(cellA4).to.eql({ value: 'Align right' });
       expect(cellB4).to.eql({ value: 'This is a test',
         style: {
@@ -101,7 +103,8 @@ describe('Excel styling', function() {
           textAlign: 'right'
         }
       });
-      const [ cellA5, cellB5 ] = sheet1.rows[3];
+      const cellA5 = sheet1.columns[0].cells[3];
+      const cellB5 = sheet1.columns[1].cells[3];
       expect(cellA5).to.eql({ value: 'Align center' });
       expect(cellB5).to.eql({ value: 'This is a test',
         style: {
@@ -109,7 +112,8 @@ describe('Excel styling', function() {
           textAlign: 'center'
         }
       });
-      const [ cellA6, cellB6 ] = sheet1.rows[4];
+      const cellA6 = sheet1.columns[0].cells[4];
+      const cellB6 = sheet1.columns[1].cells[4];
       expect(cellA6).to.eql({ value: 'Align left' });
       expect(cellB6).to.eql({ value: 123,
         style: {
@@ -118,18 +122,21 @@ describe('Excel styling', function() {
       });
     })
     it('should apply vertical alignment', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA7, cellB7 ] = sheet1.rows[5];
+      const sheet1 = sample.sheets[0];
+      const cellA7 = sheet1.columns[0].cells[5];
+      const cellB7 = sheet1.columns[1].cells[5];
       expect(cellA7).to.eql({ value: 'Align top' });
       expect(cellB7).to.eql({ value: 'This is a test' });
-      const [ cellA8, cellB8 ] = sheet1.rows[6];
+      const cellA8 = sheet1.columns[0].cells[6];
+      const cellB8 = sheet1.columns[1].cells[6];
       expect(cellA8).to.eql({ value: 'Align middle' });
       expect(cellB8).to.eql({ value: 'This is a test',
         style: {
           verticalAlign: 'middle',
         }
       });
-      const [ cellA9, cellB9 ] = sheet1.rows[7];
+      const cellA9 = sheet1.columns[0].cells[7];
+      const cellB9 = sheet1.columns[1].cells[7];
       expect(cellA9).to.eql({ value: 'Align bottom' });
       expect(cellB9).to.eql({ value: 'This is a test',
         style: {
@@ -138,8 +145,9 @@ describe('Excel styling', function() {
       });
     })
     it('should apply color', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA10, cellB10 ] = sheet1.rows[8];
+      const sheet1 = sample.sheets[0];
+      const cellA10 = sheet1.columns[0].cells[8];
+      const cellB10 = sheet1.columns[1].cells[8];
       expect(cellA10).to.eql({ value: 'Color' });
       expect(cellB10).to.eql({ value: 'This is a test',
         style: {
@@ -148,7 +156,8 @@ describe('Excel styling', function() {
           color: '#ff0000',
         }
       });
-      const [ cellA11, cellB11 ] = sheet1.rows[9];
+      const cellA11 = sheet1.columns[0].cells[9];
+      const cellB11 = sheet1.columns[1].cells[9];
       expect(cellA11).to.eql({ value: 'Background color' });
       expect(cellB11).to.eql({ value: 'This is a test',
         style: {
@@ -159,8 +168,9 @@ describe('Excel styling', function() {
       });
     })
     it('should extract rich text with bolded section', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA12, cellB12 ] = sheet1.rows[10];
+      const sheet1 = sample.sheets[0];
+      const cellA12 = sheet1.columns[0].cells[10];
+      const cellB12 = sheet1.columns[1].cells[10];
       expect(cellA12).to.eql({ value: 'Bold' });
       expect(cellB12).to.eql({
         value: [
@@ -174,8 +184,9 @@ describe('Excel styling', function() {
       });
     })
     it('should extract rich text with italic section', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA13, cellB13 ] = sheet1.rows[11];
+      const sheet1 = sample.sheets[0];
+      const cellA13 = sheet1.columns[0].cells[11];
+      const cellB13 = sheet1.columns[1].cells[11];
       expect(cellA13).to.eql({ value: 'Italic' });
       expect(cellB13).to.eql({
         value: [
@@ -189,8 +200,9 @@ describe('Excel styling', function() {
       });
     })
     it('should extract rich text with underlined section', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA14, cellB14 ] = sheet1.rows[12];
+      const sheet1 = sample.sheets[0];
+      const cellA14 = sheet1.columns[0].cells[12];
+      const cellB14 = sheet1.columns[1].cells[12];
       expect(cellA14).to.eql({ value: 'Underline' });
       expect(cellB14).to.eql({
         value: [
@@ -204,8 +216,9 @@ describe('Excel styling', function() {
       });
     })
     it('should extract rich text with double underline', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA34, cellB34 ] = sheet1.rows[31];
+      const sheet1 = sample.sheets[0];
+      const cellA34 = sheet1.columns[0].cells[31];
+      const cellB34 = sheet1.columns[1].cells[31];
       expect(cellA34).to.eql({ value: 'Double underline' });
       expect(cellB34).to.eql({
         value: [
@@ -219,8 +232,9 @@ describe('Excel styling', function() {
       });
     })
     it('should extract rich text with underline and line-through', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA35, cellB35 ] = sheet1.rows[32];
+      const sheet1 = sample.sheets[0];
+      const cellA35 = sheet1.columns[0].cells[32];
+      const cellB35 = sheet1.columns[1].cells[32];
       expect(cellA35).to.eql({ value: 'Strike and underline' });
       expect(cellB35).to.eql({
         value: [
@@ -234,8 +248,9 @@ describe('Excel styling', function() {
       });
     })
     it('should pick up accounting underline', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA36, cellB36 ] = sheet1.rows[33];
+      const sheet1 = sample.sheets[0];
+      const cellA36 = sheet1.columns[0].cells[33];
+      const cellB36 = sheet1.columns[1].cells[33];
       expect(cellA36).to.eql({ value: 'Underline accounting' });
       expect(cellB36).to.eql({
         value: 'This is a test, and this is only a test',
@@ -246,8 +261,9 @@ describe('Excel styling', function() {
       });
     })
     it('should pick up double accounting underline', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA37, cellB37 ] = sheet1.rows[34];
+      const sheet1 = sample.sheets[0];
+      const cellA37 = sheet1.columns[0].cells[34];
+      const cellB37 = sheet1.columns[1].cells[34];
       expect(cellA37).to.eql({ value: 'Double accounting' });
       expect(cellB37).to.eql({
         value: 'This is a test, and this is only a test',
@@ -258,8 +274,9 @@ describe('Excel styling', function() {
       });
     })
     it('should extract rich text superscript section', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA38, cellB38 ] = sheet1.rows[35];
+      const sheet1 = sample.sheets[0];
+      const cellA38 = sheet1.columns[0].cells[35];
+      const cellB38 = sheet1.columns[1].cells[35];
       expect(cellA38).to.eql({ value: 'Superscript' });
       expect(cellB38).to.eql({
         value: [
@@ -272,8 +289,9 @@ describe('Excel styling', function() {
       });
     })
     it('should extract rich text subscript section', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA39, cellB39 ] = sheet1.rows[36];
+      const sheet1 = sample.sheets[0];
+      const cellA39 = sheet1.columns[0].cells[36];
+      const cellB39 = sheet1.columns[1].cells[36];
       expect(cellA39).to.eql({ value: 'Subscript' });
       expect(cellB39).to.eql({
         value: [
@@ -286,8 +304,9 @@ describe('Excel styling', function() {
       });
     })
     it('should extract rich text with section in different font', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA15, cellB15 ] = sheet1.rows[13];
+      const sheet1 = sample.sheets[0];
+      const cellA15 = sheet1.columns[0].cells[13];
+      const cellB15 = sheet1.columns[1].cells[13];
       expect(cellA15).to.eql({ value: 'Font' });
       expect(cellB15).to.eql({
         value: [
@@ -300,8 +319,9 @@ describe('Excel styling', function() {
       });
     })
     it('should apply border', function() {
-      const [ sheet1 ] = sample.sheets;
-      const [ cellA16, cellB16 ] = sheet1.rows[14];
+      const sheet1 = sample.sheets[0];
+      const cellA16 = sheet1.columns[0].cells[14];
+      const cellB16 = sheet1.columns[1].cells[14];
       expect(cellA16).to.eql({ value: 'Border thin' });
       expect(cellB16).to.eql({
         value: null,
@@ -310,7 +330,8 @@ describe('Excel styling', function() {
           border: '1px solid #000000'
         }
       });
-      const [ cellA18, cellB18 ] = sheet1.rows[16];
+      const cellA18 = sheet1.columns[0].cells[16];
+      const cellB18 = sheet1.columns[1].cells[16];
       expect(cellA18).to.eql({ value: 'Border thick' });
       expect(cellB18).to.eql({
         value: null,
@@ -319,7 +340,8 @@ describe('Excel styling', function() {
           border: '3px solid #000000'
         }
       });
-      const [ cellA20, cellB20 ] = sheet1.rows[18];
+      const cellA20 = sheet1.columns[0].cells[18];
+      const cellB20 = sheet1.columns[1].cells[18];
       expect(cellA20).to.eql({ value: 'Border hairline' });
       expect(cellB20).to.eql({
         value: null,
@@ -328,7 +350,8 @@ describe('Excel styling', function() {
           border: '0.5px solid #000000'
         }
       });
-      const [ cellA22, cellB22 ] = sheet1.rows[20];
+      const cellA22 = sheet1.columns[0].cells[20];
+      const cellB22 = sheet1.columns[1].cells[20];
       expect(cellA22).to.eql({ value: 'Border dotted' });
       expect(cellB22).to.eql({
         value: null,
@@ -337,7 +360,8 @@ describe('Excel styling', function() {
           border: '1px dotted #ff0000'
         }
       });
-      const [ cellA24, cellB24 ] = sheet1.rows[22];
+      const cellA24 = sheet1.columns[0].cells[22];
+      const cellB24 = sheet1.columns[1].cells[22];
       expect(cellA24).to.eql({ value: 'Border dashed' });
       expect(cellB24).to.eql({
         value: null,
@@ -346,7 +370,8 @@ describe('Excel styling', function() {
           border: '1px dashed #000000'
         }
       });
-      const [ cellA26, cellB26 ] = sheet1.rows[24];
+      const cellA26 = sheet1.columns[0].cells[24];
+      const cellB26 = sheet1.columns[1].cells[24];
       expect(cellA26).to.eql({ value: 'Border double' });
       expect(cellB26).to.eql({
         value: null,
@@ -355,7 +380,8 @@ describe('Excel styling', function() {
           border: '1px double #000000'
         }
       });
-      const [ cellA28, cellB28 ] = sheet1.rows[26];
+      const cellA28 = sheet1.columns[0].cells[26];
+      const cellB28 = sheet1.columns[1].cells[26];
       expect(cellA28).to.eql({ value: 'Border thick dashed' });
       expect(cellB28).to.eql({
         value: null,
@@ -364,7 +390,8 @@ describe('Excel styling', function() {
           border: '3px dashed #000000'
         }
       });
-      const [ cellA30, cellB30 ] = sheet1.rows[28];
+      const cellA30 = sheet1.columns[0].cells[28];
+      const cellB30 = sheet1.columns[1].cells[28];
       expect(cellA30).to.eql({ value: 'Border partial' });
       expect(cellB30).to.eql({
         value: null,
