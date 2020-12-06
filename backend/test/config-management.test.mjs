@@ -19,7 +19,7 @@ describe('Config management', function() {
     it('should return a default configuration', function() {
       const config = processServerConfig({});
       expect(config).to.eql({
-        listen: [ 80 ],
+        listen: [ 8080 ],
         nginx: undefined
       });
     })

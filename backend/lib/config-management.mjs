@@ -1,11 +1,11 @@
 import Fs from 'fs'; const { readFile, readdir } = Fs.promises;
 import { join, resolve } from 'path';
-import defaults from 'lodash/defaults.js';
+import defaultsDeep from 'lodash/defaultsDeep.js';
 import sortedIndexBy from 'lodash/sortedIndexBy.js';
 import get from 'lodash/get.js';
 import JsYaml from 'js-yaml'; const { safeLoad } = JsYaml;
-import { object, number, string, array, boolean, never } from 'superstruct';
-import { create, coerce, define, refine, optional, assert } from 'superstruct';
+import { object, number, string, array, boolean, create, coerce, define } from 'superstruct';
+import 'superstruct-chain';
 import { checkTimeZone } from './time-zone-management.mjs';
 import { ErrorCollection } from './error-handling.mjs';
 
@@ -16,54 +16,70 @@ const Listen = coerce(array(), number(), (port) => [ port ]);
 // timezone
 const TimeZone = define('valid time zone', checkTimeZone);
 
-function pathOrUrl(struct) {
-  const refinement = 'url-or-path';
-  const check = (value, ctx) => {
-    if ((!value.path && !value.url) || (value.path && value.url)) {
-      const { branch, path } = ctx;
-      const { type } = ctx.struct;
-      const message = `Expected either url or path to be present`;
-      return [ { message, value, branch, path, type } ];
-    } else {
-      return true;
-    }
-  };
-  return refine(struct, 'url-or-path', check);
+function enforceUrlOrPath(value, ctx) {
+  if ((!value.path && !value.url) || (value.path && value.url)) {
+    const { branch, path } = ctx;
+    const { type } = ctx.struct;
+    const message = `Expected either url or path to be present`;
+    return [ { message, value, branch, path, type } ];
+  } else {
+    return true;
+  }
 }
 
 // server config definition
 const Server = object({
-  listen: optional(Listen),
-  nginx: optional(object({
-    cache: optional(object({
+  listen: Listen.optional(),
+  nginx: object({
+    cache: object({
       path: Path,
-    }))
-  }))
+    }).optional(),
+  }).optional(),
+}).coerce(object(), (server) => {
+  return defaultsDeep(server, {
+    listen: [ 8080 ]
+  });
 });
 
 // site config definition
 const Site = object({
-  domains: optional(array(string())),
-  files: optional(array(
-    pathOrUrl(object({
+  name: string().optional(),
+  domains: array(string()).optional(),
+  files: array(
+    object({
       name: string(),
-      path: optional(Path),
-      url: optional(string()),
-      timeZone: optional(TimeZone),
-      withNames: optional(number()),
-    })),
-  )),
-  locale: optional(string()),
-  storage: optional(object({
+      path: Path.optional(),
+      url: string().optional(),
+      timeZone: TimeZone.optional(),
+      headers: boolean().optional(),
+    }).coerce(object(), (object) => {
+      return defaultsDeep(object, {
+        headers: true,
+      });
+    }).refine('url-or-path', enforceUrlOrPath),
+  ).optional(),
+  locale: string().optional(),
+  storage: object({
     path: Path
-  })),
-  code: optional(
-    pathOrUrl(object({
-      path: optional(Path),
-      url: optional(string()),
-    }))
-  )
+  }).optional(),
+  code: object({
+    path: Path.optional(),
+    url: string().optional(),
+  }).refine('url-or-path', enforceUrlOrPath).optional()
 });
+// the default config depends on the name
+Site.with = function(name) {
+  return this.coerce(object(), (site) => {
+    return defaultsDeep(site, {
+      name,
+      domains: [],
+      files: [],
+      storage: {
+        path: resolve(getConfigFolder(), name)
+      }
+    });
+  });
+}
 
 let configFolder;
 
@@ -79,10 +95,7 @@ function getConfigFolder() {
 }
 
 function processServerConfig(config) {
-  const userValues = create(config, Server);
-  const defaultValues = { listen: [ 80 ] };
-  const server = defaults(userValues, defaultValues);
-  return server;
+  return create(config, Server);
 }
 
 let serverConfig;
@@ -116,11 +129,7 @@ async function findSiteConfig(name) {
 }
 
 function processSiteConfig(name, config) {
-  const userValues = create(config, Site);
-  const storage = { path: join(getConfigFolder(), name) };
-  const defaultValues = { name, domains: [], storage, files: [] };
-  const site = defaults(userValues, defaultValues);
-  return site;
+  return create(config, Site.with(name));
 }
 
 let siteConfigs;

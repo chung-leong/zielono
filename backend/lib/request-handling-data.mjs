@@ -77,7 +77,7 @@ async function handleDataRequest(req, res, next) {
     } else {
       // parse source file
       const { locale } = site;
-      const { timeZone, withNames } = file;
+      const { timeZone, headers } = file;
       const { filename } = sourceFile;
       let json, etime;
       if (/\.json$/i.test(filename)) {
@@ -86,7 +86,7 @@ async function handleDataRequest(req, res, next) {
         const sheetName = filename.substr(0, filename.length - 4);
         json = await parseCSVFile(sourceFile, { locale, timeZone, sheetName });
       } else if (/\.xlsx$/i.test(filename)) {
-        json = await parseExcelFile(sourceFile, { locale, timeZone, withNames });
+        json = await parseExcelFile(sourceFile, { locale, timeZone, headers });
         etime = json.expiration;
       } else {
         throw new Error(`Unknown file type: ${buffer.filename}`);

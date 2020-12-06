@@ -157,19 +157,19 @@ describe('Excel parsing', function() {
     it('should preserve styling on cells used as column headers', function() {
       const [ sheet1 ] = sushi.sheets;
       const [ col1 ] = sheet1.columns;
-      expect(col1).to.have.property('header');
-      expect(col1.header).to.have.property('style');
-      expect(col1.header.style).to.eql({
+      expect(col1).to.have.property('headers').with.lengthOf(1);
+      expect(col1.headers[0]).to.have.property('style');
+      expect(col1.headers[0].style).to.eql({
         verticalAlign: 'bottom',
         fontWeight: 'bold',
         borderBottom: '1px solid #000000'
       });
     })
-    it('should not use first row as column name when "withNames = 0"', async function() {
-      const sushi = await loadExcelFile('sushi.xlsx', { withNames: 0 });
+    it('should not use first row as column name when "headers = 0"', async function() {
+      const sushi = await loadExcelFile('sushi.xlsx', { headers: false });
       const [ sheet1 ] = sushi.sheets;
       const [ col1, col2 ] = sheet1.columns;
-      expect(col1).to.not.have.property('header');
+      expect(col1).to.not.have.property('headers');
       expect(col1).to.have.property('name', 'A');
       expect(col2).to.have.property('name', 'B');
       const cellA1 = sheet1.columns[0].cells[0];
@@ -177,8 +177,19 @@ describe('Excel parsing', function() {
       expect(cellA1).to.have.property('value', 'Name');
       expect(cellB1).to.have.property('value', 'Description (en)');
     })
-    it('should remove style from cells when "omitStyle = true"', async function() {
-      const sushi = await loadExcelFile('sushi.xlsx', { omitStyle: true });
+    it('should use freeze panes to determine where headers end"', async function() {
+      const file = await loadExcelFile('freeze-panes.xlsx');
+      const [ sheet1 ] = file.sheets;
+      const [ col1, col2 ] = sheet1.columns;
+      expect(col1).to.have.property('name', 'Country');
+      expect(col1).to.have.property('flags').that.eql([ 'en' ]);
+      expect(col1).to.have.property('headers').with.lengthOf(2);
+      expect(col1).to.have.property('cells').with.lengthOf(5);
+      expect(col2).to.have.property('name', 'Country');
+      expect(col2).to.have.property('flags').that.eql([ 'pl' ]);
+    })
+    it('should remove style from cells when "style = false"', async function() {
+      const sushi = await loadExcelFile('sushi.xlsx', { style: false });
       const [ sheet1 ] = sushi.sheets;
       const [ col1 ] = sheet1.columns;
       expect(col1).to.not.have.property('style');

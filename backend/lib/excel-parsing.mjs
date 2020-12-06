@@ -17,7 +17,7 @@ import { setTimeZone, restoreTimeZone } from './time-zone-management.mjs';
  * @return {object}
  */
 async function parseExcelFile(buffer, options) {
-  const { omitStyle } = options;
+  const { style = true } = options;
   const workbook = new Workbook;
   await workbook.xlsx.load(buffer);
   const { keywords, title, description, subject, category } = workbook;
@@ -38,7 +38,7 @@ async function parseExcelFile(buffer, options) {
     }
   }
   const json = { ...meta, sheets, expiration };
-  if (omitStyle) {
+  if (!style) {
     stripCellStyle(json);
   }
   return json;
@@ -71,8 +71,8 @@ async function parseCSVFile(buffer, options) {
  * @return {(object|undefined)}
  */
 async function parseExcelWorksheet(worksheet, options) {
-  const { state, rowCount, columnCount } = worksheet;
-  const { locale, timeZone, withNames = 1 } = options;
+  const { state, rowCount, columnCount, views } = worksheet;
+  const { locale, timeZone, headers = true } = options;
   const sheetNameFlags = extractNameFlags(worksheet.name);
   if (state === 'visible' && sheetNameFlags) {
     // set time zone so dates are interpreted correctly
@@ -87,6 +87,15 @@ async function parseExcelWorksheet(worksheet, options) {
         const c = nativeCol + 1;
         const r = nativeRow + 1;
         wsMedia[`${c}:${r}`] = worksheet.workbook.getImage(wsImage.imageId);
+      }
+    }
+    let withNames = 0;
+    if (headers) {
+      withNames = 1;
+      for (let view of views) {
+        if (view.state === 'frozen') {
+          withNames = view.ySplit;
+        }
       }
     }
     const conditionalStyling = new ExcelConditionalStyling(worksheet, { locale });
@@ -134,12 +143,20 @@ async function parseExcelWorksheet(worksheet, options) {
           if (wsColumn.hidden) {
             continue;
           }
-          const wsCell = wsRow.getCell(c);
-          const media = wsMedia[`${c}:${r}`];
-          const header = extractCellContents(wsCell, media, { locale });
-          const columnNameFlags = extractNameFlags(wsCell.text);
+          const headers = [];
+          const lines = [];
+          for (let h = 1; h <= r; h++) {
+            const wsRow = worksheet.getRow(h);
+            if (!wsRow.hidden) {
+              const wsCell = wsRow.getCell(c);
+              const media = wsMedia[`${c}:${h}`];
+              headers.push(extractCellContents(wsCell, media, { locale }));
+              lines.push(wsCell.text);
+            }
+          }
+          const columnNameFlags = extractNameFlags(lines.join('\n'));
           if (columnNameFlags) {
-            const column = { ...columnNameFlags, header, cells: [] };
+            const column = { ...columnNameFlags, headers, cells: [] };
             columns.push(column);
             columnHash[c] = column;
           }
@@ -170,19 +187,6 @@ async function parseExcelWorksheet(worksheet, options) {
       return { ...sheetNameFlags, columns };
     }
   }
-}
-
-/**
- * Extract keywords from a text string
- *
- * @param  {string} text
- *
- * @return {string[]}
- */
-function extractKeywords(text) {
-  const trimmed = (text || '').trim();
-  const keywords = trimmed.split(/\s*,\s*|\s+/).filter(Boolean);
-  return keywords;
 }
 
 /**
