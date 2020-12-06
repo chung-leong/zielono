@@ -18,6 +18,7 @@ async function handlePageRequest(req, res, next) {
     if (!site.code) {
       throw new HttpError(404);
     }
+    const { locale } = site;
     const { url, path } = site.code;
     const gitParams = { url, path, ref };
     if (url) {
@@ -27,7 +28,7 @@ async function handlePageRequest(req, res, next) {
     if (page !== undefined) {
       // a page request
       const pageParams = { pagePath: page };
-      const { html, sources } = await generatePage(pageParams, gitParams);
+      const { html, sources } = await generatePage(pageParams, gitParams, locale);
       buffer = Buffer.from(html);
       type = 'html';
       etag = getHash(buffer);

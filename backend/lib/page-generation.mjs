@@ -4,11 +4,12 @@ import fetch from 'cross-fetch';
 import { getAgent } from './http-agents.mjs';
 import { requireGit, overrideRequire } from './file-retrieval.mjs';
 
-async function generatePage(pageParams, gitParams) {
+async function generatePage(pageParams, gitParams, locale) {
   // fork Node.js child process, running as "nobody"
   const scriptPath = fileURLToPath(import.meta.url);
-  const env = {}, uid = 65534, gid = 65534;
-  const child = fork(scriptPath, [ 'fork' ], { });
+  const env = { ...process.env, LC_ALL: locale };
+  const uid = 65534, gid = 65534;
+  const child = fork(scriptPath, [ 'fork' ], { env });
   // impose time limit
   const timeout = setTimeout(() => child.kill(), 5000);
   // listen for initial message from child

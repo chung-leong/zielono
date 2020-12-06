@@ -60,7 +60,7 @@ describe('Time zone management', function() {
       // Hawaii is ten hours behind, so at midnight it's 10:00 at Greenwich
       const hawaiianDate = new Date('2011-11-20T10:00:00.000Z');
       const sheet3 = formatting.sheets[2];
-      const cellB2 = sheet3.rows[0][1];
+      const cellB2 = sheet3.columns[1].cells[0];
       expect(cellB2.value).to.eql(hawaiianDate);
     })
   })
