@@ -6,7 +6,7 @@ import { Readable } from 'stream';
 import { formatValue } from './excel-formatting.mjs';
 import { extractCellStyle, extractRichText, applyStyle } from './excel-styling.mjs';
 import { ExcelConditionalStyling } from './excel-styling-conditional.mjs';
-import { setTimeZone, restoreTimeZone } from './time-zone-management.mjs';
+import { setTimeZone, restoreTimeZone, reinterpretDate } from './time-zone-management.mjs';
 
 /**
  * Parse an Excel file
@@ -256,26 +256,6 @@ function extractCellContents(wsCell, media, options) {
     contents.image = media;
   }
   return contents;
-}
-
-/**
- * Reinterpret a date as being in the current time zone
- *
- * Example: '12:45:00 GMT' -> '12:45:00 CET'
- *
- * @param  {Date} date
- *
- * @return {Date}
- */
-function reinterpretDate(date) {
-  const year = date.getUTCFullYear();
-  const month = date.getUTCMonth();
-  const day = date.getUTCDate();
-  const hours = date.getUTCHours();
-  const minutes = date.getUTCMinutes();
-  const seconds = date.getUTCSeconds();
-  const milliseconds = date.getUTCMilliseconds();
-  return new Date(year, month, day, hours, minutes, seconds, milliseconds);
 }
 
 /**

@@ -50,8 +50,29 @@ function checkTimeZone(timeZone) {
   }
 }
 
+/**
+ * Reinterpret a date as being in the current time zone
+ *
+ * Example: '12:45:00 GMT' -> '12:45:00 CET'
+ *
+ * @param  {Date} date
+ *
+ * @return {Date}
+ */
+function reinterpretDate(date) {
+  const year = date.getUTCFullYear();
+  const month = date.getUTCMonth();
+  const day = date.getUTCDate();
+  const hours = date.getUTCHours();
+  const minutes = date.getUTCMinutes();
+  const seconds = date.getUTCSeconds();
+  const milliseconds = date.getUTCMilliseconds();
+  return new Date(year, month, day, hours, minutes, seconds, milliseconds);
+}
+
 export {
   setTimeZone,
   restoreTimeZone,
   checkTimeZone,
+  reinterpretDate,
 };

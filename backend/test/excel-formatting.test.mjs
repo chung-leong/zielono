@@ -1,7 +1,7 @@
 import Chai from 'chai'; const { expect } = Chai;
 import ExcelJS from 'exceljs'; const { Workbook, ValueType } = ExcelJS;
 import { loadAsset, loadExcelFile } from './helpers/file-loading.mjs';
-import { reinterpretDate } from '../lib/excel-parsing.mjs';
+import { reinterpretDate } from '../lib/time-zone-management.mjs';
 
 import {
   formatValue,

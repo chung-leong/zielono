@@ -5,6 +5,7 @@ import {
   setTimeZone,
   restoreTimeZone,
   checkTimeZone,
+  reinterpretDate,
 } from '../lib/time-zone-management.mjs';
 
 describe('Time zone management', function() {
@@ -49,6 +50,21 @@ describe('Time zone management', function() {
       const str3 = date.toLocaleTimeString('eu-US', { hour12: true });
       expect(str1).to.not.eql(str2);
       expect(str3).to.eql(str1);
+    })
+  })
+  describe('#reinterpretDate()', function() {
+    it('should apply time-zone adjustment to date object', function() {
+      try {
+        setTimeZone('Pacific/Honolulu');
+        const date = new Date(0);
+        const result = reinterpretDate(date);
+        expect(result.getHours()).to.equal(0);
+        expect(result.getDate()).to.equal(1);
+        expect(result.getMonth()).to.equal(0);
+        expect(result.toLocaleTimeString('en-us')).to.equal('12:00:00 AM');
+      } finally {
+        restoreTimeZone();
+      }
     })
   })
   describe('#parseExcelFile()', function() {
