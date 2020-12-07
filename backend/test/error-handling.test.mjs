@@ -6,7 +6,7 @@ import {
 } from '../lib/error-handling.mjs';
 
 describe('Error handling', function() {
-  describe('#displayError()', function() {
+  describe('displayError()', function() {
     let consoleErrorBefore;
     let consoleErrorArgs;
     before(function() {

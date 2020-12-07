@@ -17,7 +17,7 @@ import {
 
 describe('Git adapters', function() {
   this.timeout(10000);
-  describe('#findGitAdapter', function() {
+  describe('findGitAdapter', function() {
     it('should find GitHub adapter', function() {
       const options = {
         url: 'https://github.com/chung-leong/test',
@@ -35,9 +35,9 @@ describe('Git adapters', function() {
       expect(adapter).to.have.property('name', 'local');
     })
   })
-  describe('#GitAdapter', function() {
+  describe('GitAdapter', function() {
     const adapter = new GitAdapter('test');
-    describe('#parsePath()', function() {
+    describe('parsePath()', function() {
       it('should parse a path into folders and filename', function() {
         const path = 'hello/world/something.png';
         const result = adapter.parsePath(path);
@@ -47,7 +47,7 @@ describe('Git adapters', function() {
         })
       })
     })
-    describe('#isCommitID()', function() {
+    describe('isCommitID()', function() {
       it('should return true if the given string seems to be a sha1 hash', function() {
         const result = adapter.isCommitID('b3a7b37f86efde136d7601a98614fa458c77d0ff');
         expect(result).to.be.true;
@@ -58,10 +58,10 @@ describe('Git adapters', function() {
       })
     })
   })
-  describe('#GitRemoteAdapter', function() {
+  describe('GitRemoteAdapter', function() {
     const adapter = new GitRemoteAdapter('test');
     skip.if.watching.or.no.github.
-    describe('#retrieveJSON()', function() {
+    describe('retrieveJSON()', function() {
       it('should retrieve a JSON object from remote server', async function() {
         const url = 'https://api.github.com/repos/chung-leong/zielono/git/ref/heads/main';
         const json = await adapter.retrieveJSON(url, { accessToken });
@@ -69,10 +69,10 @@ describe('Git adapters', function() {
       })
     })
   })
-  describe('#GitHubAdapter', function() {
+  describe('GitHubAdapter', function() {
     const adapter = new GitHubAdapter;
     const accessToken = getAccessToken('github');
-    describe('#parseURL()', function() {
+    describe('parseURL()', function() {
       it('should extract user and repo name from GitHub URL', function() {
         const url = 'https://github.com/chung-leong/zielono';
         const result = adapter.parseURL(url);
@@ -86,7 +86,7 @@ describe('Git adapters', function() {
         expect(() => adapter.parseURL(url)).to.throw();
       })
     })
-    describe('#getURL()', function() {
+    describe('getURL()', function() {
       it('should replace placeholders in URL with actual parameters', function() {
         const url = 'https://api.github.com/repos/chung-leong/zielono/git/ref/heads/main';
         const options = {
@@ -99,7 +99,7 @@ describe('Git adapters', function() {
       });
     })
     skip.if.watching.or.no.github.
-    describe('#findRepo()', function() {
+    describe('findRepo()', function() {
       it('should retrieve info about repo', async function() {
         const options = {
           ref: 'heads/main',
@@ -115,7 +115,7 @@ describe('Git adapters', function() {
       })
     })
     skip.if.watching.or.no.github.
-    describe('#retrieveFile()', function() {
+    describe('retrieveFile()', function() {
       it('should retrieve file from default branch of repo', async function() {
         const path = 'backend/test/assets/hello.json';
         const options = {
@@ -159,7 +159,7 @@ describe('Git adapters', function() {
       })
     })
     skip.if.watching.or.no.github.
-    describe('#retrieveVersions()', function() {
+    describe('retrieveVersions()', function() {
       it('should retrieve a list of relevant commits', async function() {
         const options = {
           url: 'https://github.com/chung-leong/zielono',
@@ -176,7 +176,7 @@ describe('Git adapters', function() {
       })
     })
     skip.if.watching.or.no.github.
-    describe('#retrieveVersionRefs()', function() {
+    describe('retrieveVersionRefs()', function() {
       it('should retrieve a branches and tags associated with relavant commits', async function() {
         const options = {
           url: 'https://github.com/chung-leong/zielono',
@@ -193,9 +193,9 @@ describe('Git adapters', function() {
       })
     })
   })
-  describe('#GitLocalAdapter', function() {
+  describe('GitLocalAdapter', function() {
     const adapter = new GitLocalAdapter;
-    describe('#retrieveFile()', function() {
+    describe('retrieveFile()', function() {
       it('should retrieve file from default branch of repo', async function() {
         const path = 'backend/test/assets/hello.json';
         const options = {
@@ -235,7 +235,7 @@ describe('Git adapters', function() {
         expect(json).to.eql({ message: 'hello world', version: 1 });
       })
     })
-    describe('#retrieveVersions()', function() {
+    describe('retrieveVersions()', function() {
       it('should retrieve a list of relevant commits', async function() {
         const options = {
           path: repoPath,
@@ -250,7 +250,7 @@ describe('Git adapters', function() {
         ]);
       })
     })
-    describe('#retrieveVersionRefs()', function() {
+    describe('retrieveVersionRefs()', function() {
       it('should retrieve a branches and tags associated with relavant commits', async function() {
         const options = {
           path: repoPath,

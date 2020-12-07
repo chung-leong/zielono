@@ -10,8 +10,8 @@ import {
 } from '../lib/excel-formatting.mjs';
 
 describe('Excel data formatting', function() {
-  describe('#ExcelNumberFormatter', function() {
-    describe('#findFraction()', function() {
+  describe('ExcelNumberFormatter', function() {
+    describe('findFraction()', function() {
       const formatter = ExcelFractionFormatter.get('?/??', {});
       const f = (number, width) => {
         return formatter.findFraction(number, width);
@@ -38,7 +38,7 @@ describe('Excel data formatting', function() {
         expect(f(-0.006, 3)).to.eql({ whole: -0, nom: 3, dem: 500 });
       })
     })
-    describe('#format()', function() {
+    describe('format()', function() {
       const f = (number, fs, options) => {
         const formatter = ExcelFractionFormatter.get(fs, options);
         return formatter.format(number);
@@ -56,8 +56,8 @@ describe('Excel data formatting', function() {
       })
     })
   })
-  describe('#ExcelNumberFormatter', function() {
-    describe('#format()', function() {
+  describe('ExcelNumberFormatter', function() {
+    describe('format()', function() {
       const f = (number, fs, options) => {
         const formatter = ExcelNumberFormatter.get(fs, options);
         return formatter.format(number);
@@ -115,7 +115,7 @@ describe('Excel data formatting', function() {
       });
     })
   });
-  describe('#formatValue()', function() {
+  describe('formatValue()', function() {
     it('should handle conditional color', function() {
       const value = -15;
       const format = '0;[RED]-0';
@@ -191,7 +191,7 @@ describe('Excel data formatting', function() {
       testSheet(workbook, 'fraction', { locale: 'en-us' });
     })
   })
-  describe('#parseExcelFile()', function() {
+  describe('parseExcelFile()', function() {
     let formatting;
     before(async () => {
       formatting = await loadExcelFile('formatting.xlsx');

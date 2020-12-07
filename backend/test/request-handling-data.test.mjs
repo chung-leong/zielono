@@ -11,7 +11,7 @@ import {
 } from '../lib/request-handling-data.mjs';
 
 describe('Data request handling', function() {
-  describe('#saveEmbeddedMedia()', function() {
+  describe('saveEmbeddedMedia()', function() {
     const tmpFolder = createTempFolder();
     it('should save images to disk and add references to cells', async function() {
       const json = await loadExcelFile('sushi.xlsx');
@@ -31,7 +31,7 @@ describe('Data request handling', function() {
       expect(cellD2.image).to.have.property('height', 440);
     })
   })
-  describe('#handleDataRequest()', function() {
+  describe('handleDataRequest()', function() {
     const tmpFolder = createTempFolder();
     const site = {
       name: 'tmp',

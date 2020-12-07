@@ -6,7 +6,7 @@ import {
 } from '../lib/request-handling-admin.mjs';
 
 describe('Admin request handling', function() {
-  describe('#handleAdminRequest()', function() {
+  describe('handleAdminRequest()', function() {
     it('should say "Under construction"', function() {
       const req = createRequest()
       const res = createResponse();

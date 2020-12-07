@@ -8,7 +8,7 @@ import {
 } from '../lib/excel-parsing.mjs';
 
 describe('Excel parsing', function() {
-  describe('#extractNameFlags()', function() {
+  describe('$1()', function() {
     it('should handle null input', function() {
       const nameFlags1 = extractNameFlags(undefined);
       const nameFlags2 = extractNameFlags('');
@@ -39,7 +39,7 @@ describe('Excel parsing', function() {
       });
     })
   })
-  describe('#parseExcelFile()', function() {
+  describe('$1()', function() {
     let sample, sushi;
     before(async () => {
       sample = await loadExcelFile('sample.xlsx');
@@ -197,7 +197,7 @@ describe('Excel parsing', function() {
       expect(cellA1).to.not.have.property('style');
     })
   })
-  describe('#parseCSVFile()', function() {
+  describe('$1()', function() {
     let sample;
     before(async () => {
       const buffer = await loadAsset('sample.csv');

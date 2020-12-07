@@ -11,13 +11,13 @@ import {
 } from '../lib/excel-styling.mjs';
 
 describe('Excel styling', function() {
-  describe('#parseARGB()', function() {
+  describe('parseARGB()', function() {
     it('should correctly parse an RGB string', function() {
       const argb = parseARGB('#FEf1f2f3');
       expect(argb).to.eql({ a: 0xfe, r: 0xf1, g: 0xf2, b: 0xf3 });
     })
   })
-  describe('#stringifyARGB()', function() {
+  describe('stringifyARGB()', function() {
     it('should return color in basic hex representation when the color is opaque', function () {
       const color = stringifyARGB({ a:0xff, r: 0xff, g: 0x01, b: 0x01 });
       expect(color).to.eql('#ff0101');
@@ -27,7 +27,7 @@ describe('Excel styling', function() {
       expect(color).to.eql('rgba(255, 1, 1, 0.94)');
     })
   })
-  describe('#getNamedColor()', function() {
+  describe('getNamedColor()', function() {
     it('should return a color by name', function() {
       const color = getNamedColor('RED');
       expect(color).to.eql({ a: 0xff, r: 0xff, g: 0x00, b: 0x00 });
@@ -37,7 +37,7 @@ describe('Excel styling', function() {
       expect(color).to.eql({ a: 0xff, r: 0x00, g: 0x80, b: 0x00 });
     })
   })
-  describe('#getIndexedColor()', function() {
+  describe('getIndexedColor()', function() {
     it('should return a color by index', function() {
       const color = getIndexedColor(5);
       expect(color).to.eql({ a: 0xff, r: 0x00, g: 0x00, b: 0xff })
@@ -47,7 +47,7 @@ describe('Excel styling', function() {
       expect(color).to.be.undefined;
     })
   })
-  describe('#getThemeColor()', function() {
+  describe('getThemeColor()', function() {
     it('should return a theme color with no tint', function() {
       const color = getThemeColor(1, 0);
       expect(color).to.eql({ a: 255, r: 0, g: 0, b: 0 });
@@ -61,7 +61,7 @@ describe('Excel styling', function() {
       expect(color).to.eql({ a: 255, r: 218, g: 221, b: 225 });
     })
   })
-  describe('#extractColor()', function() {
+  describe('extractColor()', function() {
     it('should extract color specified as ARGB', function() {
       const color = extractColor({ argb: '#ff00ff00' });
       expect(color).to.eql({ a: 255, r: 0, g: 255, b: 0 });
@@ -75,7 +75,7 @@ describe('Excel styling', function() {
       expect(color).to.eql({ a: 0xff, r: 0x00, g: 0x00, b: 0xff });
     })
   })
-  describe('#parseExcelFile()', function() {
+  describe('parseExcelFile()', function() {
     let sample;
     before(async () => {
       sample = await loadExcelFile('sample.xlsx');

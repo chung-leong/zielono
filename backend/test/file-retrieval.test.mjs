@@ -18,7 +18,7 @@ import {
 
 describe('File retrieval', function() {
   this.timeout(5000);
-  describe('#retrieveFromDisk()', function() {
+  describe('retrieveFromDisk()', function() {
     it('should load a file', async function() {
       const path = getAssetPath('krakow.jpg');
       const buffer = await retrieveFromDisk(path, {});
@@ -47,7 +47,7 @@ describe('File retrieval', function() {
     })
   })
   skip.if.watching.or.no.github.
-  describe('#retrieveFromGitSync', function() {
+  describe('retrieveFromGitSync', function() {
     const accessToken = getAccessToken('github');
     it('should retrieve file from a git repo synchronously', async function() {
       const options = {
@@ -59,7 +59,7 @@ describe('File retrieval', function() {
     })
   })
   skip.if.watching.or.no.github.
-  describe('#overrideRequire()', function() {
+  describe('overrideRequire()', function() {
     const accessToken = getAccessToken('github');
     const require = createRequire(import.meta.url);
     before(function() {
@@ -84,7 +84,7 @@ describe('File retrieval', function() {
       restoreRequire();
     })
   })
-  describe('#getDownloadURL()', function() {
+  describe('getDownloadURL()', function() {
     it('should return download URL for file on Dropbox', function() {
       const url = 'https://www.dropbox.com/s/4krscr943y90gd8/hello.json?dl=0';
       const result = getDownloadURL(url);
@@ -102,7 +102,7 @@ describe('File retrieval', function() {
     })
   })
   skip.if.watching.
-  describe('#retrieveFromCloud()', function() {
+  describe('retrieveFromCloud()', function() {
     it('should retrieve file from Dropbox', async function() {
       const url = 'https://www.dropbox.com/s/4krscr943y90gd8/hello.json?dl=0';
       const result = await retrieveFromCloud(url, {});

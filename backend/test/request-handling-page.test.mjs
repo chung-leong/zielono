@@ -9,7 +9,7 @@ import {
 } from '../lib/request-handling-page.mjs';
 
 describe('Page request handling', function() {
-  describe('#handlePageRequest()', function() {
+  describe('handlePageRequest()', function() {
     const next = (err) => {
       if (err) {
         throw err;

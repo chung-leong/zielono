@@ -15,7 +15,7 @@ describe('Config management', function() {
     const path = getAssetPath('storage');
     setConfigFolder(path);
   })
-  describe('#processServerConfig()', function() {
+  describe('processServerConfig()', function() {
     it('should return a default configuration', function() {
       const config = processServerConfig({});
       expect(config).to.eql({
@@ -40,7 +40,7 @@ describe('Config management', function() {
       expect(() => processServerConfig(input3)).to.throw();
     })
   })
-  describe('#processSiteConfig()', function() {
+  describe('processSiteConfig()', function() {
     it('should return a default configuration', function() {
       const folder = getAssetPath('storage');
       const config = processSiteConfig('hello', {});
@@ -92,7 +92,7 @@ describe('Config management', function() {
       expect(() => processSiteConfig('hello', input)).to.throw();
     })
   })
-  describe('#getSiteConfigs()', function() {
+  describe('getSiteConfigs()', function() {
     it('shoud load site configs', async function() {
       const sites = await getSiteConfigs();
       expect(sites).to.be.an('array').that.have.lengthOf(2);

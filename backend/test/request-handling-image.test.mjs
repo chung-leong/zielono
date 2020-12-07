@@ -10,7 +10,7 @@ import {
 } from '../lib/request-handling-image.mjs';
 
 describe('Image request handling', function() {
-  describe('#getImageMeta()', function() {
+  describe('getImageMeta()', function() {
     it('should obtain metadata about a JPEG image', async function() {
       const buffer = await loadAsset('krakow.jpg');
       const meta = await getImageMeta(buffer, 'jpeg');
@@ -30,7 +30,7 @@ describe('Image request handling', function() {
       expect(meta).to.have.property('height', 146);
     })
   })
-  describe('#transformImage()', function() {
+  describe('transformImage()', function() {
     it('should resize a PNG to a given width and save as JPEG', async function() {
       const buffer = await loadAsset('krakow.png');
       const result = await transformImage(buffer, 'w180', 'jpeg');
@@ -58,7 +58,7 @@ describe('Image request handling', function() {
       }
     };
   })
-  describe('#handleImageRequest()', function() {
+  describe('handleImageRequest()', function() {
     it('should send an image as is when there is no filename', async function() {
       const site = await findSiteConfig('site1');
       const req = createRequest({

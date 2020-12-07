@@ -31,7 +31,7 @@ describe('Request handling', function() {
     const path = getAssetPath('storage');
     setConfigFolder(path);
   })
-  describe('#addHandlers()', function() {
+  describe('addHandlers()', function() {
     // capture routes with mock app
     const layers = [];
     const addRoute = (end, path, ...handlers) => {
@@ -120,7 +120,7 @@ describe('Request handling', function() {
       }
     };
   })
-  describe('#handleError()', function() {
+  describe('handleError()', function() {
     it('should send the error message as text', function() {
       const err = new Error('Hello world');
       const req = createRequest()
@@ -148,7 +148,7 @@ describe('Request handling', function() {
       expect(nextCalled).to.be.true;
     })
   })
-  describe('#handleSiteAssociation()', function() {
+  describe('handleSiteAssociation()', function() {
     it('should attach matching server and site config to request object', async function() {
       const req = createRequest({
         hostname: 'duck.test',
@@ -194,7 +194,7 @@ describe('Request handling', function() {
       expect(req.baseUrl).to.eql('/site1');
     })
   })
-  describe('#handleRefExtraction', function() {
+  describe('handleRefExtraction', function() {
     it('should extract brach ref from URL', function() {
       const req = createRequest({
         port: 80,
@@ -207,7 +207,7 @@ describe('Request handling', function() {
       expect(req.ref).to.eql('heads/main');
     })
   })
-  describe('#handleResourceRedirection()', function() {
+  describe('handleResourceRedirection()', function() {
     it('should redirect addresses relative to page URL (/-/*)', function() {
       const req = createRequest({
         port: 80,
@@ -241,7 +241,7 @@ describe('Request handling', function() {
       expect(nextCalled).to.be.false;
     })
   })
-  describe('#handleInvalidRequest()', function() {
+  describe('handleInvalidRequest()', function() {
     it('should emit a 404 error', function() {
       const req = createRequest();
       const res = createResponse();

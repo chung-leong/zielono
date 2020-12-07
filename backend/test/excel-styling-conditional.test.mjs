@@ -9,7 +9,7 @@ import {
 } from '../lib/excel-styling-conditional.mjs';
 
 describe('Excel conditional styling', function() {
-  describe('#interpolateColor2()', function() {
+  describe('interpolateColor2()', function() {
     it('should return a color that is half way between the two', function() {
       const colors = [
         { a: 255, r: 255, g: 0, b: 0 },
@@ -38,7 +38,7 @@ describe('Excel conditional styling', function() {
       expect(result).to.eql({ a: 255, r: 0, g: 255, b: 0 });
     })
   })
-  describe('#interpolateColor3()', function() {
+  describe('interpolateColor3()', function() {
     it('should interpolate between the first and second color when value is below midpoint', function() {
       const colors = [
         { a: 255, r: 255, g: 0, b: 0 },
@@ -60,7 +60,7 @@ describe('Excel conditional styling', function() {
       expect(result).to.eql({ a: 255, r: 0, g: 127, b: 127 });
     })
   })
-  describe('#getTimePeriod()', function() {
+  describe('getTimePeriod()', function() {
     it('should return correct time period for today', function() {
       const date = new Date('2020/11/2')
       const today = getTimePeriod('today', date);
@@ -166,7 +166,7 @@ describe('Excel conditional styling', function() {
       });
     })
   })
-  describe('#parseExcelFile()', function() {
+  describe('parseExcelFile()', function() {
     let sample;
     before(async () => {
       setCurrentTime('2020/11/21');
