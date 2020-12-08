@@ -15,7 +15,7 @@ async function handlePageRequest(req, res, next) {
   try {
     const { page, filename } = req.params;
     const { site, ref } = req;
-    if (!site.code) {
+    if (!site || !site.code) {
       throw new HttpError(404);
     }
     const { locale } = site;

@@ -93,9 +93,19 @@ async function handleSiteAssociation(req, res, next) {
       }
     } else {
       // see if the URL starts with the name of a site
-      site = sites.find((s) => url.startsWith(`/${s.name}/`));
+      site = sites.find((s) => atBaseURL(url, `/${s.name}`));
       if (site) {
         baseUrl = `/${site.name}`;
+      } else if (!atBaseURL(url, '/zielono')) {
+        const first = sites[0];
+        if (first) {
+          if (first.domains[0]) {
+            res.redirect(`//${first.domains[0]}`);
+          } else {
+            res.redirect(`/${first.name}`);
+          }
+          return;
+        }
       }
     }
     req.url = url.substr(baseUrl.length);
@@ -165,6 +175,23 @@ function handleError(err, req, res, next) {
   }
   const { message, status = 400 } = err;
   res.type('text').status(status).send(message);
+}
+
+/**
+ * Check if url is based on another
+ *
+ * @param  {string} url
+ * @param  {string} baseURL
+ *
+ * @return {boolean}
+ */
+function atBaseURL(url, baseURL) {
+  if (url.startsWith(baseURL)) {
+    if (baseURL.length === url.length || url.charAt(baseURL.length) === '/') {
+      return true;
+    }
+  }
+  return false;
 }
 
 export {
