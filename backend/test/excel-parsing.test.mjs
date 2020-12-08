@@ -40,11 +40,10 @@ describe('Excel parsing', function() {
     })
   })
   describe('parseExcelFile()', function() {
-    let sample, sushi, image;
+    let sample, sushi;
     before(async () => {
       sample = await loadExcelFile('sample.xlsx');
       sushi = await loadExcelFile('sushi.xlsx');
-      image = await loadExcelFile('image.xlsx');
     })
     it('should correctly extract metadata', function() {
       expect(sample.title).to.eql('This is a title');
@@ -194,8 +193,16 @@ describe('Excel parsing', function() {
       const [ sheet1 ] = sushi.sheets;
       const [ col1 ] = sheet1.columns;
       expect(col1).to.not.have.property('style');
-      const cellA1 = sheet1.columns[0].cells[0];
-      expect(cellA1).to.not.have.property('style');
+      const cellA2 = col1.cells[0];
+      expect(cellA2).to.not.have.property('style');
+    })
+    it('should extract of clipping rect of images', async function() {
+      const image = await loadExcelFile('image.xlsx');
+      const [ sheet1 ] = image.sheets;
+      const [ col1 ] = sheet1.columns;
+      const cellA2 = col1.cells[0];
+      expect(cellA2.image).to.have.property('srcRect')
+      expect(cellA2.image.srcRect).to.have.keys([ 'l', 'r', 't', 'b' ]);
     })
   })
   describe('parseCSVFile()', function() {

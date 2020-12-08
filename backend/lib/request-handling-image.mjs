@@ -21,7 +21,7 @@ async function handleImageRequest(req, res, next) {
     }
     let buffer = content;
     // parse the filter string
-    const operations = decodeFilterString(filters, format).filter((op) => {
+    const operations = decodeFilters(filters, format).filter((op) => {
       // get rid of redundant resizing
       if (op.name === 'resize') {
         return (op.args[0] !== meta.width || op.args[1] !== meta.height);
@@ -207,7 +207,7 @@ function extractSVGMeta(svg) {
  *
  * @return {object[]}
  */
-function decodeFilterString(filterString, format) {
+function decodeFilters(filterString, format) {
   const operations = [];
   const operators = (format === 'svg') ? svgOperators : sharpOperators;
   for (let part of filterString.split(/[ +]/)) {
@@ -331,6 +331,7 @@ process.env.VIPS_WARNING = false;
 
 export {
   handleImageRequest,
+  decodeFilters,
   transformImage,
   getImageMeta,
 };
