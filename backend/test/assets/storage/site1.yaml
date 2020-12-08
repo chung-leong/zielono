@@ -7,3 +7,5 @@ files:
     timeZone: Europe/Warsaw
   - name: sample
     path: ../sample.xlsx
+  - name: image
+    path: ../image.xlsx

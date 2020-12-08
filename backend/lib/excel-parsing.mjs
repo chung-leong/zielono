@@ -79,17 +79,24 @@ async function parseExcelWorksheet(worksheet, options) {
     setTimeZone(timeZone);
     // find images used in worksheet first
     const wsImages = worksheet.getImages();
-    const wsMedia = {};
+    const media = {}, rowHasMedia = {};
     if (wsImages) {
       for (let wsImage of wsImages) {
+        const { imageId, range, srcRect } = wsImage;
         // the anchor of the image (top left corner)
-        const { nativeCol, nativeRow } = wsImage.range.tl;
+        const { nativeCol, nativeRow } = range.tl;
         const c = nativeCol + 1;
         const r = nativeRow + 1;
-        wsMedia[`${c}:${r}`] = worksheet.workbook.getImage(wsImage.imageId);
+        const wbImage = worksheet.workbook.getImage(imageId);
+        media[`${c}:${r}`] = { ...wbImage, srcRect };
+        rowHasMedia[r] = true;
       }
     }
-    let withNames = 0;
+    const conditionalStyling = new ExcelConditionalStyling(worksheet, { locale });
+    // process the cells
+    const columns = [];
+    const columnHash = {};
+    let withNames;
     if (headers) {
       withNames = 1;
       for (let view of views) {
@@ -97,12 +104,8 @@ async function parseExcelWorksheet(worksheet, options) {
           withNames = view.ySplit;
         }
       }
-    }
-    const conditionalStyling = new ExcelConditionalStyling(worksheet, { locale });
-    // process the cells
-    const columns = [];
-    const columnHash = {};
-    if (withNames < 1) {
+    } else {
+      withNames = 0;
       for (let c = 1; c <= columnCount; c++) {
         const wsColumn = worksheet.getColumn(c);
         if (!wsColumn.hidden) {
@@ -120,7 +123,7 @@ async function parseExcelWorksheet(worksheet, options) {
         // skip hidden rows
         continue;
       }
-      if (wsRow.hasValues) {
+      if (wsRow.hasValues || rowHasMedia[r]) {
         const prevNonEmptyRow = lowestNonEmptyRow;
         if (r > lowestNonEmptyRow) {
           lowestNonEmptyRow = r;
@@ -149,8 +152,8 @@ async function parseExcelWorksheet(worksheet, options) {
             const wsRow = worksheet.getRow(h);
             if (!wsRow.hidden) {
               const wsCell = wsRow.getCell(c);
-              const media = wsMedia[`${c}:${h}`];
-              headers.push(extractCellContents(wsCell, media, { locale }));
+              const medium = media[`${c}:${h}`];
+              headers.push(extractCellContents(wsCell, medium, { locale }));
               lines.push(wsCell.text);
             }
           }
@@ -170,8 +173,8 @@ async function parseExcelWorksheet(worksheet, options) {
           const column = columnHash[c];
           if (column) {
             const wsCell = wsRow.getCell(c);
-            const media = wsMedia[`${c}:${r}`];
-            const contents = extractCellContents(wsCell, media, { locale });
+            const medium = media[`${c}:${r}`];
+            const contents = extractCellContents(wsCell, medium, { locale });
             column.cells.push(contents);
             conditionalStyling.check(wsCell, contents);
           }
@@ -218,12 +221,12 @@ function extractNameFlags(text) {
  * Extract value from a cell in a worksheet
  *
  * @param  {Cell}              wsCell
- * @param  {(Image|undefined)} media
+ * @param  {(Image|undefined)} medium
  * @param  {object}            options
  *
  * @return {(object|string)}
  */
-function extractCellContents(wsCell, media, options) {
+function extractCellContents(wsCell, medium, options) {
   const { locale } = options;
   const contents = {};
   // extract style
@@ -252,8 +255,8 @@ function extractCellContents(wsCell, media, options) {
     // probably a type mismatch error
   }
   // attach image
-  if (media && media.type === 'image') {
-    contents.image = media;
+  if (medium && medium.type === 'image') {
+    contents.image = medium;
   }
   return contents;
 }

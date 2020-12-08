@@ -140,24 +140,43 @@ async function saveEmbeddedMedia(site, json) {
     }
   }
   const imageHashes = [];
+  const processed = {};
   for (let cell of imageCells) {
     try {
-      // get image metadata first
-      const { buffer, extension: format } = cell.image;
-      const { width, height } = await getImageMeta(buffer, format);
+      const { buffer, extension: format, srcRect } = cell.image;
       const hash = getHash(buffer);
-      // see if the file exists already
-      const exists = await checkSiteContent(site, 'images', hash, format, buffer.length);
-      if (!exists) {
-        await saveSiteContent(site, 'images', hash, format, buffer);
-      }
-      const meta = await findSiteContentMeta(site, 'images', hash);
+      let meta = processed[hash];
       if (!meta) {
-        const newMeta = { width, height, format };
-        await saveSiteContentMeta(site, 'images', hash, newMeta);
+        // see if the file exists already
+        const exists = await checkSiteContent(site, 'images', hash, format, buffer.length);
+        if (!exists) {
+          await saveSiteContent(site, 'images', hash, format, buffer);
+        }
+        meta = await findSiteContentMeta(site, 'images', hash);
+        if (!meta) {
+          const { width, height } = await getImageMeta(buffer, format);
+          meta = processed[hash] = { width, height, format };
+          await saveSiteContentMeta(site, 'images', hash, meta);
+        }
+      }
+      const { width, height } = meta;
+      let crop;
+      if (srcRect) {
+        // srcRect contain percentages
+        const left = convertToPixels(width, srcRect.l);
+        const right = convertToPixels(width, srcRect.r);
+        const top = convertToPixels(height, srcRect.t);
+        const bottom = convertToPixels(height, srcRect.b);
+        if (left || right || top || bottom) {
+          crop = {
+            left, top,
+            width: width - left - right,
+            height: height - top - bottom,
+          };
+        }
       }
       // replace image with ref
-      cell.image = { hash, width, height, format };
+      cell.image = { hash, width, height, crop, format };
       imageHashes.push(hash);
     } catch (err) {
       // image cannot be read so get rid of it
@@ -165,6 +184,10 @@ async function saveEmbeddedMedia(site, json) {
     }
   }
   return (imageHashes.length > 0) ? imageHashes : undefined;
+}
+
+function convertToPixels(dim, millipercent) {
+  return Math.max(0, Math.round(dim * (millipercent / 100000)))
 }
 
 export {
