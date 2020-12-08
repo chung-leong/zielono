@@ -20,8 +20,21 @@ async function handleImageRequest(req, res, next) {
       format = 'jpeg';
     }
     let buffer = content;
-    if (meta.format !== format || filters) {
-      buffer = await transformImage(buffer, filters, format);
+    // parse the filter string
+    const operations = decodeFilterString(filters, format).filter((op) => {
+      // get rid of redundant resizing
+      if (op.name === 'resize') {
+        return (op.args[0] !== meta.width || op.args[1] !== meta.height);
+      } else if (op.name === 'width') {
+        return (op.args[0] !== meta.width);
+      } else if (op.name === 'height') {
+        return (op.args[0] !== meta.height);
+      } else {
+        return true;
+      }
+    });
+    if (meta.format !== format || operations.length > 0) {
+      buffer = await transformImage(buffer, operations, format);
     }
     res.type(`image/${format}`);
     res.send(buffer);
@@ -54,16 +67,16 @@ async function getImageMeta(buffer, format) {
  * Apply filters to an image and reencode it in the specified format
  *
  * @param  {Buffer} buffer
- * @param  {string} filters
+ * @param  {object[]} operations
  * @param  {string} format
  *
  * @return {Buffer}
  */
-async function transformImage(buffer, filters, format) {
+async function transformImage(buffer, operations, format) {
   if (format === 'svg') {
-    return transformSVGDocument(buffer, filters);
+    return transformSVGDocument(buffer, operations);
   } else {
-    return transformRasterImage(buffer, filters, format);
+    return transformRasterImage(buffer, operations, format);
   }
 }
 
@@ -71,22 +84,25 @@ async function transformImage(buffer, filters, format) {
  * Apply filters on an image
  *
  * @param  {Buffer} buffer
- * @param  {string} filters
+ * @param  {object[]} operations
  * @param  {string} format
  *
  * @return {Buffer}
  */
-async function transformRasterImage(buffer, filters, format) {
+async function transformRasterImage(buffer, operations, format) {
   const { default: createImage } = await import('sharp');
   const image = createImage(buffer);
+  const { strategy } = createImage;
   image.settings = {
     quality: 90,
     lossless: false,
+    resize: {
+      position: strategy.entropy
+    }
   };
   image.rotate();
-  applyOperators(image, sharpOperators, filters);
-  const quality = image.settings.quality;
-  const lossless = image.settings.lossless;
+  applyOperators(image, operations);
+  const { quality, lossless } = image.settings;
   switch (format.toLowerCase()) {
     case 'webp':
       image.webp({ quality, lossless });
@@ -107,18 +123,18 @@ async function transformRasterImage(buffer, filters, format) {
  * Apply filters on an SVG document
  *
  * @param  {Buffer} buffer
- * @param  {string} filters
+ * @param  {object[]} operations
  *
  * @return {Buffer}
  */
-async function transformSVGDocument(buffer, filters) {
+async function transformSVGDocument(buffer, operations) {
   // parse the XML doc
   const { default: SVGSON } = await import('svgson');
   const svg = await SVGSON.parse(buffer.toString());
   if (svg.name === 'svg') {
     // see what changes are needed
     const params = {};
-    applyOperators(params, svgOperators, filters);
+    applyOperators(params, operations);
     // get the dimensions first
     let { width, height, viewBox } = extractSVGMeta(svg);
 
@@ -184,19 +200,22 @@ function extractSVGMeta(svg) {
 }
 
 /**
- * Find functions for filters and call them on target
+ * Decode filter string, searching for commands and parameters
  *
- * @param  {object} target
- * @param  {object} operators
- * @param  {string} filters
+ * @param  {string} filterString
+ * @param  {string} format
+ *
+ * @return {object[]}
  */
-function applyOperators(target, operators, filters) {
-  for (let filter of filters.split(/[ +]/)) {
+function decodeFilterString(filterString, format) {
+  const operations = [];
+  const operators = (format === 'svg') ? svgOperators : sharpOperators;
+  for (let part of filterString.split(/[ +]/)) {
     let cmd = '';
     const args = [];
     const regExp = /(\D+)(\d*)/g;
     let m;
-    while(m = regExp.exec(filter)) {
+    while(m = regExp.exec(part)) {
       if (!cmd) {
         cmd = m[1];
       } else {
@@ -211,89 +230,99 @@ function applyOperators(target, operators, filters) {
       for (let [ name, operator ] of Object.entries(operators)) {
         // see which operator's name start with the letter(s)
         if (name.substr(0, cmd.length) === cmd) {
-          operator.apply(target, args);
+          operations.push({ name, operator, args })
           break;
         }
       }
     }
   }
+  return operations;
+}
+
+function applyOperators(target, operations) {
+  for (let { name, operator, args } of operations) {
+    operator.apply(target, args);
+  }
 }
 
 const sharpOperators = {
-  background: function(r, g, b, a) {
+  background(r, g, b, a) {
     this.background(r / 100, g / 100, b / 100, a / 100);
   },
-  blur: function(sigma) {
+  blur(sigma) {
     this.blur(sigma / 10 || 0.3)
   },
-  crop: function(left, top, width, height) {
+  crop(left, top, width, height) {
     this.extract({ left, top, width, height });
   },
-  extract: function(channel) {
+  extract(channel) {
     this.extractChannel(channel);
   },
-  flatten: function() {
+  flatten() {
     this.flatten();
   },
-  flip: function() {
+  flip() {
     this.flip();
   },
-  flop: function() {
+  flop() {
     this.flop();
   },
-  height: function(height) {
-    this.resize(null, height);
+  height(height) {
+    this.resize(undefined, height, this.settings.resize);
   },
-  gamma: function(gamma) {
+  gamma(gamma) {
     this.gamma(gamma / 10 || 2.2);
   },
-  grayscale: function() {
+  grayscale() {
     this.grayscale();
   },
-  negate: function() {
+  negate() {
     this.negate();
   },
-  normalize: function() {
+  normalize() {
     this.normalize();
   },
-  lossless: function() {
+  lossless() {
     this.settings.lossless = true;
   },
-  quality: function(quality) {
+  position(pos) {
+    this.settings.resize.position = pos;
+  },
+  quality(quality) {
     if (quality) {
       this.settings.quality = quality;
     }
   },
-  rotate: function(degree) {
+  rotate(degree) {
     this.rotate(degree);
   },
-  resize: function(width, height) {
-    this.resize(width, height);
+  resize(width, height) {
+    this.resize(width, height, this.settings.resize);
   },
-  sharpen: function() {
+  sharpen() {
     this.sharpen();
   },
-  trim: function() {
+  trim() {
     this.trim();
   },
-  width: function(width) {
-    this.resize(width, null);
+  width(width) {
+    this.resize(width, undefined, this.settings.resize);
   },
 };
 
 // current implementation is fairly limited
 const svgOperators = {
-  crop: function(left, top, width, height) {
+  crop(left, top, width, height) {
     this.crop = { left, top, width, height };
   },
-  height: function(height) {
+  height(height) {
     this.height = height;
   },
-  resize: function(width, height) {
+  resize(width, height) {
     this.width = width;
     this.height = height;
   },
-  width: function(width) {
+  width(width) {
     this.width = width;
   },
 };
