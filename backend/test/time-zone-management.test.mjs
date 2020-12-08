@@ -9,7 +9,7 @@ import {
 } from '../lib/time-zone-management.mjs';
 
 describe('Time zone management', function() {
-  describe('$1()', function() {
+  describe('checkTimeZone()', function() {
     it('should return true if time zone is valid', function() {
       const result = checkTimeZone('Europe/Warsaw');
       expect(result).to.be.true;
@@ -19,7 +19,7 @@ describe('Time zone management', function() {
       expect(result).to.be.false;
     })
   })
-  describe('$1()', function() {
+  describe('setTimeZone()', function() {
     it('should set time zone globally', function() {
       setTimeZone('Pacific/Honolulu');
       const date = new Date(0);
@@ -40,7 +40,7 @@ describe('Time zone management', function() {
       restoreTimeZone();
     })
   })
-  describe('$1()', function() {
+  describe('restoreTimeZone()', function() {
     it('should revert time zone setting to previous state', function() {
       const date = new Date(0);
       const str1 = date.toLocaleTimeString('eu-US', { hour12: true });
@@ -52,7 +52,7 @@ describe('Time zone management', function() {
       expect(str3).to.eql(str1);
     })
   })
-  describe('$1()', function() {
+  describe('reinterpretDate()', function() {
     it('should apply time-zone adjustment to date object', function() {
       try {
         setTimeZone('Pacific/Honolulu');
@@ -67,7 +67,7 @@ describe('Time zone management', function() {
       }
     })
   })
-  describe('$1()', function() {
+  describe('parseExcelFile()', function() {
     let formatting;
     before(async () => {
       formatting = await loadExcelFile('formatting.xlsx', { timeZone: 'Pacific/Honolulu' });
