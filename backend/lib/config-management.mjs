@@ -29,22 +29,19 @@ function enforceUrlOrPath(value, ctx) {
 
 // server config definition
 const Server = object({
-  listen: Listen.optional(),
+  listen: Listen.defaulted([ 8080 ]),
   nginx: object({
+    port: number().defaulted(80),
     cache: object({
       path: Path,
     }).optional(),
   }).optional(),
-}).coerce(object(), (server) => {
-  return defaultsDeep(server, {
-    listen: [ 8080 ]
-  });
 });
 
 // site config definition
 const Site = object({
   name: string().optional(),
-  domains: array(string()).optional(),
+  domains: array(string()).defaulted([]),
   files: array(
     object({
       name: string(),
@@ -57,7 +54,7 @@ const Site = object({
         headers: true,
       });
     }).refine('url-or-path', enforceUrlOrPath),
-  ).optional(),
+  ).defaulted([]),
   locale: string().optional(),
   storage: object({
     path: Path
@@ -67,13 +64,11 @@ const Site = object({
     url: string().optional(),
   }).refine('url-or-path', enforceUrlOrPath).optional()
 });
-// the default config depends on the name
+// these default settings depends on the name
 Site.with = function(name) {
   return this.coerce(object(), (site) => {
     return defaultsDeep(site, {
       name,
-      domains: [],
-      files: [],
       storage: {
         path: resolve(getConfigFolder(), name)
       }

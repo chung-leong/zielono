@@ -74,7 +74,7 @@ function addHandlers(app) {
  */
 async function handleSiteAssociation(req, res, next) {
   try {
-    const { hostname, port, originalUrl, url } = req;
+    const { hostname, originalUrl, url } = req;
     const server = await getServerConfig();
     const sites = await getSiteConfigs();
     let baseUrl = '';
@@ -84,6 +84,7 @@ async function handleSiteAssociation(req, res, next) {
       if (domainIndex > 0) {
         // redirect to canonical domain name to improve caching
         if (server.nginx) {
+          const { port } = server.nginx;
           const host = site.domains[0] + (port != 80 ? `:${port}` : '');
           const url = `//${host}${originalUrl}`;
           res.set({ 'X-Accel-Redirect': url });
@@ -100,7 +101,9 @@ async function handleSiteAssociation(req, res, next) {
         const first = sites[0];
         if (first) {
           if (first.domains[0]) {
-            res.redirect(`//${first.domains[0]}`);
+            const port = (server.nginx) ? server.nginx.port : server.listen[0];
+            const host = first.domains[0] + (port != 80 ? `:${port}` : '');
+            res.redirect(`//${host}`);
           } else {
             res.redirect(`/${first.name}`);
           }
