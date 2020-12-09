@@ -71,125 +71,155 @@ async function parseCSVFile(buffer, options) {
  * @return {(object|undefined)}
  */
 async function parseExcelWorksheet(worksheet, options) {
+  try {
+    // set time zone so dates are interpreted correctly
+    // needs to happen in synchronous section since setting
+    // is global
+    setTimeZone(options.timeZone);
+    return parseExcelWorksheetSync(worksheet, options);
+  } finally {
+    // restore time zone
+    restoreTimeZone();
+  }
+}
+
+/**
+ * Parse an Excel worksheet
+ *
+ * @param  {Worksheet} worksheet
+ * @param  {object} options
+ *
+ * @return {(object|undefined)}
+ */
+function parseExcelWorksheetSync(worksheet, options) {
   const { state, rowCount, columnCount, views } = worksheet;
   const { locale, timeZone, headers = true } = options;
   const sheetNameFlags = extractNameFlags(worksheet.name);
-  if (state === 'visible' && sheetNameFlags) {
-    // set time zone so dates are interpreted correctly
-    setTimeZone(timeZone);
-    // find images used in worksheet first
-    const wsImages = worksheet.getImages();
-    const media = {}, rowHasMedia = {};
-    if (wsImages) {
-      for (let wsImage of wsImages) {
-        const { imageId, range, srcRect } = wsImage;
-        // the anchor of the image (top left corner)
-        const { nativeCol, nativeRow } = range.tl;
-        const c = nativeCol + 1;
-        const r = nativeRow + 1;
-        const wbImage = worksheet.workbook.getImage(imageId);
-        media[`${c}:${r}`] = { ...wbImage, srcRect };
-        rowHasMedia[r] = true;
+  if (state !== 'visible' || !sheetNameFlags) {
+    return;
+  }
+  // find images used in worksheet first
+  const wsImages = worksheet.getImages();
+  const media = {}, rowHasMedia = {};
+  if (wsImages) {
+    for (let wsImage of wsImages) {
+      const { imageId, range, srcRect } = wsImage;
+      // the anchor of the image (top left corner)
+      const { nativeCol, nativeRow } = range.tl;
+      const c = nativeCol + 1;
+      const r = nativeRow + 1;
+      const wbImage = worksheet.workbook.getImage(imageId);
+      media[`${c}:${r}`] = { ...wbImage, srcRect };
+      rowHasMedia[r] = true;
+    }
+  }
+  const conditionalStyling = new ExcelConditionalStyling(worksheet, { locale });
+  // see where column headers end
+  let headerRow = 0;
+  if (headers) {
+    headerRow = 1;
+    for (let view of views) {
+      if (view.state === 'frozen') {
+        headerRow = view.ySplit;
       }
     }
-    const conditionalStyling = new ExcelConditionalStyling(worksheet, { locale });
-    // process the cells
-    const columns = [];
-    const columnHash = {};
-    let withNames;
-    if (headers) {
-      withNames = 1;
-      for (let view of views) {
-        if (view.state === 'frozen') {
-          withNames = view.ySplit;
-        }
-      }
-    } else {
-      withNames = 0;
-      for (let c = 1; c <= columnCount; c++) {
-        const wsColumn = worksheet.getColumn(c);
-        if (!wsColumn.hidden) {
-          const name = colCache.n2l(c);
-          const column = { name, cells: [] };
-          columns.push(column);
-          columnHash[c] = column;
-        }
-      }
-    }
-    let lowestNonEmptyRow = 1;
-    for (let r = 1; r <= rowCount; r++) {
-      const wsRow = worksheet.getRow(r);
-      if (wsRow.hidden) {
-        // skip hidden rows
-        continue;
-      }
-      if (wsRow.hasValues || rowHasMedia[r]) {
-        const prevNonEmptyRow = lowestNonEmptyRow;
-        if (r > lowestNonEmptyRow) {
-          lowestNonEmptyRow = r;
-          if (r !== prevNonEmptyRow + 1) {
-            // go back and process the empty rows above this one
-            r = prevNonEmptyRow;
+  }
+  const offsets = { column: 0, row: headerRow };
+  const columns = [];
+  const columnHash = {};
+  for (let c = 1; c <= columnCount; c++) {
+    const wsColumn = worksheet.getColumn(c);
+    const headers = [];
+    const lines = [];
+    if(!wsColumn.hidden) {
+      if (headerRow === 0) {
+        lines.push(colCache.n2l(c));
+      } else {
+        // use the row(s) as column names
+        const used = [];
+        const opts = { locale, offsets };
+        for (let r = 1; r <= headerRow; r++) {
+          const wsRow = worksheet.getRow(r);
+          if (wsRow.hidden) {
             continue;
           }
+          const wsCell = wsRow.getCell(c);
+          const medium = media[`${c}:${r}`];
+          const contents = extractCellContents(wsCell, medium, opts);
+          headers.push(contents);
+          conditionalStyling.check(wsCell, contents);
+          // don't use the text of a merged cell twice
+          if (!used.includes(wsCell.master)) {
+            lines.push(wsCell.text);
+            used.push(wsCell.master);
+          }
         }
-      } else {
-        if (r > lowestNonEmptyRow) {
-          // don't process an empty row unless there's something beneath it
+      }
+    }
+    const columnNameFlags = extractNameFlags(lines.join('\n'));
+    if (columnNameFlags) {
+      const column = { ...columnNameFlags, headers, cells: [] };
+      columns.push(column);
+      columnHash[c] = column;
+    } else {
+      offsets.column++;
+    }
+  }
+  if (columns.length === 0) {
+    return;
+  }
+  // all the remaining rows are treated as data rows
+  let lowestNonEmptyRow = headerRow;
+  for (let r = headerRow + 1; r <= rowCount; r++) {
+    const wsRow = worksheet.getRow(r);
+    // make sure empty rows aren't import unless they're neccessary
+    if (!wsRow.hidden && (wsRow.hasValues || rowHasMedia[r])) {
+      const prevNonEmptyRow = lowestNonEmptyRow;
+      if (r > lowestNonEmptyRow) {
+        lowestNonEmptyRow = r;
+        if (r !== prevNonEmptyRow + 1) {
+          // go back and process the empty rows above this one
+          r = prevNonEmptyRow;
           continue;
         }
       }
-      if (r === withNames) {
-        // use the row as column names
-        for (let c = 1; c <= columnCount; c++) {
-          const wsColumn = worksheet.getColumn(c);
-          if (wsColumn.hidden) {
-            continue;
-          }
-          const headers = [];
-          const lines = [];
-          for (let h = 1; h <= r; h++) {
-            const wsRow = worksheet.getRow(h);
-            if (!wsRow.hidden) {
-              const wsCell = wsRow.getCell(c);
-              const medium = media[`${c}:${h}`];
-              headers.push(extractCellContents(wsCell, medium, { locale }));
-              lines.push(wsCell.text);
-            }
-          }
-          const columnNameFlags = extractNameFlags(lines.join('\n'));
-          if (columnNameFlags) {
-            const column = { ...columnNameFlags, headers, cells: [] };
-            columns.push(column);
-            columnHash[c] = column;
-          }
-        }
-        if (columns.length === 0) {
-          break;
-        }
-      } else if (r > withNames) {
-        // all the remaining rows are treated as data rows
-        for (let c = 1; c <= columnCount; c++) {
-          const column = columnHash[c];
-          if (column) {
-            const wsCell = wsRow.getCell(c);
-            const medium = media[`${c}:${r}`];
-            const contents = extractCellContents(wsCell, medium, { locale });
-            column.cells.push(contents);
-            conditionalStyling.check(wsCell, contents);
-          }
+    } else {
+      if (r > lowestNonEmptyRow) {
+        // don't process an empty row unless there's something beneath it
+        continue;
+      } else {
+        // increase the offset to account for the missing row
+        offsets.row++;
+        if (wsRow.hidden) {
+          continue;
         }
       }
     }
-    // apply conditional styling
-    conditionalStyling.apply();
-    // restore time zone
-    restoreTimeZone();
-    // don't return empty sheets
-    if (columns.length > 0) {
-      return { ...sheetNameFlags, columns };
+    const opts = { locale, offsets };
+    for (let c = 1; c <= columnCount; c++) {
+      const column = columnHash[c];
+      if (column) {
+        const wsCell = wsRow.getCell(c);
+        const medium = media[`${c}:${r}`];
+        const contents = extractCellContents(wsCell, medium, opts);
+        column.cells.push(contents);
+        conditionalStyling.check(wsCell, contents);
+      }
     }
   }
+  // apply conditional styling
+  conditionalStyling.apply();
+  const sheet = { ...sheetNameFlags, columns };
+  if (conditionalStyling.errors.length > 0) {
+    // attach error messages
+    sheet.errors = [];
+    for (let error of conditionalStyling.errors) {
+      if (!sheet.errors.includes(error.message)) {
+        sheet.errors.push(error.message);
+      }
+    }
+  }
+  return sheet;
 }
 
 /**
@@ -227,7 +257,17 @@ function extractNameFlags(text) {
  * @return {(object|string)}
  */
 function extractCellContents(wsCell, medium, options) {
-  const { locale } = options;
+  const { locale, offsets } = options;
+  // deal with merged cell
+  if (wsCell !== wsCell.master) {
+    const { col, row } = wsCell.master;
+    return {
+      master: {
+        col: col - offsets.column - 1,
+        row: row - offsets.row - 1,
+      }
+    };
+  }
   const contents = {};
   // extract style
   const style = extractCellStyle(wsCell, true);

@@ -169,7 +169,7 @@ describe('Excel parsing', function() {
       const sushi = await loadExcelFile('sushi.xlsx', { headers: false });
       const [ sheet1 ] = sushi.sheets;
       const [ col1, col2 ] = sheet1.columns;
-      expect(col1).to.not.have.property('headers');
+      expect(col1).to.have.property('headers').with.lengthOf(0);
       expect(col1).to.have.property('name', 'A');
       expect(col2).to.have.property('name', 'B');
       const cellA1 = sheet1.columns[0].cells[0];
@@ -203,6 +203,20 @@ describe('Excel parsing', function() {
       const cellA2 = col1.cells[0];
       expect(cellA2.image).to.have.property('srcRect')
       expect(cellA2.image.srcRect).to.have.keys([ 'l', 'r', 't', 'b' ]);
+    })
+    it('should handle merged cells correctly', async function() {
+      const merged = await loadExcelFile('merged.xlsx');
+      const [ sheet1 ] = merged.sheets;
+      const [ col1, col2, col3 ] = sheet1.columns;
+      expect(col1).to.have.property('name', 'Name');
+      expect(col2).to.have.property('name', 'Name');
+      expect(col3).to.have.property('name', 'Currency');
+      const cellB1 = col2.headers[0];
+      expect(cellB1).to.have.property('master').that.eql({ col: 0, row: -2 });
+      const cellB11 = col2.cells[7];
+      expect(cellB11).to.have.property('master').that.eql({ col: 0, row: 7 });
+      const cellC7 = col3.cells[3];
+      expect(cellC7).to.have.property('master').that.eql({ col: 2, row: 1 });
     })
   })
   describe('parseCSVFile()', function() {
