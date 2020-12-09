@@ -15,7 +15,7 @@ describe('Page request handling', function() {
         throw err;
       }
     };
-    it ('should retrieve file from local git', async function() {
+    it('should retrieve file from local git', async function() {
       const site = {
         name: 'tmp',
         code: {
@@ -33,7 +33,23 @@ describe('Page request handling', function() {
       const text = data.toString();
       expect(text).to.contain('React');
     })
-    it ('should generate a HTML page from code in local git', async function() {
+    it('should respond to request for non-existent favicon.ico with 204', async function() {
+      const site = {
+        name: 'tmp',
+        code: {
+          path: '/home/cleong/zielono-generic-site'
+        },
+      };
+      const req = createRequest({
+        ref: undefined,
+        params: { filename: 'favicon.ico' },
+      });
+      const res = createResponse();
+      req.site = site;
+      await handlePageRequest(req, res, next);
+      expect(res.statusCode).to.equal(204);
+    })
+    it('should generate a HTML page from code in local git', async function() {
       const site = {
         name: 'tmp',
         code: {

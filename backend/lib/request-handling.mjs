@@ -96,7 +96,7 @@ async function handleSiteAssociation(req, res, next) {
       site = sites.find((s) => atBaseURL(url, `/${s.name}`));
       if (site) {
         baseUrl = `/${site.name}`;
-      } else if (!atBaseURL(url, '/zielono')) {
+      } else if (url === '/') {
         const first = sites[0];
         if (first) {
           if (first.domains[0]) {

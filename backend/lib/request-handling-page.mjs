@@ -12,9 +12,9 @@ import { extname } from 'path';
  * @param  {function} next
  */
 async function handlePageRequest(req, res, next) {
+  const { page, filename } = req.params;
+  const { site, ref } = req;
   try {
-    const { page, filename } = req.params;
-    const { site, ref } = req;
     if (!site || !site.code) {
       throw new HttpError(404);
     }
@@ -48,6 +48,10 @@ async function handlePageRequest(req, res, next) {
     }
     res.type(type).send(buffer);
   } catch (err) {
+    if(filename === 'favicon.ico') {
+      res.status(204).end();
+      return;
+    }
     next(err);
   }
 }
