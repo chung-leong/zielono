@@ -1,6 +1,5 @@
 import Fs from 'fs'; const { readFile, readdir } = Fs.promises;
 import { join, resolve } from 'path';
-import defaultsDeep from 'lodash/defaultsDeep.js';
 import sortedIndexBy from 'lodash/sortedIndexBy.js';
 import get from 'lodash/get.js';
 import JsYaml from 'js-yaml'; const { safeLoad } = JsYaml;
@@ -8,73 +7,6 @@ import { object, number, string, array, boolean, create, coerce, define } from '
 import 'superstruct-chain';
 import { checkTimeZone } from './time-zone-management.mjs';
 import { ErrorCollection } from './error-handling.mjs';
-
-// path resolve against config folder
-const Path = coerce(string(), string(), (path) => resolve(configFolder, path));
-// listen arguments can be number or array
-const Listen = coerce(array(), number(), (port) => [ port ]);
-// timezone
-const TimeZone = define('valid time zone', checkTimeZone);
-
-function enforceUrlOrPath(value, ctx) {
-  if ((!value.path && !value.url) || (value.path && value.url)) {
-    const { branch, path } = ctx;
-    const { type } = ctx.struct;
-    const message = `Expected either url or path to be present`;
-    return [ { message, value, branch, path, type } ];
-  } else {
-    return true;
-  }
-}
-
-// server config definition
-const Server = object({
-  listen: Listen.defaulted([ 8080 ]),
-  nginx: object({
-    port: number().defaulted(80),
-    cache: object({
-      path: Path,
-    }).optional(),
-  }).optional(),
-});
-
-// site config definition
-const Site = object({
-  name: string().optional(),
-  domains: array(string()).defaulted([]),
-  files: array(
-    object({
-      name: string(),
-      path: Path.optional(),
-      url: string().optional(),
-      timeZone: TimeZone.optional(),
-      headers: boolean().optional(),
-    }).coerce(object(), (object) => {
-      return defaultsDeep(object, {
-        headers: true,
-      });
-    }).refine('url-or-path', enforceUrlOrPath),
-  ).defaulted([]),
-  locale: string().optional(),
-  storage: object({
-    path: Path
-  }).optional(),
-  code: object({
-    path: Path.optional(),
-    url: string().optional(),
-  }).refine('url-or-path', enforceUrlOrPath).optional()
-});
-// these default settings depends on the name
-Site.with = function(name) {
-  return this.coerce(object(), (site) => {
-    return defaultsDeep(site, {
-      name,
-      storage: {
-        path: resolve(getConfigFolder(), name)
-      }
-    });
-  });
-}
 
 let configFolder;
 
@@ -90,7 +22,19 @@ function getConfigFolder() {
 }
 
 function processServerConfig(config) {
-  return create(config, Server);
+  const folder = getConfigFolder();
+  const serverDef = object({
+    // listen can be specified using a number
+    listen: array().coerce(number(), (port) => [ port ]).defaulted([ 8080 ]),
+    nginx: object({
+      port: number().defaulted(80),
+      cache: object({
+        // path resolve against config folder
+        path: string().coerce(string(), (path) => resolve(folder, path)),
+      }).optional(),
+    }).optional(),
+  });
+  return create(config, serverDef);
 }
 
 let serverConfig;
@@ -124,7 +68,39 @@ async function findSiteConfig(name) {
 }
 
 function processSiteConfig(name, config) {
-  return create(config, Site.with(name));
+  const folder = getConfigFolder();
+  const urlOrPath  = (value, ctx) => {
+    if ((!value.path && !value.url) || (value.path && value.url)) {
+      return ctx.fail('Expected either url or path to be present');
+    } else {
+      return true;
+    }
+  };
+  const siteDef = object({
+    name: string(),
+    domains: array(string()).defaulted([]),
+    files: array(
+      object({
+        name: string(),
+        // path resolve against config folder
+        path: string().coerce(string(), (path) => resolve(folder, path)),
+        url: string().optional(),
+        timeZone: define('time zone', checkTimeZone).optional(),
+        headers: boolean().defaulted(true),
+      }).refine('url-or-path', urlOrPath),
+    ).defaulted([]),
+    locale: string().optional(),
+    storage: object({
+      path: string().coerce(string(), (path) => resolve(folder, path)),
+    }).defaulted({
+      path: resolve(folder, name)
+    }),
+    code: object({
+      path: string().coerce(string(), (path) => resolve(folder, path)),
+      url: string().optional(),
+    }).refine('url-or-path', urlOrPath).optional()
+  });
+  return create({ name, ...config }, siteDef);
 }
 
 let siteConfigs;
