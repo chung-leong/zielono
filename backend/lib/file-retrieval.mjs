@@ -1,4 +1,4 @@
-import Fs from 'fs'; const { readFile, lstat } = Fs.promises;
+import Fs from 'fs'; const { readFile, stat } = Fs.promises;
 import deasync from 'deasync';
 import fetch from 'cross-fetch';
 import { getAgent as agent } from './http-agents.mjs';
@@ -170,7 +170,7 @@ function restoreRequire() {
 }
 
 async function retrieveFromDisk(path, options) {
-  const { mtime } = await lstat(path);
+  const { mtime } = await stat(path);
   const { mtime: mtimeBeforeString } = options;
   const mtimeBefore = (mtimeBeforeString) ? new Date(mtimeBeforeString) : null;
   if (mtimeBefore && mtime.getTime() == mtimeBefore.getTime()) {

@@ -3,11 +3,15 @@ import { getAssetPath } from './helpers/file-loading.mjs';
 
 import {
   setConfigFolder,
+  getConfigFolder,
   getServerConfig,
   processServerConfig,
   findSiteConfig,
   getSiteConfigs,
   processSiteConfig,
+  processTokenConfig,
+  findAccessToken,
+  preloadConfig,
 } from '../lib/config-management.mjs';
 
 describe('Config management', function() {
@@ -92,6 +96,30 @@ describe('Config management', function() {
       expect(() => processSiteConfig('hello', input)).to.throw();
     })
   })
+  describe('processTokenConfig()', function() {
+    it('should accept an empty array', function() {
+      const config = processTokenConfig([]);
+      expect(config).to.eql([]);
+    })
+    it('should process a list of objects correctly', function() {
+      const input = [
+        { url: 'http://example.net', token: 'XXXXXXX' },
+        { url: 'http://example.net', token: 'YYYYYYY' },
+      ];
+      const config = processTokenConfig(input);
+      expect(config).to.eql(input);
+    })
+    it('should throw when required field is missing', function() {
+      const input1 = [
+        { url: 'http://something' }
+      ];
+      const input2 = [
+        { token: 'XXXXXXXXX' }
+      ];
+      expect(() => processTokenConfig(input1)).to.throw();
+      expect(() => processTokenConfig(input2)).to.throw();
+    })
+  })
   describe('getSiteConfigs()', function() {
     it('shoud load site configs', async function() {
       const sites = await getSiteConfigs();
@@ -100,6 +128,31 @@ describe('Config management', function() {
       expect(site1).to.have.property('name', 'site1');
       expect(site1).to.have.property('domains').that.is.an('array');
       expect(site1).to.have.property('files').that.is.an('array');
+    })
+  })
+  describe('findAccessToken()', function() {
+    it('shoud find access token for URL', async function() {
+      const url = 'https://github.com/chung-leong/zielono/';
+      const token = await findAccessToken(url);
+      expect(token).to.equal('AB1234567890');
+    })
+    it('should not throw if .tokens.yaml is missing', async function() {
+      const url = 'https://github.com/chung-leong/zielono/';
+      const folder = getConfigFolder();
+      try {
+        setConfigFolder(folder + '/random');
+        const token = await findAccessToken(url);
+        expect(token).to.equal(undefined);
+      } finally {
+        setConfigFolder(folder);
+      }
+    })
+  })
+  describe('preloadConfig()', function() {
+    it('should load both server and site config', async function() {
+      const { server, sites } = await preloadConfig();
+      expect(server).to.be.an('object');
+      expect(sites).to.be.an('array').that.have.lengthOf(2);
     })
   })
 })

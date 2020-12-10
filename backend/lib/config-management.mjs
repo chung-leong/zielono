@@ -1,10 +1,10 @@
-import Fs from 'fs'; const { readFile, readdir } = Fs.promises;
+import Fs from 'fs'; const { readFile, readdir, stat } = Fs.promises;
 import { EventEmitter } from 'events';
 import { join, resolve, basename } from 'path';
 import sortedIndexBy from 'lodash/sortedIndexBy.js';
 import get from 'lodash/get.js';
 import isEqual from 'lodash/isEqual.js';
-import JsYaml from 'js-yaml'; const { safeLoad, safeDump } = JsYaml;
+import JsYAML from 'js-yaml'; const { safeLoad, safeDump } = JsYAML;
 import { object, number, string, array, boolean, create, coerce, define } from 'superstruct';
 import 'superstruct-chain';
 import Chokidar from 'chokidar';
@@ -14,9 +14,13 @@ import Colors from 'colors/safe.js'; const { red, green, gray, strikethrough } =
 import { ErrorCollection, displayError } from './error-handling.mjs';
 
 let configFolder;
+let serverConfig;
+let siteConfigs;
+let accessTokens;
 
 function setConfigFolder(path) {
   configFolder = path;
+  serverConfig = siteConfigs = accessTokens = undefined;
 }
 
 function getConfigFolder() {
@@ -56,8 +60,6 @@ function processServerConfig(config) {
   });
   return create(config, serverDef);
 }
-
-let serverConfig;
 
 async function getServerConfig() {
   if (serverConfig) {
@@ -128,8 +130,6 @@ function processSiteConfig(name, config) {
   return create({ name, ...config }, siteDef);
 }
 
-let siteConfigs;
-
 async function loadSiteConfig(name) {
   const folder = getConfigFolder();
   const filename = `${name}.yaml`;
@@ -186,6 +186,58 @@ async function getSiteConfigs() {
   return siteConfigs;
 }
 
+function processTokenConfig(config) {
+  const tokenListDef = array(
+    object({
+      url: string(),
+      token: string(),
+    })
+  );
+  return create(config, tokenListDef);
+}
+
+async function loadAccessTokens() {
+  const folder = getConfigFolder();
+  const filename = `.tokens.yaml`;
+  const path = join(folder, filename);
+  let text;
+  try {
+    const file = await stat(path);
+    if (file.mode & (Fs.constants.S_IROTH)) {
+      console.warn(`Warning: ${filename} can be read by others`)
+    }
+    if (file.mode & (Fs.constants.S_IWOTH)) {
+      console.warn(`Warning: ${filename} can be modified by others`)
+    }
+    text = await readFile(path, 'utf-8');
+  } catch (err) {
+    if (err.errno === -2) {  // not found
+      text = '[]';
+    } else {
+      throw err;
+    }
+  }
+  const config = safeLoad(text);
+  try {
+    accessTokens = processTokenConfig(config);
+    return accessTokens;
+  } catch (err) {
+    err.filename = filename;
+    err.lineno = findLineNumber(text, err.path);
+    throw err;
+  }
+}
+
+async function findAccessToken(url) {
+  if (!accessTokens) {
+    await loadAccessTokens();
+  }
+  const entry = accessTokens.find((t) => url.startsWith(t.url));
+  if (entry) {
+    return entry.token;
+  }
+}
+
 function findLineNumber(text, path) {
   if (!(path instanceof Array)) {
     return;
@@ -219,6 +271,11 @@ async function preloadConfig() {
   }
   try {
     sites = await getSiteConfigs();
+  } catch (err) {
+    errors.push(err);
+  }
+  try {
+    await loadAccessTokens()
   } catch (err) {
     errors.push(err);
   }
@@ -304,6 +361,8 @@ export {
   processServerConfig,
   findSiteConfig,
   getSiteConfigs,
+  processTokenConfig,
+  findAccessToken,
   processSiteConfig,
   configEventEmitter,
 };

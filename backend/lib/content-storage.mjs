@@ -1,4 +1,4 @@
-import Fs from 'fs'; const { readFile, writeFile, lstat } = Fs.promises;
+import Fs from 'fs'; const { readFile, writeFile, stat } = Fs.promises;
 import mkdirp from 'mkdirp';
 import { dirname, join } from 'path';
 import { createHash } from 'crypto';
@@ -37,7 +37,7 @@ async function loadSiteContentMeta(site, folder, hash) {
 async function checkSiteContent(site, folder, hash, ext, size) {
   const path = getSiteContentPath(site, folder, hash, ext)
   try {
-    const stat = await lstat(path);
+    const stat = await stat(path);
     return (stat.size == size);
   } catch (err) {
     return false;

@@ -1,5 +1,6 @@
 import { retrieveFromGit } from './file-retrieval.mjs';
 import { generatePage } from './page-generation.mjs';
+import { findAccessToken } from './config-management.mjs';
 import { getHash }  from './content-storage.mjs';
 import { HttpError } from './error-handling.mjs';
 import { extname } from 'path';
@@ -22,7 +23,7 @@ async function handlePageRequest(req, res, next) {
     const { url, path } = site.code;
     const gitParams = { url, path, ref };
     if (url) {
-      // TODO: attach access token
+      gitParams.accessToken = await findAccessToken(url);
     }
     let buffer, type, etag;
     if (page !== undefined) {
