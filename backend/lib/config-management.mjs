@@ -228,6 +228,10 @@ async function loadAccessTokens() {
   }
 }
 
+function removeAccessTokens() {
+  accessTokens = undefined;
+}
+
 async function findAccessToken(url) {
   if (!accessTokens) {
     await loadAccessTokens();
@@ -317,7 +321,20 @@ async function handleConfigChange(event, path) {
         displayConfigChanges(before, after, description);
       }
     } else if (name === '.tokens') {
-      // TODO
+      let before = accessTokens;
+      let after = (present) ? await loadAccessTokens() : removeAccessTokens();
+      if (!isEqual(before, after)) {
+        const mask = ({ url, token }) => {
+          token = token.replace(/(.{3})(.*)(.{3})/, (m0, m1, m2, m3) => {
+            return m1 + m2.replace(/./g, '.') + m3;
+          });
+          return { url, token };
+        };
+        before = before.map(mask);
+        after = before.map(mask);
+        configEventEmitter.emit('token-change', before, after);
+        displayConfigChanges(before, after, description);
+      }
     } else {
       const before = siteConfigs.find((s) => s.name === name);
       const after = (present) ? await loadSiteConfig(name) : removeSiteConfig(name);
