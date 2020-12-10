@@ -1,5 +1,5 @@
 import Fs from 'fs'; const { readFile, readdir } = Fs.promises;
-import { join, resolve } from 'path';
+import { join, resolve, basename } from 'path';
 import sortedIndexBy from 'lodash/sortedIndexBy.js';
 import get from 'lodash/get.js';
 import JsYaml from 'js-yaml'; const { safeLoad } = JsYaml;
@@ -7,6 +7,7 @@ import { object, number, string, array, boolean, create, coerce, define } from '
 import 'superstruct-chain';
 import { checkTimeZone } from './time-zone-management.mjs';
 import { ErrorCollection } from './error-handling.mjs';
+import Chokidar from 'chokidar';
 
 let configFolder;
 
@@ -19,6 +20,18 @@ function getConfigFolder() {
     throw new Error('Configuration folder is undefined');
   }
   return configFolder;
+}
+
+function watchConfigFolder() {
+  const folder = getConfigFolder();
+  const options = {
+    ignored: (path) => !/\.yaml$/.test(path),
+    depth: 0,
+  };
+  const watcher = Chokidar.watch(folder, options);
+  watcher.on('add', (path) => handleConfigChange('add', path));
+  watcher.on('unlink', (path) => handleConfigChange('unlink', path));
+  watcher.on('change', (path) => handleConfigChange('change', path));
 }
 
 function processServerConfig(config) {
@@ -55,11 +68,16 @@ async function loadServerConfig() {
   const config = safeLoad(text);
   try {
     serverConfig = processServerConfig(config);
+    return serverConfig;
   } catch (err) {
     err.filename = filename;
     err.lineno = findLineNumber(text, err.path);
     throw err;
   }
+}
+
+function removeServerConfig() {
+  serverConfig = null;
 }
 
 async function findSiteConfig(name) {
@@ -120,11 +138,16 @@ async function loadSiteConfig(name) {
     } else {
       siteConfigs.splice(index, 0, site);
     }
+    return site;
   } catch (err) {
     err.filename = filename;
     err.lineno = findLineNumber(text, err.path);
     throw err;
   }
+}
+
+function removeSiteConfig(name) {
+  siteConfigs = siteConfigs.filter((s) => s.name === name);
 }
 
 async function getSiteConfigs() {
@@ -193,9 +216,24 @@ async function preloadConfig() {
   return { server, sites };
 }
 
+function handleConfigChange(event, path) {
+  const filename = basename(path);
+  const name = filename.replace(/\.yaml$/, '');
+  const present = (event === 'add' || event === 'change');
+  if (name === 'zielono') {
+    const before = getServerConfig();
+    const after = (present) ? await loadServerConfig() : removeServerConfig();
+  } else if (name === '.tokens') {
+  } else {
+    const before = findSiteConfig(name);
+    const after = (present) ? await loadSiteConfig(name) : removeSiteConfig(name);
+  }
+}
+
 export {
   setConfigFolder,
   getConfigFolder,
+  watchConfigFolder,
   preloadConfig,
   getServerConfig,
   processServerConfig,
