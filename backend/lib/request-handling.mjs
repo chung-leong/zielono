@@ -8,6 +8,8 @@ import { handlePageRequest } from './request-handling-page.mjs';
 import { handleAdminRequest } from './request-handling-admin.mjs';
 import { HttpError } from './error-handling.mjs';
 
+let server;
+
 async function startHTTPServer() {
   // start up Express
   const app = createApp();
@@ -16,22 +18,26 @@ async function startHTTPServer() {
   // get server settings
   const config = await getServerConfig();
   // wait for server to start up
-  return new Promise((resolve, reject) => {
-    const args = [ ...config.listen, () => resolve(server) ];
-    const server = app.listen(...args);
+  await new Promise((resolve, reject) => {
+    const args = [ ...config.listen, resolve ];
+    server = app.listen(...args);
     server.once('error', (evt) => reject(new Error(evt.message)));
   });
+  return server;
 }
 
-async function stopHTTPServer(server, maxWait) {
-  await new Promise((resolve, reject) => {
-    const timeout = setTimeout(resolve, maxWait);
-    server.on('close', () => {
-      resolve();
-      clearTimeout(timeout);
+async function stopHTTPServer(maxWait = 5000) {
+  if (server) {
+    await new Promise((resolve, reject) => {
+      const timeout = setTimeout(resolve, maxWait);
+      server.on('close', () => {
+        resolve();
+        clearTimeout(timeout);
+      });
+      server.close();
+      server = undefined;
     });
-    server.close();
-  });
+  }
 }
 
 /**
