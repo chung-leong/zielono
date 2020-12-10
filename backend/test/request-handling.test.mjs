@@ -28,7 +28,7 @@ import {
 
 describe('Request handling', function() {
   before(function() {
-    const path = getAssetPath('storage');
+    const path = getAssetPath('config');
     setConfigFolder(path);
   })
   describe('addHandlers()', function() {

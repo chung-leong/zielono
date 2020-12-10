@@ -98,7 +98,7 @@ function processSiteConfig(name, config) {
   const folder = getConfigFolder();
   const urlOrPath  = (value, ctx) => {
     if ((!value.path && !value.url) || (value.path && value.url)) {
-      return ctx.fail('Expected either url or path to be present');
+      return [ ctx.fail('Expected either url or path to be present') ];
     } else {
       return true;
     }

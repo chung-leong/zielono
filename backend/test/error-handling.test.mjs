@@ -1,5 +1,5 @@
 import Chai from 'chai'; const { expect } = Chai;
-import { processServerConfig, processSiteConfig } from '../lib/config-management.mjs';
+import { processServerConfig, processSiteConfig, setConfigFolder } from '../lib/config-management.mjs';
 
 import {
   displayError,
@@ -12,6 +12,7 @@ describe('Error handling', function() {
     before(function() {
       consoleErrorBefore = console.error;
       console.error = (...args) => { consoleErrorArgs = args };
+      setConfigFolder('./');
     })
     after(function() {
       console.error = consoleErrorBefore;

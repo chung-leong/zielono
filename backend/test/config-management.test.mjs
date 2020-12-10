@@ -16,7 +16,7 @@ import {
 
 describe('Config management', function() {
   before(function() {
-    const path = getAssetPath('storage');
+    const path = getAssetPath('config');
     setConfigFolder(path);
   })
   describe('processServerConfig()', function() {
@@ -46,7 +46,7 @@ describe('Config management', function() {
   })
   describe('processSiteConfig()', function() {
     it('should return a default configuration', function() {
-      const folder = getAssetPath('storage');
+      const folder = getAssetPath('config');
       const config = processSiteConfig('hello', {});
       expect(config).to.eql({
         name: 'hello',

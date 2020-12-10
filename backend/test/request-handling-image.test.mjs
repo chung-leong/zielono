@@ -61,7 +61,7 @@ describe('Image request handling', function() {
     })
   })
   before(function() {
-    const path = getAssetPath('storage');
+    const path = getAssetPath('config');
     setConfigFolder(path);
   })
   let nextCalled, next;
