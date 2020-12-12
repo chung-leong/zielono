@@ -12,8 +12,8 @@ import {
 
 describe('Data request handling', function() {
   describe('saveEmbeddedMedia()', function() {
-    const tmpFolder = createTempFolder();
     it('should save images to disk and add references to cells', async function() {
+      const tmpFolder = await createTempFolder();
       const json = await loadExcelFile('sushi.xlsx');
       const site = {
         name: 'tmp',
@@ -32,35 +32,23 @@ describe('Data request handling', function() {
     })
   })
   describe('handleDataRequest()', function() {
-    const tmpFolder = createTempFolder();
-    const site = {
-      name: 'tmp',
-      storage: tmpFolder,
-      files: [
-        {
-          name: 'sushi',
-          path: getAssetPath('sushi.xlsx')
-        },
-        {
-          name: 'sample',
-          path: getAssetPath('sample.xlsx')
-        },
-        {
-          name: 'example',
-          url: 'https://www.dropbox.com/s/bjjxwodb3kvf4ni/example.xlsx?dl=0'
-        },
-        {
-          name: 'bad',
-          url: 'https://www.dropbox.com/s/jjjjjjjjjjjjjjj/example.xlsx?dl=0'
-        }
-      ]
-    };
     const next = (err) => {
       if (err) {
         throw err;
       }
     };
     it('should return data from an Excel file on disk', async function() {
+      const tmpFolder = await createTempFolder();
+      const site = {
+        name: 'tmp',
+        storage: tmpFolder,
+        files: [
+          {
+            name: 'sushi',
+            path: getAssetPath('sushi.xlsx')
+          },
+        ]
+      };
       const req = createRequest({
         params: { name: 'sushi' }
       });
@@ -76,6 +64,17 @@ describe('Data request handling', function() {
       expect(json).to.have.property('sheets').that.is.an('array');
     })
     it('should save content and meta data', async function() {
+      const tmpFolder = await createTempFolder();
+      const site = {
+        name: 'tmp',
+        storage: tmpFolder,
+        files: [
+          {
+            name: 'sushi',
+            path: getAssetPath('sushi.xlsx')
+          },
+        ]
+      };
       const req = createRequest({
         params: { name: 'sushi' }
       });
@@ -93,6 +92,17 @@ describe('Data request handling', function() {
       expect(content).to.be.instanceOf(Buffer);
     })
     it('should respond correctly when etag is given', async function() {
+      const tmpFolder = await createTempFolder();
+      const site = {
+        name: 'tmp',
+        storage: tmpFolder,
+        files: [
+          {
+            name: 'sushi',
+            path: getAssetPath('sushi.xlsx')
+          },
+        ]
+      };
       const req1 = createRequest({
         params: { name: 'sushi' }
       });
@@ -125,6 +135,17 @@ describe('Data request handling', function() {
     })
     skip.if.watching.
     it('should return data from an Excel file at Dropbox', async function() {
+      const tmpFolder = await createTempFolder();
+      const site = {
+        name: 'tmp',
+        storage: tmpFolder,
+        files: [
+          {
+            name: 'example',
+            url: 'https://www.dropbox.com/s/bjjxwodb3kvf4ni/example.xlsx?dl=0'
+          },
+        ]
+      };
       this.timeout(5000);
       const req = createRequest({
         params: { name: 'example' }
@@ -140,6 +161,11 @@ describe('Data request handling', function() {
       expect(json).to.have.property('sheets').that.is.an('array');
     })
     it('should raise 404 error if file is not listed in config', async function() {
+      const site = {
+        name: 'tmp',
+        storage: {},
+        files: []
+      };
       const req1 = createRequest({
         params: { name: 'missing' }
       });
@@ -155,6 +181,17 @@ describe('Data request handling', function() {
     })
     skip.if.watching.
     it('should return error from Dropbox', async function() {
+      const tmpFolder = await createTempFolder();
+      const site = {
+        name: 'tmp',
+        storage: tmpFolder,
+        files: [
+          {
+            name: 'bad',
+            url: 'https://www.dropbox.com/s/jjjjjjjjjjjjjjj/example.xlsx?dl=0'
+          },
+        ]
+      };
       const req = createRequest({
         params: { name: 'bad' }
       });
@@ -169,6 +206,17 @@ describe('Data request handling', function() {
       expect(error).to.be.instanceOf(Error).with.property('status', 404);
     })
     it('should send cached copy of content when source becomes unavailable', async function() {
+      const tmpFolder = await createTempFolder();
+      const site = {
+        name: 'tmp',
+        storage: tmpFolder,
+        files: [
+          {
+            name: 'sushi',
+            path: getAssetPath('sushi.xlsx')
+          },
+        ]
+      };
       const req1 = createRequest({
         params: { name: 'sushi' }
       });
@@ -201,6 +249,17 @@ describe('Data request handling', function() {
         .that.contains('ENOENT: no such file or directory');
     })
     it('should strip out style when style=0 is given', async function() {
+      const tmpFolder = await createTempFolder();
+      const site = {
+        name: 'tmp',
+        storage: tmpFolder,
+        files: [
+          {
+            name: 'sushi',
+            path: getAssetPath('sushi.xlsx')
+          },
+        ]
+      };
       const req = createRequest({
         params: { name: 'sample' },
         query: { style: '0' },
@@ -217,6 +276,21 @@ describe('Data request handling', function() {
       expect(cellB2).to.not.have.property('style');
     })
     it('should redirect to URL with name of file when index is given', async function () {
+      const tmpFolder = await createTempFolder();
+      const site = {
+        name: 'tmp',
+        storage: tmpFolder,
+        files: [
+          {
+            name: 'sushi',
+            path: getAssetPath('sushi.xlsx')
+          },
+          {
+            name: 'sample',
+            path: getAssetPath('sample.xlsx')
+          }
+        ]
+      };
       const req = createRequest({
         originalUrl: '/tmp/-/data/1',
         url: '/tmp/-/data/1',

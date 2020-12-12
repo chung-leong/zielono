@@ -17,10 +17,12 @@ let configFolder;
 let serverConfig;
 let siteConfigs;
 let accessTokens;
+let watcher;
 
 function setConfigFolder(path) {
   configFolder = path;
   serverConfig = siteConfigs = accessTokens = undefined;
+  unwatchConfigFolder().then(() => {});
 }
 
 function getConfigFolder() {
@@ -32,17 +34,30 @@ function getConfigFolder() {
 
 const configEventEmitter = new EventEmitter;
 
-function watchConfigFolder() {
+async function watchConfigFolder() {
+  // make sure configs are loaded first
+  await preloadConfig();
   const folder = getConfigFolder();
   const options = {
     ignoreInitial: true,
-    awaitWriteFinish: true,
+    awaitWriteFinish: { stabilityThreshold: 250, pollInterval: 50 },
     depth: 0,
   };
-  const watcher = Chokidar.watch(`${folder}/*.yaml`, options);
+  watcher = Chokidar.watch(`${folder}/*.yaml`, options);
   watcher.on('add', (path) => handleConfigChange('add', path));
   watcher.on('unlink', (path) => handleConfigChange('unlink', path));
   watcher.on('change', (path, stats) => handleConfigChange('change', path));
+  await new Promise((resolve, reject) => {
+    watcher.once('ready', resolve);
+    watcher.once('error', (msg) => reject(new Error(msg)));
+  });
+}
+
+async function unwatchConfigFolder() {
+  if (watcher) {
+    await watcher.close();
+    watcher = undefined;
+  }
 }
 
 function processServerConfig(config) {
@@ -373,6 +388,7 @@ export {
   setConfigFolder,
   getConfigFolder,
   watchConfigFolder,
+  unwatchConfigFolder,
   preloadConfig,
   getServerConfig,
   processServerConfig,

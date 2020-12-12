@@ -67,6 +67,9 @@ class ErrorCollection extends Error {
   }
 }
 
+class ExpectedError extends Error {
+}
+
 function displayError(error, context) {
   if (error instanceof ErrorCollection) {
     for (let err of error.errors) {
@@ -99,6 +102,8 @@ function displayError(error, context) {
       }
     }
     msg = `Error encounter in ${filename} (line ${lineno}): ${reason}`;
+  } else if (error instanceof ExpectedError) {
+    return;
   } else {
     msg = error.message;
   }
@@ -108,5 +113,6 @@ function displayError(error, context) {
 export {
   HttpError,
   ErrorCollection,
+  ExpectedError,
   displayError,
 };

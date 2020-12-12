@@ -1,8 +1,8 @@
-import Fs from 'fs'; const { readFile } = Fs.promises;
-import { join, dirname } from 'path';
+import Fs from 'fs'; const { readFile, writeFile } = Fs.promises;
+import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import Tmp from 'tmp-promise';
-import del from 'del';
+import JsYAML from 'js-yaml'; const { safeLoad, safeDump } = JsYAML;
 import { parseExcelFile } from '../../lib/excel-parsing.mjs';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
@@ -10,6 +10,11 @@ const cache = {};
 
 function getAssetPath(relPath) {
   const path = join(__dirname, '../assets', relPath);
+  return path;
+}
+
+function getRepoPath() {
+  const path = resolve(__dirname, '../../..');
   return path;
 }
 
@@ -29,21 +34,23 @@ async function loadAsset(filename) {
   return data;
 }
 
-function createTempFolder() {
-  const folder = {};
-  before(async function() {
-    const tmp = await Tmp.dir();
-    folder.path = tmp.path;
-  })
-  after(async function() {
-    await del([ folder.path ], { force: true });
-  })
-  return folder;
+async function createTempFolder() {
+  const tmp = await Tmp.dir({ unsafeCleanup: true });
+  after(() => tmp.cleanup());
+  return { path: tmp.path };
+}
+
+async function saveYAML(tmpFolder, filename, json) {
+  const text = safeDump(json, { skipInvalid: true });
+  const path = join(tmpFolder.path, filename + '.yaml');
+  await writeFile(path, text);
 }
 
 export {
   loadExcelFile,
   loadAsset,
   getAssetPath,
+  getRepoPath,
   createTempFolder,
+  saveYAML,
 };

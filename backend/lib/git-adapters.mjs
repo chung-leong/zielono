@@ -27,6 +27,8 @@ class GitAdapter {
   canHandle(options) { return false };
   async retrieveFile(path, options) {}
   async retrieveVersions(path, options) {}
+  async watchFolder(path, options, callback) {}
+  async unwatchFolder(path, options) {}
 }
 
 class GitRemoteAdapter extends GitAdapter {
@@ -432,7 +434,15 @@ function findGitAdapter(options) {
 }
 
 function addGitAdapter(adapter) {
-  gitAdapters.push(adapter);
+  gitAdapters.unshift(adapter);
+  return adapter;
+}
+
+function removeGitAdapter(adapter) {
+  const index = gitAdapters.indexOf(adapter);
+  if (index !== -1) {
+    gitAdapters.splice(index, 1);
+  }
 }
 
 addGitAdapter(new GitHubAdapter);
@@ -441,6 +451,7 @@ addGitAdapter(new GitLocalAdapter);
 export {
   findGitAdapter,
   addGitAdapter,
+  removeGitAdapter,
   GitAdapter,
   GitRemoteAdapter,
   GitHubAdapter,

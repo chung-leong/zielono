@@ -1,11 +1,7 @@
 import Chai from 'chai'; const { expect } = Chai;
-import { dirname, resolve } from 'path';
 import './helpers/conditional-testing.mjs';
+import { getRepoPath } from './helpers/file-loading.mjs';
 import { getAccessToken } from './helpers/access-tokens.mjs';
-import { fileURLToPath } from 'url';
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const repoPath = resolve(__dirname, '../..');
 
 import {
   findGitAdapter,
@@ -28,7 +24,7 @@ describe('Git adapters', function() {
     })
     it('should find GitHub adapter', function() {
       const options = {
-        path: repoPath,
+        path: getRepoPath(),
       };
       const adapter = findGitAdapter(options);
       expect(adapter).to.be.instanceOf(GitLocalAdapter);
@@ -199,7 +195,7 @@ describe('Git adapters', function() {
       it('should retrieve file from default branch of repo', async function() {
         const path = 'backend/test/assets/hello.json';
         const options = {
-          path: repoPath,
+          path: getRepoPath(),
         };
         const buffer = await adapter.retrieveFile(path, options);
         expect(buffer).to.be.instanceOf(Buffer);
@@ -211,7 +207,7 @@ describe('Git adapters', function() {
       it('should retrieve file from a tagged commit', async function() {
         const path = 'backend/test/assets/hello.json';
         const options = {
-          path: repoPath,
+          path: getRepoPath(),
           ref: 'tags/test-target',
         };
         const buffer = await adapter.retrieveFile(path, options);
@@ -224,7 +220,7 @@ describe('Git adapters', function() {
       it('should retrieve file from a specific commit', async function() {
         const path = 'backend/test/assets/hello.json';
         const options = {
-          path: repoPath,
+          path: getRepoPath(),
           ref: 'b3a7b37f86efde136d7601a98614fa458c77d0ff',
         };
         const buffer = await adapter.retrieveFile(path, options);
@@ -238,7 +234,7 @@ describe('Git adapters', function() {
     describe('retrieveVersions()', function() {
       it('should retrieve a list of relevant commits', async function() {
         const options = {
-          path: repoPath,
+          path: getRepoPath(),
         };
         const path = 'backend/test/assets/hello.json';
         const versions = await adapter.retrieveVersions(path, options);
@@ -253,7 +249,7 @@ describe('Git adapters', function() {
     describe('retrieveVersionRefs()', function() {
       it('should retrieve a branches and tags associated with relavant commits', async function() {
         const options = {
-          path: repoPath,
+          path: getRepoPath(),
         };
         const path = 'backend/test/assets/hello.json';
         const refs = await adapter.retrieveVersionRefs(path, options);

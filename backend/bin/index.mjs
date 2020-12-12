@@ -2,7 +2,9 @@
 
 import isEqual from 'lodash/isEqual.js';
 import { startHTTPServer, stopHTTPServer } from '../lib/request-handling.mjs';
-import { setConfigFolder, watchConfigFolder, preloadConfig, configEventEmitter } from '../lib/config-management.mjs';
+import { setConfigFolder, preloadConfig, watchConfigFolder, unwatchConfigFolder,
+  configEventEmitter } from '../lib/config-management.mjs';
+import { watchGitRepos, unwatchGitRepos } from '../lib/git-watching.mjs';
 import { displayError } from '../lib/error-handling.mjs';
 
 async function runServer() {
@@ -11,10 +13,6 @@ async function runServer() {
     setConfigFolder(cwd);
     const { server, sites } = await preloadConfig();
     await startHTTPServer();
-    process.on('SIGTERM', async () => {
-      await stopHTTPServer();
-      process.exit(0);
-    });
     configEventEmitter.on('server-change', async (before, after) => {
       try {
         if (before && after) {
@@ -32,11 +30,20 @@ async function runServer() {
         displayError(err, 'config-change');
       }
     });
-    watchConfigFolder();
+    await watchConfigFolder();
+    await watchGitRepos();
     displayServerInfo(server);
     displaySiteInfo(sites);
+    process.on('SIGTERM', async () => {
+      await Promise.all([
+        unwatchConfigFolder(),
+        unwatchGitRepos(),
+        stopHTTPServer(),
+      ]);
+      process.exit(0);
+    });
   } catch (err) {
-    displayError(err, 'start-up');
+    displayError(err, 'startup');
     process.exit(1);
   }
 }
