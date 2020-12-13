@@ -3,6 +3,8 @@ import Fs from 'fs'; const { readFile } = Fs.promises;
 import { join } from 'path';
 import { createHash } from 'crypto';
 import fetch from 'cross-fetch';
+import Chokidar from 'chokidar';
+import isEqual from 'lodash/isEqual.js';
 import { getAgent as agent } from './http-agents.mjs';
 import { HttpError } from './error-handling.mjs';
 
@@ -251,6 +253,7 @@ class GitHubAdapter extends GitRemoteAdapter {
 class GitLocalAdapter extends GitAdapter {
   constructor() {
     super('local');
+    this.watches = [];
   }
 
   canHandle(options) {
@@ -340,6 +343,56 @@ class GitLocalAdapter extends GitAdapter {
     return relevantCommitRefs;
   }
 
+  async watchFolder(path, options, callback) {
+    const versions = await this.retrieveVersionRefs(path, options);
+    let watch = this.watches.find((w) => isEqual(w.options, options));
+    if (!watch) {
+      const search = join(options.path, '.git', 'refs', '**');
+      const watcher = Chokidar.watch(search, { ignoreInitial: true });
+      let timeout = 0;
+      for (let event of [ 'add', 'unlink', 'change' ]) {
+        watcher.on(event, (path) => {
+          if (timeout) {
+            clearTimeout(timeout);
+          }
+          timeout = setTimeout(() => this.handleRefChange(path, watch), 100);
+        });
+      }
+      watch = { options, watcher, folders: [] };
+      this.watches.push(watch);
+      await new Promise((resolve, reject) => {
+        watcher.once('ready', resolve);
+        watcher.once('error', (msg) => reject(msg));
+      });
+    }
+    watch.folders.push({ path, versions, callback });
+  }
+
+  async unwatchFolder(path, options) {
+    let watch = this.watches.find((w) => isEqual(w.options, options));
+    if (watch) {
+      watch.folders = watch.folders.filter((f) => f.path !== path);
+      if (watch.folders.length === 0) {
+        const index = this.watches.indexOf(watch);
+        this.watches.splice(index, 1);
+        await watch.watcher.close();
+      }
+    }
+  }
+
+  async handleRefChange(path, watch) {
+    const { options, folders } = watch;
+    for (let folder of folders) {
+      const { path, callback } = folder;
+      const versions = await this.retrieveVersionRefs(path, options);
+      if (!isEqual(folder.versions, versions)) {
+        const before = folder.versions, after = versions;
+        folder.versions = versions;
+        callback(before, after);
+      }
+    }
+  }
+
   async findCommits(path, options) {
     const fields = {
       sha: '%H',
@@ -374,34 +427,35 @@ class GitLocalAdapter extends GitAdapter {
   }
 
   async findTags(options) {
-    const format = '%(refname:lstrip=2)\t%(objectname)';
-    const command = `git tag --format '${format}'`;
+    const tags = [];
+    const command = `git show-ref --tags --dereference`;
     const buffer = await this.runGit(command, options);
     const lines = buffer.toString().split(/\r?\n/);
-    const tags = [];
     for (let line of lines) {
       if (line) {
-        const [ name, sha ] = line.split('\t');
-        tags.push({ name, sha });
+        const [ sha, ref ] = line.split(' ');
+        const name = ref.split('/').slice(2).join('/');
+        if (/\^\{\}$/.test(name)) {
+          // the previous one is annotated
+          tags[tags.length - 1].sha = sha;
+        } else {
+          tags.push({ name, sha });
+        }
       }
     }
     return tags;
   }
 
   async findBranches(options) {
-    const format = '%(refname:lstrip=2)\t%(objectname)';
-    const command = `git branch -r --format '${format}'`;
+    const command = `git show-ref --heads`;
     const buffer = await this.runGit(command, options);
     const lines = buffer.toString().split(/\r?\n/);
     const branches = [];
     for (let line of lines) {
       if (line) {
-        const [ name, sha ] = line.split('\t');
-        const parts = name.split('/');
-        // don't include HEAD
-        if (parts[parts.length - 1] !== 'HEAD') {
-          branches.push({ name, sha });
-        }
+        const [ sha, ref ] = line.split(' ');
+        const name = ref.split('/').slice(2).join('/');
+        branches.push({ name, sha });
       }
     }
     return branches;
@@ -415,10 +469,11 @@ class GitLocalAdapter extends GitAdapter {
         encoding: 'buffer',
         timeout: 5000,
       };
-      exec(command, execOpts, (err, stdout) => {
-        if (!err) {
+      exec(command, execOpts, (err, stdout, stderr) => {
+        if (!err || stderr.length === 0) {
           resolve(stdout);
         } else {
+          err.stderr = stderr;
           reject(err);
         }
       });
@@ -434,6 +489,9 @@ function findGitAdapter(options) {
 }
 
 function addGitAdapter(adapter) {
+  if (!(adapter instanceof GitAdapter)) {
+    throw new Error('Invalid adapter');
+  }
   gitAdapters.unshift(adapter);
   return adapter;
 }

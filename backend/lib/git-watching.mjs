@@ -1,9 +1,11 @@
+import { EventEmitter } from 'events';
 import isEqual from 'lodash/isEqual.js';
 import { getSiteConfigs, configEventEmitter } from './config-management.mjs';
 import { ErrorCollection, displayError } from './error-handling.mjs';
 import { findGitAdapter } from './git-adapters.mjs';
 
 const gitWatches = [];
+const gitEventEmitter = new EventEmitter;
 
 async function watchGitRepos() {
   try {
@@ -36,7 +38,7 @@ async function handleSiteChange(before, after) {
 }
 
 async function adjustGitWatches(shutdown = false, attempts = 0) {
-  const path = 'www';
+  const folder = 'www';
   // see which repos need to be monitored
   const needed = [];
   const errors = [];
@@ -44,8 +46,9 @@ async function adjustGitWatches(shutdown = false, attempts = 0) {
     const sites = await getSiteConfigs();
     for (let site of sites) {
       if (site.code) {
-        if (!needed.find((c) => isEqual(c, site.code))) {
-          needed.push(site.code);
+        const { url, path } = site.code;
+        if (!needed.find((c) => c.url === url && c.path === path)) {
+          needed.push({ url, path });
         }
       }
     }
@@ -73,11 +76,11 @@ async function adjustGitWatches(shutdown = false, attempts = 0) {
   // disable unwanted ones
   for (let repo of unwanted) {
     try {
-      const { url } = repo;
+      const { url, path } = repo;
       const adapter = findGitAdapter(repo);
       const accessToken = (url) ? await findAccessToken(url) : undefined;
-      const options = { ...repo, accessToken };
-      await adapter.unwatchFolder(path, options);
+      const options = { url, path, accessToken };
+      await adapter.unwatchFolder(folder, options);
     } catch (err) {
       // stick it back in since we've failed to remove it
       gitWatches.push(repo);
@@ -87,11 +90,22 @@ async function adjustGitWatches(shutdown = false, attempts = 0) {
   // start watching the missing ones
   for (let repo of missing) {
     try {
-      const { url } = repo;
+      const { url, path } = repo;
       const adapter = findGitAdapter(repo);
       const accessToken = (url) ? await findAccessToken(url) : undefined;
-      const options = { ...repo, accessToken };
-      await adapter.watchFolder(path, options);
+      const options = { url, path, accessToken };
+      await adapter.watchFolder(folder, options, async (before, after) => {
+        try {
+          const sites = await getSiteConfigs();
+          for (let site of sites) {
+            if (site.code.url === url && site.code.path === path) {
+              gitEventEmitter.emit('code-change', before, after, site);
+            }
+          }
+        } catch (err) {
+          displayError(err, 'code-change');
+        }
+      });
     } catch (err) {
       // take it back out since we've failed to install it
       const index = gitWatches.indexOf(repo);
@@ -128,4 +142,5 @@ async function adjustGitWatches(shutdown = false, attempts = 0) {
 export {
   watchGitRepos,
   unwatchGitRepos,
+  gitEventEmitter,
 };

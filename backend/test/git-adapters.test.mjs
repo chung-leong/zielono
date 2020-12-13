@@ -1,4 +1,5 @@
 import Chai from 'chai'; const { expect } = Chai;
+import delay from 'delay';
 import './helpers/conditional-testing.mjs';
 import { getRepoPath } from './helpers/file-loading.mjs';
 import { getAccessToken } from './helpers/access-tokens.mjs';
@@ -255,10 +256,85 @@ describe('Git adapters', function() {
         const refs = await adapter.retrieveVersionRefs(path, options);
         expect(refs).to.eql({
           '1fde120a0a87d45e9a5df72d6abedf9b5e6ff1a1': [
-            'heads/origin/main',
+            'heads/main',
             'tags/test-target'
           ]
         });
+      })
+    })
+    describe('unwatchFolder()', function() {
+      it('should remove watch', async function() {
+        const options = {
+          path: getRepoPath(),
+        };
+        const path = 'backend/test/assets/hello.json';
+        await adapter.watchFolder(path, options, (before, after) => {});
+        await adapter.unwatchFolder(path, options);
+        expect(adapter.watches).to.have.lengthOf(0);
+      })
+    })
+    describe('watchFolder()', function() {
+      it('should invoke callback when new tag is added', async function() {
+        const options = {
+          path: getRepoPath(),
+        };
+        const path = 'backend/test/assets/hello.json';
+        const tag = `test-tag-${Math.floor(Math.random() * 1000)}`;
+        const commit = '98002397cce514aae2ffddc4caceec861f0ae709';
+        try {
+          let change, done;
+          const event = new Promise((resolve) => done = resolve);
+          await adapter.watchFolder(path, options, (before, after) => {
+            change = { before, after };
+            done();
+          });
+          await adapter.runGit(`git tag -a ${tag} ${commit} -m "Test"`, options);
+          await Promise.race([ event, delay(500) ]);
+          expect(change).to.have.property('before').that.is.an('object');
+          expect(change).to.have.property('after').that.is.an('object');
+          const { before, after } = change;
+          const refsBefore = before['1fde120a0a87d45e9a5df72d6abedf9b5e6ff1a1'];
+          const refsAfter = after['1fde120a0a87d45e9a5df72d6abedf9b5e6ff1a1'];
+          expect(refsBefore).to.not.contain(`tags/${tag}`);
+          expect(refsAfter).to.contain(`tags/${tag}`);
+        } finally {
+          adapter.unwatchFolder(path, options);
+          try {
+            await adapter.runGit(`git tag -d ${tag}`, options);
+          } catch (err) {
+          }
+        }
+      })
+      it('should invoke callback when new branch is added', async function() {
+        const options = {
+          path: getRepoPath(),
+        };
+        const path = 'backend/test/assets/hello.json';
+        const branch = `test-branch-${Math.floor(Math.random() * 1000)}`;
+        const commit = '98002397cce514aae2ffddc4caceec861f0ae709';
+        try {
+          let change, done;
+          const event = new Promise((resolve) => done = resolve);
+          await adapter.watchFolder(path, options, (before, after) => {
+            change = { before, after };
+            done();
+          });
+          await adapter.runGit(`git branch ${branch} ${commit}`, options);
+          await Promise.race([ event, delay(500) ]);
+          expect(change).to.have.property('before').that.is.an('object');
+          expect(change).to.have.property('after').that.is.an('object');
+          const { before, after } = change;
+          const refsBefore = before['1fde120a0a87d45e9a5df72d6abedf9b5e6ff1a1'];
+          const refsAfter = after['1fde120a0a87d45e9a5df72d6abedf9b5e6ff1a1'];
+          expect(refsBefore).to.not.contain(`heads/${branch}`);
+          expect(refsAfter).to.contain(`heads/${branch}`);
+        } finally {
+          adapter.unwatchFolder(path, options);
+          try {
+            await adapter.runGit(`git branch -d ${branch}`, options);
+          } catch (err) {
+          }
+        }
       })
     })
   })

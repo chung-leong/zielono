@@ -1,15 +1,19 @@
+import Fs from 'fs'; const { stat } = Fs.promises;
+import { resolve } from 'path';
 import Chai from 'chai'; const { expect } = Chai;
 import remove from 'lodash/remove.js';
 import delay from 'delay';
 import './helpers/conditional-testing.mjs';
-import { createTempFolder, saveYAML } from './helpers/file-loading.mjs';
+import { createTempFolder, saveYAML, getRepoPath } from './helpers/file-loading.mjs';
 import { setConfigFolder, watchConfigFolder, unwatchConfigFolder } from '../lib/config-management.mjs';
 import { ExpectedError } from '../lib/error-handling.mjs';
 import { GitAdapter, addGitAdapter, removeGitAdapter } from '../lib/git-adapters.mjs';
+import { findGitAdapter } from '../lib/git-adapters.mjs';
 
 import {
   watchGitRepos,
   unwatchGitRepos,
+  gitEventEmitter,
 } from '../lib/git-watching.mjs';
 
 describe('Git watching', function() {
@@ -53,7 +57,6 @@ describe('Git watching', function() {
       }
     }
     it('should add and remove watches as sites are added or modified', async function() {
-      addGitAdapter()
       const tmpFolder = await createTempFolder();
       setConfigFolder(tmpFolder.path);
       await saveYAML(tmpFolder, 'zielono', {});
@@ -113,7 +116,6 @@ describe('Git watching', function() {
       }
     })
     it('should retry when failure occurs', async function() {
-      addGitAdapter()
       const tmpFolder = await createTempFolder();
       setConfigFolder(tmpFolder.path);
       await saveYAML(tmpFolder, 'zielono', {});
@@ -136,6 +138,54 @@ describe('Git watching', function() {
       } finally {
         removeGitAdapter(adapter);
         await unwatchConfigFolder();
+      }
+    })
+  })
+  describe('gitEventEmitter', function() {
+    it('should emit event when a git tag is added', async function() {
+      const repoPath = resolve(getRepoPath(), '../zielono-generic-site');
+      try {
+        await stat(repoPath);
+      } catch (err) {
+        this.skip();
+        return;
+      }
+      const repo = { path: repoPath };
+      const options = repo;
+      const adapter = findGitAdapter(options);
+      const tag = `test-tag-${Math.floor(Math.random() * 1000)}`;
+      const commit = '3e5561a9074a5dc00acfd746b446014335ff4b9f';
+      try {
+        const tmpFolder = await createTempFolder();
+        setConfigFolder(tmpFolder.path);
+        await saveYAML(tmpFolder, 'zielono', {});
+        await saveYAML(tmpFolder, 'site-1', { code: repo });
+        await watchConfigFolder();
+        const count = await watchGitRepos();
+        expect(count).to.equal(1);
+        let change, done;
+        const event = new Promise((resolve) => done = resolve);
+        await gitEventEmitter.on('code-change', (before, after, site) => {
+          change = { before, after, site };
+          done();
+        });
+        await adapter.runGit(`git tag -a ${tag} ${commit} -m "Test"`, options);
+        await Promise.race([ event, delay(500) ]);
+        expect(change).to.have.property('before');
+        expect(change).to.have.property('after');
+        expect(change).to.have.property('site');
+        const { before, after } = change;
+        const refsBefore = before['3e5561a9074a5dc00acfd746b446014335ff4b9f'];
+        const refsAfter = after['3e5561a9074a5dc00acfd746b446014335ff4b9f'];
+        expect(refsBefore).to.not.contain(`tags/${tag}`);
+        expect(refsAfter).to.contain(`tags/${tag}`);
+      } finally {
+        await unwatchGitRepos();
+        await unwatchConfigFolder();
+        try {
+          await adapter.runGit(`git tag -d ${tag}`, options);
+        } catch (err) {
+        }
       }
     })
   })
