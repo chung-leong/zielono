@@ -1,7 +1,7 @@
 import Chai from 'chai'; const { expect } = Chai;
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
 import Layer from 'express/lib/router/layer.js';
-import { getAssetPath } from './helpers/file-loading.mjs';
+import { createTempFolder, saveYAML, removeYAML, getAssetPath } from './helpers/file-loading.mjs';
 import { setConfigFolder } from '../lib/config-management.mjs';
 
 import {
@@ -27,9 +27,41 @@ import {
 
 
 describe('Request handling', function() {
-  before(function() {
-    const path = getAssetPath('config');
-    setConfigFolder(path);
+  let tmpFolder;
+  before(async function() {
+    tmpFolder = await createTempFolder();
+    setConfigFolder(tmpFolder.path);
+    await saveYAML(tmpFolder, 'site1', {
+      domains: [ 'duck.test', 'www.duck.test' ],
+      files: [
+        { name: 'sushi', path: getAssetPath('sushi.xlsx'), timeZone: 'Europe/Warsaw' },
+        { name: 'sample', path: getAssetPath('sample.xlsx') },
+        { name: 'image', path: getAssetPath('image.xlsx') },
+      ]
+    });
+    await saveYAML(tmpFolder, 'site2', {
+      domains: [ 'chicken.test', 'www.chicken.test' ],
+      files: [
+        { name: 'sushi', url: 'https://www.dropbox.com/scl/fi/v6rp5jdiliyjjwp4l4chi/sushi.xlsx?dl=0&rlkey=30zvrg53g5ovu9k8pr63f25io' },
+      ]
+    });
+    await saveYAML(tmpFolder, 'zielono', {
+      listen: 8080,
+      nginx: {
+        cache: {
+          path: '/var/cache/nginx'
+        }
+      }
+    });
+    await saveYAML(tmpFolder, '.tokens', [
+      {
+        url: 'https://github.com/chung-leong/zielono/',
+        token: 'AB1234567890'
+      }
+    ], 0o600);
+  })
+  after(function() {
+    setConfigFolder(undefined);
   })
   describe('addHandlers()', function() {
     // capture routes with mock app
