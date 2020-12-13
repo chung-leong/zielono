@@ -1,4 +1,4 @@
-import Fs from 'fs'; const { readFile, writeFile } = Fs.promises;
+import Fs from 'fs'; const { readFile, writeFile, unlink } = Fs.promises;
 import { join, resolve, dirname } from 'path';
 import { fileURLToPath } from 'url';
 import Tmp from 'tmp-promise';
@@ -40,10 +40,15 @@ async function createTempFolder() {
   return { path: tmp.path };
 }
 
-async function saveYAML(tmpFolder, filename, json) {
+async function saveYAML(tmpFolder, filename, json, mode) {
   const text = safeDump(json, { skipInvalid: true });
   const path = join(tmpFolder.path, filename + '.yaml');
-  await writeFile(path, text);
+  await writeFile(path, text, { mode });
+}
+
+async function removeYAML(tmpFolder, filename) {
+  const path = join(tmpFolder.path, filename + '.yaml');
+  await unlink(path);
 }
 
 export {
@@ -53,4 +58,5 @@ export {
   getRepoPath,
   createTempFolder,
   saveYAML,
+  removeYAML,
 };
