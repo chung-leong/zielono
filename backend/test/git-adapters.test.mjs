@@ -1,8 +1,10 @@
 import Chai from 'chai'; const { expect } = Chai;
 import delay from 'delay';
 import './helpers/conditional-testing.mjs';
-import { getRepoPath } from './helpers/file-loading.mjs';
+import { createTempFolder, saveYAML } from './helpers/file-saving.mjs';
+import { getRepoPath } from './helpers/path-finding.mjs';
 import { getAccessToken } from './helpers/access-tokens.mjs';
+import { getHash } from '../lib/content-storage.mjs';
 
 import {
   findGitAdapter,
@@ -187,6 +189,81 @@ describe('Git adapters', function() {
             'tags/test-target'
           ]
         });
+      })
+    })
+    skip.if.watching.or.no.github.
+    describe('findHooks()', function() {
+      it('should find existing web hooks', async function() {
+        const options = {
+          url: 'https://github.com/chung-leong/zielono',
+          accessToken,
+        };
+        const hooks = await adapter.findHooks(options);
+        expect(hooks).to.be.an('array');
+      })
+      it('should find a web hook that has just been added', async function() {
+        const options = {
+          url: 'https://github.com/chung-leong/zielono',
+          accessToken,
+        };
+        const hooksBefore = await adapter.findHooks(options);
+        const hash = '1234567890';
+        const hook = await adapter.installHook(hash, options);
+        const hooksAfter = await adapter.findHooks(options);
+        try {
+          expect(hooksAfter.length).to.be.above(hooksBefore.length);
+        } finally {
+          await adapter.uninstallHook(hook, options);
+        }
+      })
+    })
+    skip.if.watching.or.no.github.
+    describe('uninstallOldHooks()', function() {
+      it('should remove web hooks with same URL', async function() {
+        const options = {
+          url: 'https://github.com/chung-leong/zielono',
+          accessToken,
+        };
+        const hash = '1234567890';
+        const hook = await adapter.installHook(hash, options);
+        const hooksBefore = await adapter.findHooks(options);
+        const count = await this.uninstallOldHooks(hook.url, options);
+        expect(count).to.be.above(0);
+        const hooksAfter = await adapter.findHooks(options);
+        expect(hooksAfter.length).to.be.below(hooksBefore.length);
+      })
+    })
+    skip.if.watching.or.no.github.
+    describe('uninstallHook()', function() {
+      it('should install a web hook', async function() {
+        const options = {
+          url: 'https://github.com/chung-leong/zielono',
+          accessToken,
+        };
+        const hash = '1234567890';
+        const hook = await adapter.installHook(hash, options);
+        const hooksBefore = await adapter.findHooks(options);
+        await this.uninstallHook(hook, options);
+        const hooksAfter = await adapter.findHooks(options);
+        expect(hooksAfter.length).to.be.below(hooksBefore.length);
+      })
+    })
+    skip.if.watching.or.no.github.
+    describe('installHook()', function() {
+      it('should install a web hook', async function() {
+        const options = {
+          url: 'https://github.com/chung-leong/zielono',
+          accessToken,
+        };
+        const hash = '1234567890';
+        const hook = await adapter.installHook(hash, options);
+        try {
+          console.log(hook);
+          expect(hook).to.have.property('id').that.is.a('number');
+          expect(hook).to.have.property('url').that.is.a('string');
+        } finally {
+          await adapter.uninstallHook(hook, options);
+        }
       })
     })
   })

@@ -1,5 +1,5 @@
 import Chai from 'chai'; const { expect } = Chai;
-import { processServerConfig, processSiteConfig, setConfigFolder } from '../lib/config-management.mjs';
+import { processServerConfig, processSiteConfig, setConfigFolder } from '../lib/config-loading.mjs';
 
 import {
   displayError,

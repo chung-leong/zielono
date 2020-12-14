@@ -4,8 +4,10 @@ import Chai from 'chai'; const { expect } = Chai;
 import remove from 'lodash/remove.js';
 import delay from 'delay';
 import './helpers/conditional-testing.mjs';
-import { createTempFolder, saveYAML, getRepoPath } from './helpers/file-loading.mjs';
-import { setConfigFolder, watchConfigFolder, unwatchConfigFolder } from '../lib/config-management.mjs';
+import { createTempFolder, saveYAML } from './helpers/file-saving.mjs';
+import { getRepoPath } from './helpers/path-finding.mjs';
+import { loadConfig } from '../lib/config-loading.mjs';
+import { watchConfigFolder, unwatchConfigFolder } from '../lib/config-watching.mjs';
 import { ExpectedError } from '../lib/error-handling.mjs';
 import { GitAdapter, addGitAdapter, removeGitAdapter } from '../lib/git-adapters.mjs';
 import { findGitAdapter } from '../lib/git-adapters.mjs';
@@ -58,9 +60,9 @@ describe('Git watching', function() {
     }
     it('should add and remove watches as sites are added or modified', async function() {
       const tmpFolder = await createTempFolder();
-      setConfigFolder(tmpFolder.path);
       await saveYAML(tmpFolder, 'zielono', {});
       await saveYAML(tmpFolder, 'site-1', { code: { path: '/abc' } });
+      await loadConfig(tmpFolder.path);
       await watchConfigFolder();
       const adapter = addGitAdapter(new GitTestAdapter);
       try {
@@ -117,9 +119,9 @@ describe('Git watching', function() {
     })
     it('should retry when failure occurs', async function() {
       const tmpFolder = await createTempFolder();
-      setConfigFolder(tmpFolder.path);
       await saveYAML(tmpFolder, 'zielono', {});
       await saveYAML(tmpFolder, 'site-1', { code: { path: '/abc' } });
+      await loadConfig(tmpFolder.path);
       await watchConfigFolder();
       const adapter = addGitAdapter(new GitTestAdapter);
       try {
@@ -157,9 +159,9 @@ describe('Git watching', function() {
       const commit = '3e5561a9074a5dc00acfd746b446014335ff4b9f';
       try {
         const tmpFolder = await createTempFolder();
-        setConfigFolder(tmpFolder.path);
         await saveYAML(tmpFolder, 'zielono', {});
         await saveYAML(tmpFolder, 'site-1', { code: repo });
+        await loadConfig(tmpFolder.path);
         await watchConfigFolder();
         const count = await watchGitRepos();
         expect(count).to.equal(1);

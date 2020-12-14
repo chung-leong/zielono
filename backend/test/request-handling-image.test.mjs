@@ -1,7 +1,10 @@
 import Chai from 'chai'; const { expect } = Chai;
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
-import { loadAsset, getAssetPath } from './helpers/file-loading.mjs';
-import { setConfigFolder, findSiteConfig } from '../lib/config-management.mjs';
+import { loadAsset, loadExcelFile } from './helpers/file-loading.mjs';
+import { createTempFolder } from './helpers/file-saving.mjs';
+import { getAssetPath  } from './helpers/path-finding.mjs';
+import { loadConfig, findSiteConfig } from '../lib/config-loading.mjs';
+import { saveEmbeddedMedia } from '../lib/request-handling-data.mjs';
 
 import {
   handleImageRequest,
@@ -60,25 +63,28 @@ describe('Image request handling', function() {
       expect(meta).to.have.property('width', 180);
     })
   })
-  before(function() {
-    const path = getAssetPath('config');
-    setConfigFolder(path);
-  })
-  let nextCalled, next;
-  beforeEach(function() {
-    nextCalled = false;
-    next = (err) => {
-      nextCalled = true;
-      if (err) {
-        throw err;
-      }
-    };
-  })
   describe('handleImageRequest()', function() {
+    const site = { name: 'tmp' };
+    before(async function() {
+      // extract images from test excel file
+      site.storage = await createTempFolder();
+      const json = await loadExcelFile('sushi.xlsx');
+      const list = await saveEmbeddedMedia(site, json);
+      expect(list).to.have.lengthOf(6);
+    })
+    let nextCalled, next;
+    beforeEach(function() {
+      nextCalled = false;
+      next = (err) => {
+        nextCalled = true;
+        if (err) {
+          throw err;
+        }
+      };
+    })
     it('should send an image as is when there is no filename', async function() {
-      const site = await findSiteConfig('site1');
       const req = createRequest({
-        params: { hash: '048a618a55b5437ecef363cfe83ef201997ad363' },
+        params: { hash: '1a1e9e305b5a132560e861531430f9b881b35cd1' },
         site
       });
       const res = createResponse();
@@ -87,10 +93,9 @@ describe('Image request handling', function() {
       expect(res._getHeaders()).to.have.property('content-type', 'image/jpeg');
     })
     it('should convert an image to a differnt format where an extension is given', async function() {
-      const site = await findSiteConfig('site1');
       const req = createRequest({
         params: {
-          hash: '048a618a55b5437ecef363cfe83ef201997ad363',
+          hash: '1a1e9e305b5a132560e861531430f9b881b35cd1',
           filename: '.png'
         },
         site
@@ -104,10 +109,9 @@ describe('Image request handling', function() {
       expect(meta.format).to.eql('png');
     })
     it('should resize image on the fly', async function () {
-      const site = await findSiteConfig('site1');
       const req = createRequest({
         params: {
-          hash: '048a618a55b5437ecef363cfe83ef201997ad363',
+          hash: '1a1e9e305b5a132560e861531430f9b881b35cd1',
           filename: 'res50x50'
         },
         site

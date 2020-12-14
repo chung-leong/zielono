@@ -1,6 +1,6 @@
 import { retrieveFromGit } from './file-retrieval.mjs';
 import { generatePage } from './page-generation.mjs';
-import { findAccessToken } from './config-management.mjs';
+import { findAccessToken } from './config-loading.mjs';
 import { getHash }  from './content-storage.mjs';
 import { HttpError } from './error-handling.mjs';
 import { extname } from 'path';

@@ -1,12 +1,14 @@
 import { exec } from 'child_process';
 import Fs from 'fs'; const { readFile } = Fs.promises;
 import { join } from 'path';
-import { createHash } from 'crypto';
 import fetch from 'cross-fetch';
 import Chokidar from 'chokidar';
 import isEqual from 'lodash/isEqual.js';
+import { getHash } from './content-storage.mjs';
 import { getAgent as agent } from './http-agents.mjs';
 import { HttpError } from './error-handling.mjs';
+import { getHookSecret } from './request-handling-hook.mjs';
+import { findServerConfig } from './config-loading.mjs';
 
 class GitAdapter {
   constructor(name) {
@@ -35,16 +37,27 @@ class GitAdapter {
 
 class GitRemoteAdapter extends GitAdapter {
   async retrieveJSON(url, options) {
-    const { accessToken } = options;
-    const headers = {};
+    const { accessToken, body, method, headers: additionalHeaders } = options;
+    const headers = { ...additionalHeaders };
     const timeout = 5000;
     if (accessToken) {
       headers['Authorization'] = `Bearer ${accessToken}`;
     }
-    const res = await fetch(url, { headers, timeout, agent });
-    if (res.status === 200) {
-      const json = await res.json();
-      return json;
+    const fetchOpts = { headers, timeout, agent, method };
+    if (body) {
+      if (!method) {
+        fetchOpts.method = 'POST';
+      }
+      fetchOpts.body = (typeof(body) === 'string') ? body : JSON.stringify(body);
+    }
+    const res = await fetch(url, fetchOpts);
+    if (res.status >= 200 && res.status <= 299) {
+      if (res.status === 204) {
+        return null;
+      } else {
+        const json = await res.json();
+        return json;
+      }
     } else {
       let message = await res.text();
       try {
@@ -66,6 +79,7 @@ class GitHubAdapter extends GitRemoteAdapter {
     super('github');
     this.baseURL = 'https://github.com';
     this.apiURL = 'https://api.github.com';
+    this.watches = [];
   }
 
   canHandle(options) {
@@ -156,6 +170,68 @@ class GitHubAdapter extends GitRemoteAdapter {
     return relevantCommitRefs;
   }
 
+  async watchFolder(path, options, callback) {
+    const versions = await this.retrieveVersionRefs(path, options);
+    let watch = this.watches.find((w) => isEqual(w.options, options));
+    if (!watch) {
+      const hash = getHash(options.url);
+      watch = { hash, options, folders: [] };
+      this.watches.push(watch);
+      watch.hook = await this.installHook(hash, watch.options);
+    }
+    watch.folders.push({ path, versions, callback });
+  }
+
+  async unwatchFolder(path, options) {
+    let watch = this.watches.find((w) => isEqual(w.options, options));
+    if (watch) {
+      watch.folders = watch.folders.filter((f) => f.path !== path);
+      if (watch.folders.length === 0) {
+        const index = this.watches.indexOf(watch);
+        this.watches.splice(index, 1);
+        await this.uninstallHook(watch.hook, watch.options);
+      }
+    }
+  }
+
+  async processHookMessage(hash, msg) {
+    for (let watch of this.watches) {
+      if (hash === watch.hash) {
+        const { created, deleted, commits } = msg;
+        for (let folder of folders) {
+          let impacted = false;
+          if (created || deleted) {
+            impacted = true;
+          } else if (commits.length >= 20) {
+            // we might not be seeing all the changes
+            impacted = true;
+          } else {
+            // see if there's a file in the folder being watched
+            for (let { added, removed, modified } of commits) {
+              for (let path of [ ...added, ...removed, ...modified ]) {
+                if (path.startsWith(`${folder.path}/`)) {
+                  impacted = true;
+                  break;
+                }
+              }
+            }
+          }
+          if (impacted) {
+            const { path, callback } = folder;
+            const versions = await this.retrieveVersionRefs(path, options);
+            if (!isEqual(folder.versions, versions)) {
+              const before = folder.versions, after = versions;
+              folder.versions = versions;
+              callback(before, after);
+            }
+          }
+        }
+        return true;
+      }
+    }
+    return false;
+  };
+
   async findBlob(folders, filename, options) {
     const folder = await this.findFolder(folders, options);
     const fileNode = folder.tree.find((f) => f.type === 'blob' && f.path === filename);
@@ -235,6 +311,46 @@ class GitHubAdapter extends GitRemoteAdapter {
     return tags;
   }
 
+  async installHook(hash, options) {
+    const baseURL = await getServerBaseURL();
+    const hookURL = `${baseURL}/-/hook/${hash}`;
+    await this.uninstallOldHooks(hookURL);
+    const url = this.getURL('repos/:owner/:repo/hooks', options);
+    const config = {
+      url: hookURL,
+      secret: getHookSecret(),
+      insecure_ssl: false,
+      content_type: 'json',
+    };
+    const body = { config };
+    const hook = await this.retrieveJSON(url, { ...options, body });
+    return hook;
+  }
+
+  async uninstallHook(hook, options) {
+    const url = this.getURL('repos/:owner/:repo/hooks/:id', { ...options, ...hook });
+    const method = 'DELETE';
+    await this.retrieveJSON(url, { ...options, method });
+  }
+
+  async uninstallOldHooks(hookURL, options) {
+    let count = 0;
+    const hooks = await this.findHooks(options);
+    for (let { id, url } of hooks) {
+      if (url === hookURL) {
+        await this.uninstallHook({ id }, options);
+        count++;
+      }
+    }
+    return count;
+  }
+
+  async findHooks(options) {
+    const url = this.getURL('repos/:owner/:repo/hooks', options);
+    const hooks = await this.retrieveJSON(url, options);
+    return hooks;
+  }
+
   parseURL(url) {
     const [ owner, repo ] = url.substr(this.baseURL.length + 1).split('/');
     const re = /^[\w\-]+$/;
@@ -249,6 +365,12 @@ class GitHubAdapter extends GitRemoteAdapter {
       return options[name];
     });
     return `${this.apiURL}/${relativeURL}`;
+  }
+
+  async retrieveJSON(url, options) {
+    const headers = { accept: 'application/vnd.github.v3+json' };
+    options = { ...options, headers };
+    return super.retrieveJSON(url, options);
   }
 }
 
@@ -277,10 +399,7 @@ class GitLocalAdapter extends GitAdapter {
       buffer = await this.runGit(command, options);
     }
     buffer.filename = filename;
-    const hash = createHash('sha1');
-    hash.update(`blob ${buffer.length}\0`);
-    hash.update(buffer);
-    buffer.sha = hash.digest('hex');
+    buffer.sha = getHash(`blob ${buffer.length}\0`, buffer);
     return buffer;
   }
 
@@ -514,6 +633,10 @@ async function processHookMessage(hash, msg) {
       }
     }
   }
+}
+
+function getServerBaseURL() {
+
 }
 
 addGitAdapter(new GitHubAdapter);

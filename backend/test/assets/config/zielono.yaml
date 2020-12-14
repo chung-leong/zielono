@@ -1,4 +1,0 @@
-listen: 8080
-nginx:
-  cache:
-    path: '/var/cache/nginx'

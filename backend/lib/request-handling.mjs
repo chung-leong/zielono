@@ -1,7 +1,7 @@
 import createApp from 'express';
 import createCORSHandler from 'cors';
 import createCompressionHandler from 'compression';
-import { getSiteConfigs, getServerConfig } from './config-management.mjs';
+import { findSiteConfigs, findServerConfig } from './config-loading.mjs';
 import { handleImageRequest } from './request-handling-image.mjs';
 import { handleDataRequest } from './request-handling-data.mjs';
 import { handlePageRequest } from './request-handling-page.mjs';
@@ -17,7 +17,7 @@ async function startHTTPServer() {
   // attach request handlers
   addHandlers(app);
   // get server settings
-  const config = await getServerConfig();
+  const config = findServerConfig();
   // wait for server to start up
   await new Promise((resolve, reject) => {
     const args = [ ...config.listen, resolve ];
@@ -80,11 +80,11 @@ function addHandlers(app) {
  * @param  {Response} res
  * @param  {function} next
  */
-async function handleSiteAssociation(req, res, next) {
+function handleSiteAssociation(req, res, next) {
   try {
     const { hostname, originalUrl, url } = req;
-    const server = await getServerConfig();
-    const sites = await getSiteConfigs();
+    const server = findServerConfig();
+    const sites = findSiteConfigs();
     let baseUrl = '';
     let site = sites.find((s) => s.domains.includes(hostname));
     if (site) {

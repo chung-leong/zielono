@@ -3,9 +3,11 @@ import mkdirp from 'mkdirp';
 import { dirname, join } from 'path';
 import { createHash } from 'crypto';
 
-function getHash(data) {
+function getHash(...args) {
   const hash = createHash('sha1');
-  hash.update(data);
+  for (let data of args) {
+    hash.update(data);
+  }
   return hash.digest('hex');
 }
 

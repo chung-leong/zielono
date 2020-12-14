@@ -1,7 +1,7 @@
 import Chai from 'chai'; const { expect } = Chai;
 import Fs from 'fs'; const { lstat } = Fs.promises;
 import { createRequire } from 'module';
-import { getAssetPath } from './helpers/file-loading.mjs';
+import { getAssetPath  } from './helpers/path-finding.mjs';
 import { getAccessToken } from './helpers/access-tokens.mjs';
 import './helpers/conditional-testing.mjs';
 

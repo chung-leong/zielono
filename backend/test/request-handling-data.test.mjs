@@ -1,8 +1,10 @@
 import Chai from 'chai'; const { expect } = Chai;
 import Fs from 'fs'; const { lstat, rename } = Fs.promises;
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
-import { loadExcelFile, getAssetPath, createTempFolder } from './helpers/file-loading.mjs'
-import { findSiteContentMeta, loadSiteContent, getHash } from '../lib/content-storage.mjs'
+import { loadExcelFile } from './helpers/file-loading.mjs';
+import { createTempFolder } from './helpers/file-saving.mjs';
+import { getAssetPath  } from './helpers/path-finding.mjs';
+import { findSiteContentMeta, loadSiteContent, getHash } from '../lib/content-storage.mjs';
 import './helpers/conditional-testing.mjs';
 
 import {
@@ -255,8 +257,8 @@ describe('Data request handling', function() {
         storage: tmpFolder,
         files: [
           {
-            name: 'sushi',
-            path: getAssetPath('sushi.xlsx')
+            name: 'sample',
+            path: getAssetPath('sample.xlsx')
           },
         ]
       };

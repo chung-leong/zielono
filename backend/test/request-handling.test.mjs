@@ -1,8 +1,9 @@
 import Chai from 'chai'; const { expect } = Chai;
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
 import Layer from 'express/lib/router/layer.js';
-import { createTempFolder, saveYAML, removeYAML, getAssetPath } from './helpers/file-loading.mjs';
-import { setConfigFolder } from '../lib/config-management.mjs';
+import { createTempFolder, saveYAML, removeYAML } from './helpers/file-saving.mjs';
+import { getAssetPath  } from './helpers/path-finding.mjs';
+import { loadConfig, setConfigFolder } from '../lib/config-loading.mjs';
 
 import {
   addHandlers,
@@ -30,7 +31,6 @@ describe('Request handling', function() {
   let tmpFolder;
   before(async function() {
     tmpFolder = await createTempFolder();
-    setConfigFolder(tmpFolder.path);
     await saveYAML(tmpFolder, 'site1', {
       domains: [ 'duck.test', 'www.duck.test' ],
       files: [
@@ -59,6 +59,7 @@ describe('Request handling', function() {
         token: 'AB1234567890'
       }
     ], 0o600);
+    await loadConfig(tmpFolder.path);
   })
   after(function() {
     setConfigFolder(undefined);

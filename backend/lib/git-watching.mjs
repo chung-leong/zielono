@@ -1,6 +1,7 @@
 import { EventEmitter } from 'events';
 import isEqual from 'lodash/isEqual.js';
-import { getSiteConfigs, configEventEmitter } from './config-management.mjs';
+import { findSiteConfigs } from './config-loading.mjs';
+import { configEventEmitter } from './config-watching.mjs';
 import { ErrorCollection, displayError } from './error-handling.mjs';
 import { findGitAdapter } from './git-adapters.mjs';
 
@@ -43,7 +44,7 @@ async function adjustGitWatches(shutdown = false, attempts = 0) {
   const needed = [];
   const errors = [];
   if (!shutdown) {
-    const sites = await getSiteConfigs();
+    const sites = findSiteConfigs();
     for (let site of sites) {
       if (site.code) {
         const { url, path } = site.code;
@@ -96,7 +97,7 @@ async function adjustGitWatches(shutdown = false, attempts = 0) {
       const options = { url, path, accessToken };
       await adapter.watchFolder(folder, options, async (before, after) => {
         try {
-          const sites = await getSiteConfigs();
+          const sites = findSiteConfigs();
           for (let site of sites) {
             if (site.code.url === url && site.code.path === path) {
               gitEventEmitter.emit('code-change', before, after, site);

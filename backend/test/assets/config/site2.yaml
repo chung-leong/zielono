@@ -1,6 +1,0 @@
-domains:
-  - chicken.test
-  - www.chicken.test
-files:
-  - name: sushi
-    path: ../sushi.xlsx
