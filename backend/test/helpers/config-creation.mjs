@@ -1,6 +1,7 @@
 import { createTempFolder, saveYAML } from './file-saving.mjs';
 import { getAssetPath } from './path-finding.mjs';
 import { loadConfig, setConfigFolder } from '../../lib/config-loading.mjs';
+import { getAccessToken, getServiceURL } from './test-environment.mjs';
 
 async function createTempConfig(load = true) {
   const tmpFolder = await createTempFolder();
@@ -18,13 +19,16 @@ async function createTempConfig(load = true) {
       { name: 'sushi', url: 'https://www.dropbox.com/scl/fi/v6rp5jdiliyjjwp4l4chi/sushi.xlsx?dl=0&rlkey=30zvrg53g5ovu9k8pr63f25io' },
     ]
   });
+  const ngrokURL = getServiceURL('ngrok');
   await saveYAML(tmpFolder, 'zielono', {
     listen: 8080,
     nginx: {
       cache: {
         path: '/var/cache/nginx'
       }
-    }
+    },
+    // add ngrok config if it's available
+    ngrok: (ngrokURL) ? { url: ngrokURL } : undefined,
   });
   await saveYAML(tmpFolder, '.tokens', [
     {

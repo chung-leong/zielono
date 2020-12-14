@@ -4,6 +4,13 @@ function getAccessToken(type) {
   return token;
 }
 
+function getServiceURL(type) {
+  const key = `${type.toUpperCase()}_URL`;
+  const url = process.env[key];
+  return url;
+}
+
 export {
   getAccessToken,
+  getServiceURL,
 };

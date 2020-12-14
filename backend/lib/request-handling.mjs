@@ -92,8 +92,7 @@ function handleSiteAssociation(req, res, next) {
       if (domainIndex > 0) {
         // redirect to canonical domain name to improve caching
         if (server.nginx) {
-          const { port } = server.nginx;
-          const host = site.domains[0] + (port != 80 ? `:${port}` : '');
+          const host = attachServerPort(site.domains[0], server);
           const url = `//${host}${originalUrl}`;
           res.set({ 'X-Accel-Redirect': url });
           res.end();
@@ -109,8 +108,7 @@ function handleSiteAssociation(req, res, next) {
         const first = sites[0];
         if (first) {
           if (first.domains[0]) {
-            const port = (server.nginx) ? server.nginx.port : server.listen[0];
-            const host = first.domains[0] + (port != 80 ? `:${port}` : '');
+            const host = attachServerPort(site.domains[0], server);
             res.redirect(`//${host}`);
           } else {
             res.redirect(`/${first.name}`);
@@ -203,6 +201,19 @@ function atBaseURL(url, baseURL) {
     }
   }
   return false;
+}
+
+function attachServerPort(domain, server) {
+  let port = 80;
+  if (server.nginx && server.nginx.url) {
+    const urlParts = new URL(server.nginx.url);
+    if (urlParts.port) {
+      port = parseInt(urlParts.port);
+    }
+  } else if (typeof(server.listen[0]) === 'number') {
+    port = server.listen[0];
+  }
+  return (port === 80 || port === 443) ? domain : `${domain}:${port}`;
 }
 
 export {

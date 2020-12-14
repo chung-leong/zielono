@@ -199,9 +199,7 @@ function processServerConfig(config) {
     // listen can be specified using a number
     listen: array().coerce(number(), (port) => [ port ]).defaulted([ 8080 ]),
     nginx: object({
-      https: boolean().defaulted(true),
-      domain: string().optional(),
-      port: number().defaulted(80),
+      url: string().optional(),
       cache: object({
         // path resolve against config folder
         path: string().coerce(string(), (path) => resolve(folder, path)),

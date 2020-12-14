@@ -2,7 +2,7 @@ import Chai from 'chai'; const { expect } = Chai;
 import Fs from 'fs'; const { lstat } = Fs.promises;
 import { createRequire } from 'module';
 import { getAssetPath  } from './helpers/path-finding.mjs';
-import { getAccessToken } from './helpers/access-tokens.mjs';
+import { getAccessToken } from './helpers/test-environment.mjs';
 import './helpers/conditional-testing.mjs';
 
 import {

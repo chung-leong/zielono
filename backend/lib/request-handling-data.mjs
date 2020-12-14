@@ -1,8 +1,7 @@
 import { retrieveFromCloud, retrieveFromDisk } from './file-retrieval.mjs';
 import { parseExcelFile, parseCSVFile, stripCellStyle } from './excel-parsing.mjs';
-import { getHash }  from './content-storage.mjs';
 import {
-  findSiteContentMeta, loadSiteContent, loadSiteContentMeta,
+  findSiteContentMeta, loadSiteContent, loadSiteContentMeta, getHash,
   checkSiteContent, saveSiteContent, saveSiteContentMeta
  } from './content-storage.mjs';
 import { getImageMeta } from './request-handling-image.mjs';

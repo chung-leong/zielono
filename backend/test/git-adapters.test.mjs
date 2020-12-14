@@ -3,7 +3,8 @@ import delay from 'delay';
 import './helpers/conditional-testing.mjs';
 import { createTempFolder, saveYAML } from './helpers/file-saving.mjs';
 import { getRepoPath } from './helpers/path-finding.mjs';
-import { getAccessToken } from './helpers/access-tokens.mjs';
+import { getAccessToken, getServiceURL } from './helpers/test-environment.mjs';
+import { createTempConfig } from './helpers/config-creation.mjs';
 import { getHash } from '../lib/content-storage.mjs';
 
 import {
@@ -16,6 +17,9 @@ import {
 
 describe('Git adapters', function() {
   this.timeout(10000);
+  before(async function() {
+    await createTempConfig();
+  })
   describe('findGitAdapter', function() {
     it('should find GitHub adapter', function() {
       const options = {
@@ -71,10 +75,10 @@ describe('Git adapters', function() {
   describe('GitHubAdapter', function() {
     const adapter = new GitHubAdapter;
     const accessToken = getAccessToken('github');
-    describe('parseURL()', function() {
+    describe('normalizeOptions()', function() {
       it('should extract user and repo name from GitHub URL', function() {
         const url = 'https://github.com/chung-leong/zielono';
-        const result = adapter.parseURL(url);
+        const result = adapter.normalizeOptions({ url });
         expect(result).to.eql({
           owner: 'chung-leong',
           repo: 'zielono',
@@ -82,7 +86,12 @@ describe('Git adapters', function() {
       })
       it('should throw if the URL is invalid', function() {
         const url = 'https://pornhub.com/';
-        expect(() => adapter.parseURL(url)).to.throw();
+        expect(() => adapter.normalizeOptions({ url })).to.throw();
+      })
+      it('should return the same object if there is no URL', function() {
+        const options = {};
+        const result = adapter.normalizeOptions(options);
+        expect(result).to.equal(options);
       })
     })
     describe('getURL()', function() {
@@ -201,6 +210,7 @@ describe('Git adapters', function() {
         const hooks = await adapter.findHooks(options);
         expect(hooks).to.be.an('array');
       })
+      skip.if.no.ngrok.
       it('should find a web hook that has just been added', async function() {
         const options = {
           url: 'https://github.com/chung-leong/zielono',
@@ -217,7 +227,7 @@ describe('Git adapters', function() {
         }
       })
     })
-    skip.if.watching.or.no.github.
+    skip.if.watching.or.no.github.or.no.ngrok.
     describe('uninstallOldHooks()', function() {
       it('should remove web hooks with same URL', async function() {
         const options = {
@@ -233,22 +243,7 @@ describe('Git adapters', function() {
         expect(hooksAfter.length).to.be.below(hooksBefore.length);
       })
     })
-    skip.if.watching.or.no.github.
-    describe('uninstallHook()', function() {
-      it('should install a web hook', async function() {
-        const options = {
-          url: 'https://github.com/chung-leong/zielono',
-          accessToken,
-        };
-        const hash = '1234567890';
-        const hook = await adapter.installHook(hash, options);
-        const hooksBefore = await adapter.findHooks(options);
-        await this.uninstallHook(hook, options);
-        const hooksAfter = await adapter.findHooks(options);
-        expect(hooksAfter.length).to.be.below(hooksBefore.length);
-      })
-    })
-    skip.if.watching.or.no.github.
+    skip.if.watching.or.no.github.or.no.ngrok.
     describe('installHook()', function() {
       it('should install a web hook', async function() {
         const options = {
@@ -258,12 +253,26 @@ describe('Git adapters', function() {
         const hash = '1234567890';
         const hook = await adapter.installHook(hash, options);
         try {
-          console.log(hook);
           expect(hook).to.have.property('id').that.is.a('number');
           expect(hook).to.have.property('url').that.is.a('string');
         } finally {
           await adapter.uninstallHook(hook, options);
         }
+      })
+    })
+    skip.if.watching.or.no.github.or.no.ngrok.
+    describe('uninstallHook()', function() {
+      it('should uninstall a web hook', async function() {
+        const options = {
+          url: 'https://github.com/chung-leong/zielono',
+          accessToken,
+        };
+        const hash = '1234567890';
+        const hook = await adapter.installHook(hash, options);
+        const hooksBefore = await adapter.findHooks(options);
+        await adapter.uninstallHook(hook, options);
+        const hooksAfter = await adapter.findHooks(options);
+        expect(hooksAfter.length).to.be.below(hooksBefore.length);
       })
     })
   })
