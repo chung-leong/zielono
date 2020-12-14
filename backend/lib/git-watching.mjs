@@ -38,7 +38,7 @@ async function handleSiteChange(before, after) {
 }
 
 async function adjustGitWatches(shutdown = false, attempts = 0) {
-  const folder = 'www';
+  const folder = 'ssr';
   // see which repos need to be monitored
   const needed = [];
   const errors = [];

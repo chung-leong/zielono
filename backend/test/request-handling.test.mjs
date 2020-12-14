@@ -77,6 +77,7 @@ describe('Request handling', function() {
       set: () => {},
       use: (...args) => addRoute(false, ...args),
       get: (...args) => addRoute(true, ...args),
+      post: (...args) => addRoute(true, ...args),
     };
     addHandlers(app);
     const test = (url, expectedHandler, expectedParams) => {

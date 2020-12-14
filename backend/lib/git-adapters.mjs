@@ -57,6 +57,8 @@ class GitRemoteAdapter extends GitAdapter {
       throw new HttpError(res.status, message);
     }
   }
+
+  async processHookMessage(hash, msg) { return false };
 }
 
 class GitHubAdapter extends GitRemoteAdapter {
@@ -503,6 +505,17 @@ function removeGitAdapter(adapter) {
   }
 }
 
+async function processHookMessage(hash, msg) {
+  for (let adapter of gitAdapters) {
+    if (adapter instanceof GitRemoteAdapter) {
+      const handled = await adapter.processHookMessage(hash, msg);
+      if (handled) {
+        break;
+      }
+    }
+  }
+}
+
 addGitAdapter(new GitHubAdapter);
 addGitAdapter(new GitLocalAdapter);
 
@@ -510,6 +523,7 @@ export {
   findGitAdapter,
   addGitAdapter,
   removeGitAdapter,
+  processHookMessage,
   GitAdapter,
   GitRemoteAdapter,
   GitHubAdapter,

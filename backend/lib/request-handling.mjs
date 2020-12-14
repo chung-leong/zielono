@@ -6,6 +6,7 @@ import { handleImageRequest } from './request-handling-image.mjs';
 import { handleDataRequest } from './request-handling-data.mjs';
 import { handlePageRequest } from './request-handling-page.mjs';
 import { handleAdminRequest } from './request-handling-admin.mjs';
+import { handleHookRequest } from './request-handling-hook.mjs';
 import { HttpError } from './error-handling.mjs';
 
 let server;
@@ -57,6 +58,7 @@ function addHandlers(app) {
   app.use(createCORSHandler(exposedHeaders));
   // compress responses here so compressed file are stored in the cache
   app.use(createCompressionHandler());
+  app.post('/-/hook/:hash', handleHookRequest);
   app.use(handleSiteAssociation);
   app.use('/zielono', handleAdminRequest);
   app.use(handleRefExtraction);

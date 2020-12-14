@@ -68,7 +68,7 @@ describe('Git watching', function() {
         expect(count1).to.equal(1);
         expect(adapter.list).to.eql([
           {
-            path: 'www',
+            path: 'ssr',
             options: {
               path: '/abc',
               url: undefined,
@@ -80,7 +80,7 @@ describe('Git watching', function() {
         await Promise.race([ adapter.change(), delay(1000) ]);
         expect(adapter.list).to.eql([
           {
-            path: 'www',
+            path: 'ssr',
             options: {
               path: '/abc',
               url: undefined,
@@ -88,7 +88,7 @@ describe('Git watching', function() {
             }
           },
           {
-            path: 'www',
+            path: 'ssr',
             options: {
               path: '/efg',
               url: undefined,
@@ -100,7 +100,7 @@ describe('Git watching', function() {
         await Promise.race([ adapter.change(), delay(1000) ]);
         expect(adapter.list).to.eql([
           {
-            path: 'www',
+            path: 'ssr',
             options: {
               path: '/efg',
               url: undefined,
