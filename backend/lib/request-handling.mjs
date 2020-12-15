@@ -1,4 +1,4 @@
-import createApp from 'express';
+import createApp, { json as createJSONParser } from 'express';
 import createCORSHandler from 'cors';
 import createCompressionHandler from 'compression';
 import { findSiteConfigs, findServerConfig } from './config-loading.mjs';
@@ -6,7 +6,7 @@ import { handleImageRequest } from './request-handling-image.mjs';
 import { handleDataRequest } from './request-handling-data.mjs';
 import { handlePageRequest } from './request-handling-page.mjs';
 import { handleAdminRequest } from './request-handling-admin.mjs';
-import { handleHookRequest } from './request-handling-hook.mjs';
+import { handleHookRequest, handleHookRequestValidation } from './request-handling-hook.mjs';
 import { HttpError } from './error-handling.mjs';
 
 let server;
@@ -58,6 +58,9 @@ function addHandlers(app) {
   app.use(createCORSHandler(exposedHeaders));
   // compress responses here so compressed file are stored in the cache
   app.use(createCompressionHandler());
+  // validate signatures in hook requests are correct 
+  app.use(handleHookRequestValidation);
+  app.use(createJSONParser());
   app.post('/-/hook/:hash', handleHookRequest);
   app.use(handleSiteAssociation);
   app.use('/zielono', handleAdminRequest);

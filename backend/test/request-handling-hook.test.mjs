@@ -1,4 +1,5 @@
 import Chai from 'chai'; const { expect } = Chai;
+import { createHmac } from 'crypto';
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
 import delay from 'delay';
 import { getHash } from '../lib/content-storage.mjs'
@@ -7,7 +8,7 @@ import { GitRemoteAdapter, addGitAdapter, removeGitAdapter } from '../lib/git-ad
 
 import {
   getHookSecret,
-  calculateSignature,
+  handleHookRequestValidation,
   handleHookRequest,
 } from '../lib/request-handling-hook.mjs';
 
@@ -21,12 +22,38 @@ describe('Hook request handling', function() {
       expect(hash).to.not.equal(bad);
     })
   })
-  describe('calculateSignature()', function() {
-    it('should caculate a sha256 signature', function() {
-      const signature1 = calculateSignature('{}');
-      expect(signature1).to.satisfy((s) => s.startsWith('sha256='));
-      const signature2 = calculateSignature('{ "count": 5 }');
-      expect(signature2).to.not.equal(signature1);
+  describe('handleHookRequestValidation()', function() {
+    it('should set req.valid to true when signature matches', function() {
+      const data = Buffer.from('{ "count": 5 }');
+      const secret = getHookSecret();
+      const hash = createHmac('sha256', secret);
+      hash.update(data)
+      const signature = 'sha256=' + hash.digest('hex');
+      const req = createRequest({
+        params: { hash: '1234567890' },
+        headers: { 'x-hub-signature-256': signature },
+      });
+      const res = createResponse();
+      handleHookRequestValidation(req, res, () => {});
+      req.emit('data', data);
+      req.emit('end');
+      expect(req).to.have.property('valid', true);
+    })
+    it('should set req.valid to false when signature does not match', function() {
+      const data = Buffer.from('{ "count": 5 }');
+      const secret = getHookSecret();
+      const hash = createHmac('sha256', secret);
+      hash.update(data)
+      const signature = 'sha256=' + hash.digest('hex');
+      const req = createRequest({
+        params: { hash: '1234567890' },
+        headers: { 'x-hub-signature-256': signature },
+      });
+      const res = createResponse();
+      handleHookRequestValidation(req, res, () => {});
+      req.emit('data', Buffer.from('{ "count": 6 }'));
+      req.emit('end');
+      expect(req).to.have.property('valid', false);
     })
   })
   describe('handleHookRequest()', function() {
@@ -35,14 +62,13 @@ describe('Hook request handling', function() {
         throw err;
       }
     };
-    it('should refuse to process request without matching signature', async function() {
-      const signature = calculateSignature('{}');
+    it('should refuse to process request when validation failed', async function() {
       const msg = { count: 5 };
       const body = JSON.stringify(msg);
       const req = createRequest({
         body,
         params: { hash: '1234567890' },
-        headers: { 'x-hub-signature-256': signature },
+        valid: false,
       });
       const res = createResponse();
       try {
@@ -75,20 +101,18 @@ describe('Hook request handling', function() {
       }
       const adapter = addGitAdapter(new GitTestAdapter);
       try {
-        const msg = { count: 5 };
-        const body = JSON.stringify(msg);
-        const signature = calculateSignature(body);
+        const body = { count: 5 };
         const req = createRequest({
           body,
           params: { hash: '1234567890' },
-          headers: { 'x-hub-signature-256': signature },
+          valid: true,
         });
         const res = createResponse();
         const called = adapter.change();
         await handleHookRequest(req, res, next);
         await Promise.race([ called, delay(500) ]);
         expect(adapter.messages).to.have.lengthOf(1);
-        expect(adapter.messages[0]).to.eql(msg);
+        expect(adapter.messages[0]).to.eql(body);
       } finally {
         removeGitAdapter(adapter);
       }
