@@ -8,7 +8,7 @@ import { getHash } from './content-storage.mjs';
 import { getAgent as agent } from './http-agents.mjs';
 import { HttpError } from './error-handling.mjs';
 import { getHookSecret } from './request-handling-hook.mjs';
-import { findServerConfig } from './config-loading.mjs';
+import { findServerConfig, findAccessToken } from './config-loading.mjs';
 
 class GitAdapter {
   constructor(name) {
@@ -196,6 +196,7 @@ class GitHubAdapter extends GitRemoteAdapter {
   async processHookMessage(hash, msg) {
     for (let watch of this.watches) {
       if (hash === watch.hash) {
+        const { folders, owner, repo } = watch;
         const { created, deleted, commits } = msg;
         for (let folder of folders) {
           let impacted = false;
@@ -217,6 +218,9 @@ class GitHubAdapter extends GitRemoteAdapter {
           }
           if (impacted) {
             const { path, callback } = folder;
+            const url = `${this.baseURL}/${owner}/${repo}`;
+            const accessToken = findAccessToken(url);
+            const options = { owner, repo, accessToken };
             const versions = await this.retrieveVersionRefs(path, options);
             if (!isEqual(folder.versions, versions)) {
               const before = folder.versions, after = versions;

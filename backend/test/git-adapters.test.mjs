@@ -423,5 +423,72 @@ describe('Git adapters', function() {
         }
       })
     })
+    describe('processHookMessage()', function() {
+      class GitHubTestAdapter extends GitHubAdapter {
+        constructor() {
+          super();
+          this.retrievalCount = 0;
+        }
+
+        async retrieveVersionRefs(path, options) {
+          this.retrievalCount++;
+          return {};
+        }
+
+        async installHook(hash, options) {
+          return { id: 0 };
+        }
+
+        async uninstallHook(hook, options) {
+        }
+      }
+      const options = { url: 'https://github.com/someone/project' };
+      const hash = getHash('someone', '/', 'project');
+      it('should trigger rescanning when a new branch is created', async function() {
+        const adapter = new GitHubTestAdapter;
+        await adapter.watchFolder('ssr', options, () => {});
+        expect(adapter.retrievalCount).to.equal(1);
+        await adapter.processHookMessage(hash, { created: true });
+        expect(adapter.retrievalCount).to.equal(2);
+      })
+      it('should trigger rescanning when a branch is deleted', async function() {
+        const adapter = new GitHubTestAdapter;
+        await adapter.watchFolder('ssr', options, () => {});
+        expect(adapter.retrievalCount).to.equal(1);
+        await adapter.processHookMessage(hash, { created: false, deleted: true });
+        expect(adapter.retrievalCount).to.equal(2);
+      })
+      it('should trigger rescanning when there are more than 20 commits in a push', async function() {
+        const adapter = new GitHubTestAdapter;
+        await adapter.watchFolder('ssr', options, () => {});
+        expect(adapter.retrievalCount).to.equal(1);
+        const commits = [];
+        for (let i = 0; i < 22; i++) {
+          commits.push({ added: [], removed: [], modified: [ 'README.md' ] });
+        }
+        await adapter.processHookMessage(hash, { created: false, commits });
+        expect(adapter.retrievalCount).to.equal(2);
+      })
+      it('should trigger rescanning when a commit involves changes to the watched folder', async function() {
+        const adapter = new GitHubTestAdapter;
+        await adapter.watchFolder('ssr', options, () => {});
+        expect(adapter.retrievalCount).to.equal(1);
+        const commits = [
+          { added: [], removed: [], modified: [ 'ssr/index.js' ] }
+        ];
+        await adapter.processHookMessage(hash, { created: false, commits });
+        expect(adapter.retrievalCount).to.equal(2);
+      })
+      it('should not trigger rescanning when a commit does not touch the watched folder', async function() {
+        const adapter = new GitHubTestAdapter;
+        await adapter.watchFolder('ssr', options, () => {});
+        expect(adapter.retrievalCount).to.equal(1);
+        const commits = [
+          { added: [], removed: [], modified: [ 'src/something.js' ] }
+        ];
+        await adapter.processHookMessage(hash, { created: false, commits });
+        expect(adapter.retrievalCount).to.equal(1);
+      })
+    })
   })
 })
