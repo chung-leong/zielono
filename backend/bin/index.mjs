@@ -2,16 +2,15 @@
 
 import isEqual from 'lodash/isEqual.js';
 import { startHTTPServer, stopHTTPServer } from '../lib/request-handling.mjs';
-import { setConfigFolder, preloadConfig, watchConfigFolder, unwatchConfigFolder,
-  configEventEmitter } from '../lib/config-management.mjs';
+import { loadConfig } from '../lib/config-loading.mjs';
+import { watchConfigFolder, unwatchConfigFolder, configEventEmitter } from '../lib/config-watching.mjs';
 import { watchGitRepos, unwatchGitRepos } from '../lib/git-watching.mjs';
 import { displayError } from '../lib/error-handling.mjs';
 
-async function runServer() {
+async function startServer() {
   try {
     const cwd = process.cwd();
-    setConfigFolder(cwd);
-    const { server, sites } = await preloadConfig();
+    const { server, sites } = await loadConfig(cwd);
     await startHTTPServer();
     configEventEmitter.on('server-change', async (before, after) => {
       try {
@@ -34,18 +33,21 @@ async function runServer() {
     await watchGitRepos();
     displayServerInfo(server);
     displaySiteInfo(sites);
-    process.on('SIGTERM', async () => {
-      await Promise.all([
-        unwatchConfigFolder(),
-        unwatchGitRepos(),
-        stopHTTPServer(),
-      ]);
-      process.exit(0);
-    });
+    process.on('SIGSTOP', stopServer);
+    process.on('SIGTERM', stopServer);
   } catch (err) {
     displayError(err, 'startup');
     process.exit(1);
   }
+}
+
+async stopServer() {
+  await Promise.all([
+    unwatchConfigFolder(),
+    unwatchGitRepos(),
+    stopHTTPServer(),
+  ]);
+  process.exit(0);
 }
 
 function displayServerInfo(server) {
@@ -85,4 +87,4 @@ function displaySiteInfo(sites) {
   }
 }
 
-runServer();
+startServer();
