@@ -28,19 +28,19 @@ class GitAdapter {
     return string && /^[a-f0-9]{40}$/.test(string);
   }
 
-  canHandle(options) { return false };
-  async retrieveFile(path, options) {}
-  async retrieveVersions(path, options) {}
-  async watchFolder(path, options, callback) {}
-  async unwatchFolder(path, options) {}
+  canHandle(repo) { return false };
+  async retrieveFile(path, repo, options) {}
+  async retrieveVersions(path, repo, options) {}
+  async watchFolder(path, repo, options, callback) {}
+  async unwatchFolder(path, repo, options) {}
 }
 
 class GitRemoteAdapter extends GitAdapter {
   async retrieveJSON(url, options) {
-    const { accessToken, body, method, headers: additionalHeaders } = options;
+    const { token, body, method, headers: additionalHeaders } = options;
     const headers = { ...additionalHeaders };
     const timeout = 5000;
-    if (accessToken) {
+    if (token) {
       headers['Authorization'] = `Bearer ${accessToken}`;
     }
     const fetchOpts = { headers, timeout, agent, method };
@@ -82,24 +82,28 @@ class GitHubAdapter extends GitRemoteAdapter {
     this.watches = [];
   }
 
-  canHandle(options) {
+  canHandle(repo) {
     const { url } = options;
     return url && url.startsWith(this.baseURL);
   }
 
-  async retrieveFile(path, options) {
-    options = this.normalizeOptions(options);
-    const { folders, filename } = this.parsePath(path);
-    const blob = await this.findBlob(folders, filename, options);
+  async retrieveFile(path, repo, options) {
+    const { token, ref: refSpec } = options;
+    let ref = refSpec;
+    if (!ref) {
+      const repo = await this.findRepo(repo, { token });
+      ref = `heads/${repo.default_branch}`;
+    }
+    const blob = await this.findBlob(path, repo, { token, ref });
     const buffer = Buffer.from(blob.content, blob.encoding);
-    buffer.filename = filename;
+    buffer.filename = basename(path);
     buffer.sha = blob.sha;
     return buffer;
   }
 
-  async retrieveVersions(path, options) {
-    options = this.normalizeOptions(options);
-    const commits = await this.findCommits(path, options);
+  async retrieveVersions(path, repo, options) {
+    const { token } = options;
+    const commits = await this.findCommits(path, repo, { token });
     const versions = [];
     for (let { sha, commit } of commits) {
       versions.push({
@@ -113,20 +117,20 @@ class GitHubAdapter extends GitRemoteAdapter {
     return versions;
   }
 
-  async retrieveVersionRefs(path, options) {
-    options = this.normalizeOptions(options);
+  async retrieveVersionRefs(path, repo, options) {
+    const { token } = options;
     // retrieve tags and branches
-    const tags = await this.findTags(options);
-    const branches = await this.findBranches(options);
+    const tags = await this.findTags(repo, { token });
+    const branches = await this.findBranches(repo, { token });
     // retrieve commits affecting the path
     const relevantCommitRefs = {};
-    const relevantCommits = await this.findCommits(path, options);
+    const relevantCommits = await this.findCommits(path, repo, { token });
     const relevantCommitHash = {};
     for (let commit of relevantCommits) {
       relevantCommitHash[commit.sha] = commit;
     }
     // retrieve all commits (the recent ones, anyway)
-    const allCommits = await this.findCommits(null, options);
+    const allCommits = await this.findCommits('', repo, { token });
     const allCommitHash = {};
     for (let commit of allCommits) {
       allCommitHash[commit.sha] = commit;
@@ -165,29 +169,27 @@ class GitHubAdapter extends GitRemoteAdapter {
     return relevantCommitRefs;
   }
 
-  async watchFolder(path, options, callback) {
-    options = this.normalizeOptions(options);
-    const { owner, repo } = options;
-    const versions = await this.retrieveVersionRefs(path, options);
-    let watch = this.watches.find((w) => w.owner === owner && w.repo === repo);
+  async watchFolder(path, repo, options, callback) {
+    const { token } = options;
+    const versions = await this.retrieveVersionRefs(path, repo, { token });
+    let watch = this.watches.find((w) => isEqual(w.repo, repo));
     if (!watch) {
-      const hash = getHash(owner, '/', repo);
-      const hook = await this.installHook(hash, options);
-      watch = { hash, owner, repo, hook, folders: [] };
+      const hash = getHash(repo.url);
+      const hook = await this.installHook(hash, repo, { token });
+      watch = { hash, repo, hook, folders: [] };
       this.watches.push(watch);
     }
     watch.folders.push({ path, versions, callback });
   }
 
-  async unwatchFolder(path, options) {
-    options = this.normalizeOptions(options);
-    const { owner, repo } = options;
-    let watch = this.watches.find((w) => w.owner === owner && w.repo === repo);
+  async unwatchFolder(path, repo, options) {
+    const { token } = options;
+    let watch = this.watches.find((w) => isEqual(w.repo, repo));
     if (watch) {
       watch.folders = watch.folders.filter((f) => f.path !== path);
       if (watch.folders.length === 0) {
         const { hook } = watch;
-        await this.uninstallHook(hook, options);
+        await this.uninstallHook(hook, repo, { token });
         const index = this.watches.indexOf(watch);
         this.watches.splice(index, 1);
       }
@@ -197,7 +199,7 @@ class GitHubAdapter extends GitRemoteAdapter {
   async processHookMessage(hash, msg) {
     for (let watch of this.watches) {
       if (hash === watch.hash) {
-        const { folders, owner, repo } = watch;
+        const { folders, repo } = watch;
         const { created, deleted, commits } = msg;
         for (let folder of folders) {
           let impacted = false;
@@ -219,10 +221,8 @@ class GitHubAdapter extends GitRemoteAdapter {
           }
           if (impacted) {
             const { path, callback } = folder;
-            const url = `${this.baseURL}/${owner}/${repo}`;
-            const accessToken = findAccessToken(url);
-            const options = { owner, repo, accessToken };
-            const versions = await this.retrieveVersionRefs(path, options);
+            const token = findAccessToken(repo.url);
+            const versions = await this.retrieveVersionRefs(path, repo, { token });
             if (!isEqual(folder.versions, versions)) {
               const before = folder.versions, after = versions;
               folder.versions = versions;
@@ -236,100 +236,87 @@ class GitHubAdapter extends GitRemoteAdapter {
     return false;
   };
 
-  async findBlob(folders, filename, options) {
-    options = this.normalizeOptions(options);
-    const folder = await this.findFolder(folders, options);
+  async findBlob(path, repo, options) {
+    const { token, ref } = options;
+    const folderPath = dirname(path);
+    const filename = basename(path);
+    const folder = await this.findFolder(folderPath, { token, ref });
     const fileNode = folder.tree.find((f) => f.type === 'blob' && f.path === filename);
     if (!fileNode) {
       const filePath = [ ...folders, filename ].join('/');
       throw new HttpError(404, `Cannot find file in repo: ${filePath}`);
     }
-    const blob = await this.retrieveJSON(fileNode.url, options);
+    const blob = await this.retrieveJSON(fileNode.url, { token });
     return blob;
   }
 
-  async findFolder(folders, options) {
-    options = this.normalizeOptions(options);
-    let folder = await this.findRoot(options);
-    for (let [ index, path ] of folders.entries()) {
-      const folderNode = folder.tree.find((f) => f.type === 'tree' && f.path === path);
+  async findFolder(folderPath, repo, options) {
+    const { token, ref } = options;
+    const folderNames = folderPath.split('/');
+    let folder = await this.findRoot({ token, ref });
+    for (let [ index, name ] of folderNames.entries()) {
+      const folderNode = folder.tree.find((f) => f.type === 'tree' && f.path === name);
       if (!folderNode) {
-        const folderPath = folders.slice(0, index + 1).join('/');
+        const folderPath = folderNames.slice(0, index + 1).join('/');
         throw new HttpError(404, `Cannot find folder in repo: ${folderPath}`);
       }
-      folder = await this.retrieveJSON(folderNode.url, options);
+      folder = await this.retrieveJSON(folderNode.url, { token });
     }
     return folder;
   }
 
-  async findRoot(options) {
-    options = this.normalizeOptions(options);
-    const commit = await this.findCommit(options);
-    const folder = await this.retrieveJSON(commit.tree.url, options);
-    return folder;
-  }
-
-  async findCommitRef(options) {
-    options = this.normalizeOptions(options);
-    const url = this.getURL('repos/:owner/:repo/git/ref/:ref', options);
-    const tag = await this.retrieveJSON(url, options);
-    return tag;
-  }
-
-  async findCommit(options) {
-    options = this.normalizeOptions(options);
+  async findRoot(repo, options) {
+    const { token, ref } = options;
     let commit;
-    if (this.isCommitID(options.ref)) {
-      const url = this.getURL('repos/:owner/:repo/git/commits/:ref', options);
-      commit = await this.retrieveJSON(url, options);
+    if (this.isCommitID(ref)) {
+      const url = this.getURL('repos/:owner/:repo/git/commits/:ref', repo, { ref });
+      commit = await this.retrieveJSON(url, { token });
     } else {
-      if (!options.ref) {
-        const repo = await this.findRepo(options);
-        options.ref = `heads/${repo.default_branch}`;
-      }
-      const ref = await this.findCommitRef(options);
-      commit = await this.retrieveJSON(ref.object.url, options);
+      const url = this.getURL('repos/:owner/:repo/git/ref/:ref', repo, { ref });
+      const tag = await this.retrieveJSON(url, { token });
+      commit = await this.retrieveJSON(tag.object.url, { token });
     }
-    return commit;
+    const folder = await this.retrieveJSON(commit.tree.url, { token });
+    return folder;
   }
 
-  async findCommits(path, options) {
-    options = this.normalizeOptions(options);
-    let url = this.getURL('repos/:owner/:repo/commits', options);
+  async findCommits(path, repo, options) {
+    const { token } = options;
+    let url = this.getURL('repos/:owner/:repo/commits', repo);
     if (path) {
       url += `?path=${encodeURIComponent(path)}`;
     }
-    const commits = await this.retrieveJSON(url, options);
+    const commits = await this.retrieveJSON(url, { token });
     return commits;
   }
 
-  async findRepo(options) {
-    options = this.normalizeOptions(options);
-    const url = this.getURL('repos/:owner/:repo', options);
-    const repo = await this.retrieveJSON(url, options);
+  async findRepo(repo, options) {
+    const { token } = options;
+    const url = this.getURL('repos/:owner/:repo', repo);
+    const repo = await this.retrieveJSON(url, { token });
     return repo;
   }
 
-  async findBranches(options) {
-    options = this.normalizeOptions(options);
-    const url = this.getURL('repos/:owner/:repo/branches', options);
-    const branches = await this.retrieveJSON(url, options);
+  async findBranches(repo, options) {
+    const { token } = options;
+    const url = this.getURL('repos/:owner/:repo/branches', repo);
+    const branches = await this.retrieveJSON(url, { token });
     return branches;
   }
 
-  async findTags(options) {
-    options = this.normalizeOptions(options);
-    const url = this.getURL('repos/:owner/:repo/tags', options);
-    const tags = await this.retrieveJSON(url, options);
+  async findTags(repo, options) {
+    const { token } = options;
+    const url = this.getURL('repos/:owner/:repo/tags', repo);
+    const tags = await this.retrieveJSON(url, { token });
     return tags;
   }
 
-  async installHook(hash, options) {
-    options = this.normalizeOptions(options);
+  async installHook(hash, repo, options) {
+    const { token } = options;
     const baseURL = getServerBaseURL();
-    const hookURL = (new URL(`/-/hook/${hash}`, baseURL)).href;
-    await this.uninstallOldHooks(hookURL, options);
-    const url = this.getURL('repos/:owner/:repo/hooks', options);
+    const hookURL = join(baseURL, `/-/hook/${hash}`);
+    await this.uninstallOldHooks(hookURL, { token });
+    const url = this.getURL('repos/:owner/:repo/hooks', repo);
     const config = {
       url: hookURL,
       secret: getHookSecret(),
@@ -337,53 +324,43 @@ class GitHubAdapter extends GitRemoteAdapter {
       content_type: 'json',
     };
     const body = { config };
-    const hook = await this.retrieveJSON(url, { ...options, body });
+    const hook = await this.retrieveJSON(url, { token, body });
     return hook;
   }
 
-  async uninstallHook(hook, options) {
-    options = this.normalizeOptions(options);
-    const url = this.getURL('repos/:owner/:repo/hooks/:id', { ...options, ...hook });
+  async uninstallHook(hook, repo, options) {
+    const { token } = options;
+    const url = this.getURL('repos/:owner/:repo/hooks/:id', repo, hook);
     const method = 'DELETE';
-    await this.retrieveJSON(url, { ...options, method });
+    await this.retrieveJSON(url, { token, method });
   }
 
-  async uninstallOldHooks(hookURL, options) {
-    options = this.normalizeOptions(options);
+  async uninstallOldHooks(hookURL, repo, options) {
+    const { token } = options;
     let count = 0;
-    const hooks = await this.findHooks(options);
+    const hooks = await this.findHooks(repo, { token });
     for (let hook of hooks) {
       if (hook.url === hookURL) {
-        await this.uninstallHook(hook, options);
+        await this.uninstallHook(hook, repo, { token });
         count++;
       }
     }
     return count;
   }
 
-  async findHooks(options) {
-    options = this.normalizeOptions(options);
-    const url = this.getURL('repos/:owner/:repo/hooks', options);
-    const hooks = await this.retrieveJSON(url, options);
+  async findHooks(repo, options) {
+    const { token } = options;
+    const url = this.getURL('repos/:owner/:repo/hooks', repo);
+    const hooks = await this.retrieveJSON(url, { token });
     return hooks;
   }
 
-  normalizeOptions(options) {
-    if (options.url) {
-      const { url, ...others } = options;
-      const [ owner, repo ] = url.substr(this.baseURL.length + 1).split('/');
-      const re = /^[\w\-]+$/;
-      if (!re.test(owner) || !re.test(repo) || !url.startsWith(this.baseURL)) {
-        throw new Error(`Invalid GitHub URL: ${url}`);
-      }
-      return { owner, repo, ...others };
-    }
-    return options;
-  }
-
-  getURL(url, options) {
+  getURL(url, repo, vars) {
+    const subpath = repo.url.substr(this.baseURL.length + 1);
+    const names = subpath.split('/');
+    const context = { owner: names[0], repo: names[1], ...vars };
     const relativeURL = url.replace(/:(\w+)/g, (m0, name) => {
-      return options[name];
+      return context[name];
     });
     return `${this.apiURL}/${relativeURL}`;
   }
@@ -401,51 +378,49 @@ class GitLocalAdapter extends GitAdapter {
     this.watches = [];
   }
 
-  canHandle(options) {
-    const { path } = options;
+  canHandle(repo) {
+    const { path } = repo;
     return !!path;
   }
 
-  async retrieveFile(path, options) {
-    const { filename } = this.parsePath(path);
-    const { ref, path: workingFolder } = options;
+  async retrieveFile(path, repo, options) {
+    const { ref: refSpec } = options;
     let buffer;
-    if (!ref) {
+    if (!refSpec) {
       // load file from working folder directly
-      const fullPath = join(workingFolder, path);
+      const fullPath = join(repo.path, path);
       buffer = await readFile(fullPath);
     } else {
-      const ref2 = ref.replace(/^heads\/origin\//, 'origin/');
-      const command = `git show ${ref2}:${path}`;
+      let ref = refSpec;
+      if (ref.startsWith('heads/origin/')) {
+        ref = ref.substr(6);
+      }
+      const command = `git show ${ref}:${path}`;
       buffer = await this.runGit(command, options);
     }
-    buffer.filename = filename;
+    buffer.filename = basename(path);
     buffer.sha = getHash(`blob ${buffer.length}\0`, buffer);
     return buffer;
   }
 
-  async retrieveVersions(path, options) {
-    const commits = await this.findCommits(path, options);
-    const versions = [];
-    for (let { sha, author, date, message } of commits) {
-      versions.push({ sha, author, date, message });
-    }
-    return versions;
+  async retrieveVersions(path, repo, options) {
+    const commits = await this.findCommits(path, repo, {});
+    return commits;
   }
 
-  async retrieveVersionRefs(path, options) {
+  async retrieveVersionRefs(path, repo, options) {
     // retrieve tags and branches
-    const tags = await this.findTags(options);
-    const branches = await this.findBranches(options);
+    const tags = await this.findTags(repo, {});
+    const branches = await this.findBranches(repo, {});
     // retrieve commits affecting the path
     const relevantCommitRefs = {};
-    const relevantCommits = await this.findCommits(path, options);
+    const relevantCommits = await this.findCommits(path, repo, {});
     const relevantCommitHash = {};
     for (let commit of relevantCommits) {
       relevantCommitHash[commit.sha] = commit;
     }
     // retrieve all commits (the recent ones, anyway)
-    const allCommits = await this.findCommits(null, options);
+    const allCommits = await this.findCommits('', repo, {});
     const allCommitHash = {};
     for (let commit of allCommits) {
       allCommitHash[commit.sha] = commit;
@@ -485,12 +460,11 @@ class GitLocalAdapter extends GitAdapter {
     return relevantCommitRefs;
   }
 
-  async watchFolder(path, options, callback) {
-    const { path: repoPath } = options;
-    const versions = await this.retrieveVersionRefs(path, options);
-    let watch = this.watches.find((w) => w.path === repoPath);
+  async watchFolder(path, repo, options, callback) {
+    const versions = await this.retrieveVersionRefs(path, repo, {});
+    let watch = this.watches.find((w) => isEqual(w.repo, repo));
     if (!watch) {
-      const search = join(repoPath, '.git', 'refs', '**');
+      const search = join(repo.path, '.git', 'refs', '**');
       const watcher = Chokidar.watch(search, { ignoreInitial: true });
       let timeout = 0;
       for (let event of [ 'add', 'unlink', 'change' ]) {
@@ -501,7 +475,7 @@ class GitLocalAdapter extends GitAdapter {
           timeout = setTimeout(() => this.handleRefChange(path, watch), 100);
         });
       }
-      watch = { path: repoPath, watcher, folders: [] };
+      watch = { watcher, repo, folders: [] };
       this.watches.push(watch);
       await new Promise((resolve, reject) => {
         watcher.once('ready', resolve);
@@ -511,9 +485,8 @@ class GitLocalAdapter extends GitAdapter {
     watch.folders.push({ path, versions, callback });
   }
 
-  async unwatchFolder(path, options) {
-    const { path: repoPath } = options;
-    let watch = this.watches.find((w) => w.path === repoPath);
+  async unwatchFolder(path, repo, options) {
+    let watch = this.watches.find((w) => isEqual(w.repo, repo));
     if (watch) {
       watch.folders = watch.folders.filter((f) => f.path !== path);
       if (watch.folders.length === 0) {
@@ -525,10 +498,10 @@ class GitLocalAdapter extends GitAdapter {
   }
 
   async handleRefChange(path, watch) {
-    const { path: repoPath, folders } = watch;
+    const { repo, folders } = watch;
     for (let folder of folders) {
       const { path, callback } = folder;
-      const versions = await this.retrieveVersionRefs(path, { path: repoPath });
+      const versions = await this.retrieveVersionRefs(path, repo, {});
       if (!isEqual(folder.versions, versions)) {
         const before = folder.versions, after = versions;
         folder.versions = versions;
@@ -537,9 +510,9 @@ class GitLocalAdapter extends GitAdapter {
     }
   }
 
-  async findCommits(path, options) {
+  async findCommits(path, repo, options) {
     const command = `git log -100 --pretty=raw -z '${path || '.'}'`;
-    const buffer = await this.runGit(command, options);
+    const buffer = await this.runGit(command, repo);
     const commits = [];
     const sections = buffer.toString().split('\0');
     for (let section of sections) {
@@ -579,10 +552,10 @@ class GitLocalAdapter extends GitAdapter {
     return commits;
   }
 
-  async findTags(options) {
+  async findTags(repo, options) {
     const tags = [];
     const command = `git show-ref --tags --dereference`;
-    const buffer = await this.runGit(command, options);
+    const buffer = await this.runGit(command, repo);
     const lines = buffer.toString().split(/\r?\n/);
     for (let line of lines) {
       if (line) {
@@ -599,9 +572,9 @@ class GitLocalAdapter extends GitAdapter {
     return tags;
   }
 
-  async findBranches(options) {
+  async findBranches(repo, options) {
     const command = `git show-ref --heads`;
-    const buffer = await this.runGit(command, options);
+    const buffer = await this.runGit(command, repo);
     const lines = buffer.toString().split(/\r?\n/);
     const branches = [];
     for (let line of lines) {
@@ -614,11 +587,10 @@ class GitLocalAdapter extends GitAdapter {
     return branches;
   }
 
-  async runGit(command, options) {
-    const { path } = options;
+  async runGit(command, repo) {
     const buffer = await new Promise((resolve, reject) => {
       const execOpts = {
-        cwd: path,
+        cwd: repo.path,
         encoding: 'buffer',
         timeout: 5000,
       };
