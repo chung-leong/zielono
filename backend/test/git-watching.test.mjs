@@ -30,20 +30,20 @@ describe('Git watching', function() {
 
       canHandle() { return true };
 
-      watchFolder(path, options) {
+      watchFolder(path, repo, options) {
         this.changed();
         if (!this.canWatch) {
           throw new ExpectedError;
         }
-        this.list.push({ path, options });
+        this.list.push({ path, repo, options });
       }
 
-      unwatchFolder(path, options) {
+      unwatchFolder(path, repo, options) {
         this.changed();
         if (!this.canUnwatch) {
           throw new ExpectedError;
         }
-        remove(this.list, { path, options });
+        remove(this.list, { path, repo, options });
       }
 
       change() {
@@ -71,10 +71,12 @@ describe('Git watching', function() {
         expect(adapter.list).to.eql([
           {
             path: 'ssr',
-            options: {
+            repo: {
               path: '/abc',
               url: undefined,
-              accessToken: undefined
+            },
+            options: {
+              token: undefined
             }
           }
         ]);
@@ -83,18 +85,22 @@ describe('Git watching', function() {
         expect(adapter.list).to.eql([
           {
             path: 'ssr',
-            options: {
+            repo: {
               path: '/abc',
               url: undefined,
-              accessToken: undefined
+            },
+            options: {
+              token: undefined
             }
           },
           {
             path: 'ssr',
-            options: {
+            repo: {
               path: '/efg',
               url: undefined,
-              accessToken: undefined
+            },
+            options: {
+              token: undefined
             }
           }
         ]);
@@ -103,10 +109,12 @@ describe('Git watching', function() {
         expect(adapter.list).to.eql([
           {
             path: 'ssr',
-            options: {
+            repo: {
               path: '/efg',
               url: undefined,
-              accessToken: undefined
+            },
+            options: {
+              token: undefined
             }
           }
         ]);
@@ -153,8 +161,7 @@ describe('Git watching', function() {
         return;
       }
       const repo = { path: repoPath };
-      const options = repo;
-      const adapter = findGitAdapter(options);
+      const adapter = findGitAdapter(repo);
       const tag = `test-tag-${Math.floor(Math.random() * 1000)}`;
       const commit = '3e5561a9074a5dc00acfd746b446014335ff4b9f';
       try {
@@ -171,7 +178,7 @@ describe('Git watching', function() {
           change = { before, after, site };
           done();
         });
-        await adapter.runGit(`git tag -a ${tag} ${commit} -m "Test"`, options);
+        await adapter.runGit(`git tag -a ${tag} ${commit} -m "Test"`, repo);
         await Promise.race([ event, delay(500) ]);
         expect(change).to.have.property('before');
         expect(change).to.have.property('after');

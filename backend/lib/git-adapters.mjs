@@ -1,6 +1,6 @@
 import { exec } from 'child_process';
 import Fs from 'fs'; const { readFile } = Fs.promises;
-import { join } from 'path';
+import { join, dirname, basename } from 'path';
 import fetch from 'cross-fetch';
 import Chokidar from 'chokidar';
 import isEqual from 'lodash/isEqual.js';
@@ -13,15 +13,6 @@ import { findServerConfig, findAccessToken } from './config-loading.mjs';
 class GitAdapter {
   constructor(name) {
     this.name = name;
-  }
-
-  parsePath(path) {
-    const folders = path.split('/');
-    const filename = folders.pop();
-    if (!filename) {
-      throw new Error(`Invalid path: ${path}`);
-    }
-    return { folders, filename };
   }
 
   isCommitID(string) {
@@ -83,7 +74,7 @@ class GitHubAdapter extends GitRemoteAdapter {
   }
 
   canHandle(repo) {
-    const { url } = options;
+    const { url } = repo;
     return url && url.startsWith(this.baseURL);
   }
 
@@ -293,8 +284,8 @@ class GitHubAdapter extends GitRemoteAdapter {
   async findRepo(repo, options) {
     const { token } = options;
     const url = this.getURL('repos/:owner/:repo', repo);
-    const repo = await this.retrieveJSON(url, { token });
-    return repo;
+    const info = await this.retrieveJSON(url, { token });
+    return info;
   }
 
   async findBranches(repo, options) {
@@ -609,8 +600,8 @@ class GitLocalAdapter extends GitAdapter {
 
 const gitAdapters = [];
 
-function findGitAdapter(options) {
-  return gitAdapters.find((a) => a.canHandle(options));
+function findGitAdapter(repo) {
+  return gitAdapters.find((a) => a.canHandle(repo));
 }
 
 function addGitAdapter(adapter) {
