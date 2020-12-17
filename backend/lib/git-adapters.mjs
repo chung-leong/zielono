@@ -105,6 +105,7 @@ class GitHubAdapter extends GitRemoteAdapter {
       versions.push({
         sha,
         author: commit.author.name,
+        email: commit.author.email,
         date: commit.author.date,
         message: commit.message,
       });
@@ -537,34 +538,43 @@ class GitLocalAdapter extends GitAdapter {
   }
 
   async findCommits(path, options) {
-    const fields = {
-      sha: '%H',
-      parent: '%P',
-      message: '%s',
-      author: '%aN',
-      date: '%aD',
-    };
-    const fieldEntries = Object.entries(fields);
-    const fieldStrings = fieldEntries.map(([ n, v ]) => `${n}: ${v}`);
-    const format = fieldStrings.join('%n') + '%n';
-    const command = `git log -100 --pretty=format:'${format}' '${path || '.'}'`;
+    const command = `git log -100 --pretty=raw -z '${path || '.'}'`;
     const buffer = await this.runGit(command, options);
     const commits = [];
-    const sections = buffer.toString().split(/(\r?\n){2}/).map((s) => s.trim());
+    const sections = buffer.toString().split('\0');
     for (let section of sections) {
-      if (section) {
-        const lines = section.split(/\r?\n/);
-        const commit = {};
-        for (let line of lines) {
+      const lines = section.trim().split(/\r?\n/);
+      const commit = {};
+      let messageLines = null;
+      for (let line of lines) {
+        if (!messageLines) {
           if (line) {
-            const index = line.indexOf(':');
+            const index = line.indexOf(' ');
             const name = line.substr(0, index);
-            const value = line.substr(index + 2);
-            commit[name] = value;
+            const value = line.substr(index + 1);
+            if (name === 'commit') {
+              commit.sha = value;
+            } else if (name === 'parent') {
+              commit.parent = value;
+            } else if (name === 'author') {
+              const m = /(.*?) <(.*?)> (\d+)/.exec(value);
+              if (m) {
+                commit.author = m[1];
+                commit.email = m[2];
+                const timestamp = parseInt(m[3]);
+                const date = new Date(timestamp * 1000);
+                commit.date = date.toISOString();
+              }
+            }
+          } else {
+            messageLines = [];
           }
+        } else {
+          messageLines.push(line.trimStart());
         }
-        commits.push(commit);
       }
+      commit.message = messageLines.join('\n');
+      commits.push(commit);
     }
     return commits;
   }
