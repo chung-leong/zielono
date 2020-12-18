@@ -4,11 +4,13 @@ import fetch from 'cross-fetch';
 import { getAgent } from './http-agents.mjs';
 import { requireGit, overrideRequire } from './file-retrieval.mjs';
 
-async function generatePage(pageParams, gitParams, locale) {
-  // fork Node.js child process, running as "nobody"
+const ssrRootFolder = 'ssr';
+
+async function generatePage(params, repo, options) {
+  const { locale } = options;
+  // fork Node.js child process
   const scriptPath = fileURLToPath(import.meta.url);
   const env = { ...process.env, LC_ALL: locale };
-  const uid = 65534, gid = 65534;
   const child = fork(scriptPath, [ 'fork' ], { env });
   // impose time limit
   const timeout = setTimeout(() => child.kill(), 5000);
@@ -20,7 +22,7 @@ async function generatePage(pageParams, gitParams, locale) {
   });
   const response = await messageInit;
   // send parameters
-  child.send({ page: pageParams, git: gitParams });
+  child.send({ params, repo, options });
   // listen for final message from child
   const messageFinal = new Promise((resolve, reject) => {
     child.on('message', (msg) => {
@@ -47,20 +49,22 @@ async function generatePage(pageParams, gitParams, locale) {
 /**
  * Run HTML rendering code stored in a git repo
  *
- * @param  {object} pageParams
- * @param  {object} gitParams
+ * @param  {object} params
+ * @param  {object} repo
+ * @param  {object} options
  *
  * @return {object}
  */
-async function runRemoteCode(pageParams, gitParams) {
-  overrideRequire(gitParams);
-  const ssr = requireGit('./ssr/index.js');
+async function runRemoteCode(params, repo, options) {
+  const { token, ref } = options;
+  overrideRequire(repo, { token, ref });
+  const ssr = requireGit(`./${ssrRootFolder}/index.js`);
   const sources = [];
   // create fetch()
   global.fetch = (url, options) => {
     fetch(url, options);
   };
-  const html = await ssr.render(pageParams);
+  const html = await ssr.render(params);
   // prevent eval from being used afterward
   delete global.eval;
   delete global.fetch;
@@ -70,8 +74,8 @@ async function runRemoteCode(pageParams, gitParams) {
 if (process.argv[2] === 'fork') {
   process.once('message', async (msg) => {
     try {
-      const { page, git } = msg;
-      const result = await runRemoteCode(page, git);
+      const { params, repo, options } = msg;
+      const result = await runRemoteCode(params, repo, options);
       process.send(result);
     } catch (err) {
       process.send({
@@ -84,4 +88,5 @@ if (process.argv[2] === 'fork') {
 
 export {
   generatePage,
+  ssrRootFolder,
 };
