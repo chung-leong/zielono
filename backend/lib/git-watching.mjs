@@ -4,6 +4,7 @@ import { findSiteConfigs } from './config-loading.mjs';
 import { configEventEmitter } from './config-watching.mjs';
 import { ErrorCollection, displayError } from './error-handling.mjs';
 import { findGitAdapter } from './git-adapters.mjs';
+import { ssrRootFolder } from './page-generation.mjs';
 
 const repoWatched = [];
 const gitEventEmitter = new EventEmitter;
@@ -39,7 +40,7 @@ async function handleSiteChange(before, after) {
 }
 
 async function adjustGitWatches(shutdown = false, attempts = 0) {
-  const folder = 'ssr';
+  const folder = ssrRootFolder;
   // see which repos need to be monitored
   const needed = [];
   const errors = [];

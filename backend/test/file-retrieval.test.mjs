@@ -48,26 +48,24 @@ describe('File retrieval', function() {
   })
   skip.if.watching.or.no.github.
   describe('retrieveFromGitSync', function() {
-    const accessToken = getAccessToken('github');
+    const token = getAccessToken('github');
     it('should retrieve file from a git repo synchronously', async function() {
-      const options = {
+      const repo = {
         url: 'https://github.com/chung-leong/test',
-        accessToken,
       };
-      const buffer = retrieveFromGitSync('hello.js', options);
+      const buffer = retrieveFromGitSync('hello.js', repo, { token });
       expect(buffer).to.be.instanceOf(Buffer);
     })
   })
   skip.if.watching.or.no.github.
   describe('overrideRequire()', function() {
-    const accessToken = getAccessToken('github');
+    const token = getAccessToken('github');
     const require = createRequire(import.meta.url);
     before(function() {
-      const options = {
+      const repo = {
         url: 'https://github.com/chung-leong/test',
-        accessToken,
       };
-      overrideRequire(options);
+      overrideRequire(repo, { token });
     })
     it('should not permit the loading of module anymore', function() {
       expect(() => require('fs')).to.throw;

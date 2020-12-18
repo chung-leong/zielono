@@ -1,9 +1,8 @@
 import { retrieveFromCloud, retrieveFromDisk } from './file-retrieval.mjs';
 import { parseExcelFile, parseCSVFile, stripCellStyle } from './excel-parsing.mjs';
-import {
-  findSiteContentMeta, loadSiteContent, loadSiteContentMeta, getHash,
-  checkSiteContent, saveSiteContent, saveSiteContentMeta
- } from './content-storage.mjs';
+import { loadSiteContent, loadSiteContentMeta, findSiteContentMeta } from './content-loading.mjs';
+import { saveSiteContent, saveSiteContentMeta } from './content-saving.mjs';
+import { getHash } from './content-naming.mjs';
 import { getImageMeta } from './request-handling-image.mjs';
 import { HttpError } from './error-handling.mjs';
 
@@ -146,11 +145,7 @@ async function saveEmbeddedMedia(site, json) {
       const hash = getHash(buffer);
       let meta = processed[hash];
       if (!meta) {
-        // see if the file exists already
-        const exists = await checkSiteContent(site, 'images', hash, format, buffer.length);
-        if (!exists) {
-          await saveSiteContent(site, 'images', hash, format, buffer);
-        }
+        await saveSiteContent(site, 'images', hash, format, buffer, { hashed: 'content' });
         meta = await findSiteContentMeta(site, 'images', hash);
         if (!meta) {
           const { width, height } = await getImageMeta(buffer, format);

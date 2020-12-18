@@ -13,7 +13,13 @@ function getRepoPath() {
   return path;
 }
 
+function getGenericCodePath() {
+  const path = resolve(getRepoPath(), '../zielono-generic-site');
+  return path;
+}
+
 export {
   getAssetPath,
   getRepoPath,
+  getGenericCodePath,
 };

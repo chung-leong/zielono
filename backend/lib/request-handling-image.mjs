@@ -1,4 +1,4 @@
-import { loadSiteContent, loadSiteContentMeta } from './content-storage.mjs';
+import { loadSiteContent, loadSiteContentMeta } from './content-loading.mjs';
 
 /**
  * Handle image request

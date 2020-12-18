@@ -4,7 +4,8 @@ import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse }
 import { loadExcelFile } from './helpers/file-loading.mjs';
 import { createTempFolder } from './helpers/file-saving.mjs';
 import { getAssetPath  } from './helpers/path-finding.mjs';
-import { findSiteContentMeta, loadSiteContent, getHash } from '../lib/content-storage.mjs';
+import { findSiteContentMeta, loadSiteContent } from '../lib/content-loading.mjs';
+import { getHash } from '../lib/content-naming.mjs';
 import './helpers/conditional-testing.mjs';
 
 import {

@@ -1,8 +1,8 @@
-import { networkInterfaces } from 'os';
-import { getHash } from './content-storage.mjs';
+import { getHash } from './content-naming.mjs';
 import { createHmac } from 'crypto';
 import { processHookMessage } from './git-adapters.mjs'
 import { HttpError } from './error-handling.mjs';
+import { getMacAddresses } from './network-handling.mjs';
 
 function handleHookRequestValidation(req, res, next) {
   const signature = req.headers['x-hub-signature-256'];
@@ -10,7 +10,7 @@ function handleHookRequestValidation(req, res, next) {
     const secret = getHookSecret();
     const hash = createHmac('sha256', secret);
     req.on('data', (data) => {
-      hash.update(data)
+      hash.update(data);
     });
     req.on('end', () => {
       const computed = 'sha256=' + hash.digest('hex');
@@ -38,14 +38,7 @@ let hookSecret;
 
 function getHookSecret() {
   if (!hookSecret) {
-    const macAddresses = [];
-    for (let [ name, interfaces ] of Object.entries(networkInterfaces())) {
-      for (let { mac, internal } of interfaces) {
-        if (!internal && !macAddresses.includes(mac)) {
-          macAddresses.push(mac);
-        }
-      }
-    }
+    const macAddresses = getMacAddresses();
     hookSecret = getHash(macAddresses.join(' '));
   }
   return hookSecret;

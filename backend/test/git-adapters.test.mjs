@@ -5,7 +5,7 @@ import { createTempFolder, saveYAML } from './helpers/file-saving.mjs';
 import { getRepoPath } from './helpers/path-finding.mjs';
 import { getAccessToken, getServiceURL } from './helpers/test-environment.mjs';
 import { createTempConfig } from './helpers/config-creation.mjs';
-import { getHash } from '../lib/content-storage.mjs';
+import { getHash } from '../lib/content-naming.mjs';
 
 import {
   findGitAdapter,
@@ -20,7 +20,7 @@ describe('Git adapters', function() {
   before(async function() {
     await createTempConfig();
   })
-  describe('findGitAdapter', function() {
+  describe('findGitAdapter()', function() {
     it('should find GitHub adapter', function() {
       const repo = {
         url: 'https://github.com/chung-leong/test',
@@ -79,12 +79,12 @@ describe('Git adapters', function() {
       });
     })
     skip.if.watching.or.no.github.
-    describe('findRepo()', function() {
+    describe('getRepo()', function() {
       it('should retrieve info about repo', async function() {
         const repo = {
           url: 'https://github.com/chung-leong/zielono'
         };
-        const info = await adapter.findRepo(repo, { token });
+        const info = await adapter.getRepo(repo, { token });
         expect(info).to.have.property('default_branch', 'main');
         expect(info).to.have.property('name', 'zielono');
         expect(info).to.have.property('full_name', 'chung-leong/zielono');
@@ -111,7 +111,7 @@ describe('Git adapters', function() {
         const repo = {
           url: 'https://github.com/chung-leong/zielono',
         };
-        const buffer = await adapter.retrieveFile(path, { token, ref });
+        const buffer = await adapter.retrieveFile(path, repo, { token, ref });
         expect(buffer).to.be.instanceOf(Buffer);
         expect(buffer).to.have.property('filename', 'hello.json');
         expect(buffer).to.have.property('sha', 'b4fefce728d51a59bcf3f4a022d145f0ba7cc8d2');
@@ -165,12 +165,12 @@ describe('Git adapters', function() {
       })
     })
     skip.if.watching.or.no.github.
-    describe('findHooks()', function() {
+    describe('getHooks()', function() {
       it('should find existing web hooks', async function() {
         const repo = {
           url: 'https://github.com/chung-leong/zielono',
         };
-        const hooks = await adapter.findHooks(repo, { token });
+        const hooks = await adapter.getHooks(repo, { token });
         expect(hooks).to.be.an('array');
       })
       skip.if.no.ngrok.
@@ -178,10 +178,10 @@ describe('Git adapters', function() {
         const repo = {
           url: 'https://github.com/chung-leong/zielono',
         };
-        const hooksBefore = await adapter.findHooks(repo, { token });
+        const hooksBefore = await adapter.getHooks(repo, { token });
         const hash = '1234567890';
         const hook = await adapter.installHook(hash, repo, { token });
-        const hooksAfter = await adapter.findHooks(repo, { token });
+        const hooksAfter = await adapter.getHooks(repo, { token });
         try {
           expect(hooksAfter.length).to.be.above(hooksBefore.length);
         } finally {
@@ -197,10 +197,10 @@ describe('Git adapters', function() {
         };
         const hash = '1234567890';
         const hook = await adapter.installHook(hash, repo, { token });
-        const hooksBefore = await adapter.findHooks(repo, { token });
+        const hooksBefore = await adapter.getHooks(repo, { token });
         const count = await this.uninstallOldHooks(hook.url, repo, { token });
         expect(count).to.be.above(0);
-        const hooksAfter = await adapter.findHooks(repo, { token });
+        const hooksAfter = await adapter.getHooks(repo, { token });
         expect(hooksAfter.length).to.be.below(hooksBefore.length);
       })
     })
@@ -228,9 +228,9 @@ describe('Git adapters', function() {
         };
         const hash = '1234567890';
         const hook = await adapter.installHook(hash, repo, { token });
-        const hooksBefore = await adapter.findHooks(repo, { token });
+        const hooksBefore = await adapter.getHooks(repo, { token });
         await adapter.uninstallHook(hook, repo, { token });
-        const hooksAfter = await adapter.findHooks(repo, { token });
+        const hooksAfter = await adapter.getHooks(repo, { token });
         expect(hooksAfter.length).to.be.below(hooksBefore.length);
       })
     })

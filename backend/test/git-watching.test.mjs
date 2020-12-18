@@ -5,7 +5,7 @@ import remove from 'lodash/remove.js';
 import delay from 'delay';
 import './helpers/conditional-testing.mjs';
 import { createTempFolder, saveYAML } from './helpers/file-saving.mjs';
-import { getRepoPath } from './helpers/path-finding.mjs';
+import { getGenericCodePath } from './helpers/path-finding.mjs';
 import { loadConfig } from '../lib/config-loading.mjs';
 import { watchConfigFolder, unwatchConfigFolder } from '../lib/config-watching.mjs';
 import { ExpectedError } from '../lib/error-handling.mjs';
@@ -151,16 +151,10 @@ describe('Git watching', function() {
       }
     })
   })
+  skip.if.no.generic.code.
   describe('gitEventEmitter', function() {
     it('should emit event when a git tag is added', async function() {
-      const repoPath = resolve(getRepoPath(), '../zielono-generic-site');
-      try {
-        await stat(repoPath);
-      } catch (err) {
-        this.skip();
-        return;
-      }
-      const repo = { path: repoPath };
+      const repo = { path: getGenericCodePath() };
       const adapter = findGitAdapter(repo);
       const tag = `test-tag-${Math.floor(Math.random() * 1000)}`;
       const commit = '3e5561a9074a5dc00acfd746b446014335ff4b9f';

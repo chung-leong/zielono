@@ -2,7 +2,7 @@ import Chai from 'chai'; const { expect } = Chai;
 import { createHmac } from 'crypto';
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
 import delay from 'delay';
-import { getHash } from '../lib/content-storage.mjs'
+import { getHash } from '../lib/content-naming.mjs'
 import './helpers/conditional-testing.mjs';
 import { GitRemoteAdapter, addGitAdapter, removeGitAdapter } from '../lib/git-adapters.mjs';
 

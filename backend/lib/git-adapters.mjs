@@ -4,7 +4,7 @@ import { join, dirname, basename } from 'path';
 import fetch from 'cross-fetch';
 import Chokidar from 'chokidar';
 import isEqual from 'lodash/isEqual.js';
-import { getHash } from './content-storage.mjs';
+import { getHash } from './content-naming.mjs';
 import { getAgent as agent } from './http-agents.mjs';
 import { HttpError } from './error-handling.mjs';
 import { getHookSecret } from './request-handling-hook.mjs';
@@ -24,6 +24,7 @@ class GitAdapter {
   async retrieveVersions(path, repo, options) {}
   async watchFolder(path, repo, options, callback) {}
   async unwatchFolder(path, repo, options) {}
+  async getDefaultBranch(repo, options) {}
 }
 
 class GitRemoteAdapter extends GitAdapter {
@@ -32,7 +33,7 @@ class GitRemoteAdapter extends GitAdapter {
     const headers = { ...additionalHeaders };
     const timeout = 5000;
     if (token) {
-      headers['Authorization'] = `Bearer ${accessToken}`;
+      headers['Authorization'] = `Bearer ${token}`;
     }
     const fetchOpts = { headers, timeout, agent, method };
     if (body) {
@@ -82,10 +83,9 @@ class GitHubAdapter extends GitRemoteAdapter {
     const { token, ref: refSpec } = options;
     let ref = refSpec;
     if (!ref) {
-      const repo = await this.findRepo(repo, { token });
-      ref = `heads/${repo.default_branch}`;
+      ref = await this.getDefaultBranch(repo, { token });
     }
-    const blob = await this.findBlob(path, repo, { token, ref });
+    const blob = await this.getBlob(path, repo, { token, ref });
     const buffer = Buffer.from(blob.content, blob.encoding);
     buffer.filename = basename(path);
     buffer.sha = blob.sha;
@@ -94,7 +94,7 @@ class GitHubAdapter extends GitRemoteAdapter {
 
   async retrieveVersions(path, repo, options) {
     const { token } = options;
-    const commits = await this.findCommits(path, repo, { token });
+    const commits = await this.getCommits(path, repo, { token });
     const versions = [];
     for (let { sha, commit } of commits) {
       versions.push({
@@ -111,17 +111,17 @@ class GitHubAdapter extends GitRemoteAdapter {
   async retrieveVersionRefs(path, repo, options) {
     const { token } = options;
     // retrieve tags and branches
-    const tags = await this.findTags(repo, { token });
-    const branches = await this.findBranches(repo, { token });
+    const tags = await this.getTags(repo, { token });
+    const branches = await this.getBranches(repo, { token });
     // retrieve commits affecting the path
     const relevantCommitRefs = {};
-    const relevantCommits = await this.findCommits(path, repo, { token });
+    const relevantCommits = await this.getCommits(path, repo, { token });
     const relevantCommitHash = {};
     for (let commit of relevantCommits) {
       relevantCommitHash[commit.sha] = commit;
     }
     // retrieve all commits (the recent ones, anyway)
-    const allCommits = await this.findCommits('', repo, { token });
+    const allCommits = await this.getCommits('', repo, { token });
     const allCommitHash = {};
     for (let commit of allCommits) {
       allCommitHash[commit.sha] = commit;
@@ -227,11 +227,11 @@ class GitHubAdapter extends GitRemoteAdapter {
     return false;
   };
 
-  async findBlob(path, repo, options) {
+  async getBlob(path, repo, options) {
     const { token, ref } = options;
     const folderPath = dirname(path);
     const filename = basename(path);
-    const folder = await this.findFolder(folderPath, { token, ref });
+    const folder = await this.getFolder(folderPath, repo, { token, ref });
     const fileNode = folder.tree.find((f) => f.type === 'blob' && f.path === filename);
     if (!fileNode) {
       const filePath = [ ...folders, filename ].join('/');
@@ -241,10 +241,10 @@ class GitHubAdapter extends GitRemoteAdapter {
     return blob;
   }
 
-  async findFolder(folderPath, repo, options) {
+  async getFolder(folderPath, repo, options) {
     const { token, ref } = options;
     const folderNames = folderPath.split('/');
-    let folder = await this.findRoot({ token, ref });
+    let folder = await this.getRoot(repo, { token, ref });
     for (let [ index, name ] of folderNames.entries()) {
       const folderNode = folder.tree.find((f) => f.type === 'tree' && f.path === name);
       if (!folderNode) {
@@ -256,7 +256,7 @@ class GitHubAdapter extends GitRemoteAdapter {
     return folder;
   }
 
-  async findRoot(repo, options) {
+  async getRoot(repo, options) {
     const { token, ref } = options;
     let commit;
     if (this.isCommitID(ref)) {
@@ -271,7 +271,7 @@ class GitHubAdapter extends GitRemoteAdapter {
     return folder;
   }
 
-  async findCommits(path, repo, options) {
+  async getCommits(path, repo, options) {
     const { token } = options;
     let url = this.getURL('repos/:owner/:repo/commits', repo);
     if (path) {
@@ -281,21 +281,27 @@ class GitHubAdapter extends GitRemoteAdapter {
     return commits;
   }
 
-  async findRepo(repo, options) {
+  async getRepo(repo, options) {
     const { token } = options;
     const url = this.getURL('repos/:owner/:repo', repo);
     const info = await this.retrieveJSON(url, { token });
     return info;
   }
 
-  async findBranches(repo, options) {
+  async getDefaultBranch(repo, options) {
+    const { token } = options;
+    const info = await this.getRepo(repo, { token });
+    return `heads/${info.default_branch}`;
+  }
+
+  async getBranches(repo, options) {
     const { token } = options;
     const url = this.getURL('repos/:owner/:repo/branches', repo);
     const branches = await this.retrieveJSON(url, { token });
     return branches;
   }
 
-  async findTags(repo, options) {
+  async getTags(repo, options) {
     const { token } = options;
     const url = this.getURL('repos/:owner/:repo/tags', repo);
     const tags = await this.retrieveJSON(url, { token });
@@ -329,7 +335,7 @@ class GitHubAdapter extends GitRemoteAdapter {
   async uninstallOldHooks(hookURL, repo, options) {
     const { token } = options;
     let count = 0;
-    const hooks = await this.findHooks(repo, { token });
+    const hooks = await this.getHooks(repo, { token });
     for (let hook of hooks) {
       if (hook.url === hookURL) {
         await this.uninstallHook(hook, repo, { token });
@@ -339,7 +345,7 @@ class GitHubAdapter extends GitRemoteAdapter {
     return count;
   }
 
-  async findHooks(repo, options) {
+  async getHooks(repo, options) {
     const { token } = options;
     const url = this.getURL('repos/:owner/:repo/hooks', repo);
     const hooks = await this.retrieveJSON(url, { token });
@@ -395,23 +401,23 @@ class GitLocalAdapter extends GitAdapter {
   }
 
   async retrieveVersions(path, repo, options) {
-    const commits = await this.findCommits(path, repo, {});
+    const commits = await this.getCommits(path, repo, {});
     return commits;
   }
 
   async retrieveVersionRefs(path, repo, options) {
     // retrieve tags and branches
-    const tags = await this.findTags(repo, {});
-    const branches = await this.findBranches(repo, {});
+    const tags = await this.getTags(repo, {});
+    const branches = await this.getBranches(repo, {});
     // retrieve commits affecting the path
     const relevantCommitRefs = {};
-    const relevantCommits = await this.findCommits(path, repo, {});
+    const relevantCommits = await this.getCommits(path, repo, {});
     const relevantCommitHash = {};
     for (let commit of relevantCommits) {
       relevantCommitHash[commit.sha] = commit;
     }
     // retrieve all commits (the recent ones, anyway)
-    const allCommits = await this.findCommits('', repo, {});
+    const allCommits = await this.getCommits('', repo, {});
     const allCommitHash = {};
     for (let commit of allCommits) {
       allCommitHash[commit.sha] = commit;
@@ -449,6 +455,20 @@ class GitLocalAdapter extends GitAdapter {
       }
     }
     return relevantCommitRefs;
+  }
+
+  async getDefaultBranch(repo, options) {
+    const command = `git rev-parse --symbolic-full-name HEAD`;
+    const buffer = await this.runGit(command, repo);
+    const lines = buffer.toString().split(/\r?\n/);
+    let ref = lines[0];
+    if (ref.startsWith('refs/')) {
+      ref = ref.substr(5);
+    }
+    if (ref.startsWith('heads/origin/')) {
+      ref = ref.substr(6);
+    }
+    return ref
   }
 
   async watchFolder(path, repo, options, callback) {
@@ -501,8 +521,8 @@ class GitLocalAdapter extends GitAdapter {
     }
   }
 
-  async findCommits(path, repo, options) {
-    const command = `git log -100 --pretty=raw -z '${path || '.'}'`;
+  async getCommits(path, repo, options) {
+    const command = `git log -120 --pretty=raw -z '${path || '.'}'`;
     const buffer = await this.runGit(command, repo);
     const commits = [];
     const sections = buffer.toString().split('\0');
@@ -543,7 +563,7 @@ class GitLocalAdapter extends GitAdapter {
     return commits;
   }
 
-  async findTags(repo, options) {
+  async getTags(repo, options) {
     const tags = [];
     const command = `git show-ref --tags --dereference`;
     const buffer = await this.runGit(command, repo);
@@ -563,7 +583,7 @@ class GitLocalAdapter extends GitAdapter {
     return tags;
   }
 
-  async findBranches(repo, options) {
+  async getBranches(repo, options) {
     const command = `git show-ref --heads`;
     const buffer = await this.runGit(command, repo);
     const lines = buffer.toString().split(/\r?\n/);

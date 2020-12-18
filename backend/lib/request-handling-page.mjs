@@ -1,7 +1,7 @@
 import { retrieveFromGit } from './file-retrieval.mjs';
 import { generatePage } from './page-generation.mjs';
 import { findAccessToken } from './config-loading.mjs';
-import { getHash }  from './content-storage.mjs';
+import { getHash }  from './content-naming.mjs';
 import { HttpError } from './error-handling.mjs';
 import { extname } from 'path';
 
@@ -19,23 +19,23 @@ async function handlePageRequest(req, res, next) {
     if (!site || !site.code) {
       throw new HttpError(404);
     }
+    // TODO: this isn't right--locale should be specific to the request
     const { locale } = site;
     const { url, path } = site.code;
-    const gitParams = { url, path, ref };
-    if (url) {
-      gitParams.accessToken = await findAccessToken(url);
-    }
+    const repo = { url, path };
+    const token = (url) ? await findAccessToken(url) : undefined;
     let buffer, type, etag;
     if (page !== undefined) {
-      // a page request
-      const pageParams = { pagePath: page };
-      const { html, sources } = await generatePage(pageParams, gitParams, locale);
+      // a page request--render it on server side
+      // the following object will be passed to the SSR code
+      const params = { path: page };
+      const { html, sources } = await generatePage(params, repo, { token, ref, locale });
       buffer = Buffer.from(html);
       type = 'html';
       etag = getHash(buffer);
     } else if (filename) {
       // a request for a dependent file
-      buffer = await retrieveFromGit(`www/${filename}`, gitParams);
+      buffer = await retrieveFromGit(`www/${filename}`, repo, { token, ref });
       type = extname(filename).substr(1);
       etag = buffer.sha;
     }

@@ -5,7 +5,7 @@ import { getAgent as agent } from './http-agents.mjs';
 import { join, basename } from 'path';
 import Module, { createRequire } from 'module';
 import { findGitAdapter } from './git-adapters.mjs';
-import { getHash }  from './content-storage.mjs';
+import { getHash }  from './content-naming.mjs';
 import { HttpError } from './error-handling.mjs';
 
 async function retrieveFromCloud(url, options) {
@@ -98,19 +98,21 @@ function getOneDriveURL(url) {
   }
 }
 
-async function retrieveFromGit(path, options) {
-  const adapter = findGitAdapter(options);
-  const { url } = options;
-  if (adapter) {
-    const buffer = await adapter.retrieveFile(path, options);
-    return buffer;
-  } else {
-    throw new Error(`Cannot find an adapter for repo: ${url}`);
+async function retrieveFromGit(path, repo, options) {
+  const adapter = findGitAdapter(repo);
+  if (!adapter) {
+    const { url, path } = repo;
+    throw new Error(`Cannot find an adapter for repo: ${url || path}`);
   }
+  const buffer = await adapter.retrieveFile(path, repo, options);
+  return buffer;
 }
 
-const retrieveFromGitSync = deasync((path, options, cb) => {
-  retrieveFromGit(path, options).then((data) => {
+const retrieveFromGitSync = deasync((...args) => {
+  // ensure that we always have the callback
+  const cb = args.pop();
+  const [ path, repo, options ] = args;
+  retrieveFromGit(path, repo, options).then((data) => {
     cb(null, data);
   }).catch((err) => {
     cb(err, null);
@@ -123,9 +125,11 @@ let resolveFilenameBefore, jsExtensionBefore;
 /**
  * Override require() so that code can be retrieved from remote location
  *
+ * @param  {object} repo
  * @param  {object} options
  */
-function overrideRequire(options) {
+function overrideRequire(repo, options) {
+  const { ref, token } = options;
   const moduleWhitelist = [ 'stream' ];
   // override filename resolution
   resolveFilenameBefore = Module._resolveFilename;
@@ -145,7 +149,7 @@ function overrideRequire(options) {
   Module._extensions['.js'] = function(module, path) {
     if (path.startsWith(gitFS)) {
       const repoPath = path.substr(gitFS.length);
-      let content = retrieveFromGitSync(repoPath, options);
+      let content = retrieveFromGitSync(repoPath, repo, { token, ref });
       if (typeof(content) != 'string') {
         content = content.toString();
       }

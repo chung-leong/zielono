@@ -8,6 +8,7 @@ import 'superstruct-chain';
 import { checkTimeZone } from './time-zone-management.mjs';
 import { unwatchConfigFolder } from './config-watching.mjs';
 import { ErrorCollection } from './error-handling.mjs';
+import { getIPv4Address } from './network-handling.mjs';
 
 let configFolder;
 let serverConfig;
@@ -199,7 +200,7 @@ function processServerConfig(config) {
     // listen can be specified using a number
     listen: array().coerce(number(), (port) => [ port ]).defaulted([ 8080 ]),
     nginx: object({
-      url: string().optional(),
+      url: string().defaulted(`http://${getIPv4Address()}`),
       cache: object({
         // path resolve against config folder
         path: string().coerce(string(), (path) => resolve(folder, path)),
@@ -215,11 +216,12 @@ function processServerConfig(config) {
 function processSiteConfig(name, config) {
   const folder = getConfigFolder();
   const urlOrPath  = (value, ctx) => {
-    if ((!value.path && !value.url) || (value.path && value.url)) {
-      return [ ctx.fail('Expected either url or path to be present') ];
-    } else {
-      return true;
+    if (value) {
+      if ((!value.path && !value.url) || (value.path && value.url)) {
+        return [ ctx.fail('Expected either url or path to be present') ];
+      }
     }
+    return true;
   };
   const siteDef = object({
     name: string(),
@@ -228,7 +230,7 @@ function processSiteConfig(name, config) {
       object({
         name: string(),
         // path resolve against config folder
-        path: string().coerce(string(), (path) => resolve(folder, path)).optional(),
+        path: string().optional().coerce(string(), (path) => resolve(folder, path)),
         url: string().optional(),
         timeZone: define('time zone', checkTimeZone).optional(),
         headers: boolean().defaulted(true),
@@ -236,14 +238,22 @@ function processSiteConfig(name, config) {
     ).defaulted([]),
     locale: string().optional(),
     storage: object({
-      path: string().coerce(string(), (path) => resolve(folder, path)).optional(),
+      path: string().optional().coerce(string(), (path) => resolve(folder, path)),
     }).defaulted({
       path: resolve(folder, name)
     }),
     code: object({
-      path: string().coerce(string(), (path) => resolve(folder, path)).optional(),
+      path: string().optional().coerce(string(), (path) => resolve(folder, path)),
       url: string().optional(),
-    }).refine('url-or-path', urlOrPath).optional()
+      ref: string().optional().coerce(string(), (name) => {
+        if (!/^(heads|tags)\b/.test(name)) {
+          if (!/^[a-f0-9]{40}$/.test(name)) {
+            return `heads/${name}`;
+          }
+        }
+        return name
+      }),
+    }).optional().refine('url-or-path', urlOrPath)
   });
   return create({ name, ...config }, siteDef);
 }

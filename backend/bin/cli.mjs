@@ -4,11 +4,11 @@ import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join, resolve, dirname } from 'path';
 import { Command as CommandBase } from 'commander';
-import isEqual from 'lodash/isEqual.js';
-import { startHTTPServer, stopHTTPServer } from '../lib/request-handling.mjs';
+import { createInterface } from 'readline';
+import { findBestMatch } from 'string-similarity';
+import Colors from 'colors/safe.js'; const { brightBlue } = Colors;
 import { setConfigFolder, loadConfig, loadSiteConfigs, loadAccessTokens } from '../lib/config-loading.mjs';
-import { watchConfigFolder, unwatchConfigFolder, configEventEmitter } from '../lib/config-watching.mjs';
-import { watchGitRepos, unwatchGitRepos } from '../lib/git-watching.mjs';
+import { findPageVersions } from '../lib/page-linking.mjs';
 import { displayError } from '../lib/error-handling.mjs';
 
 async function main(argv) {
@@ -67,98 +67,20 @@ async function main(argv) {
     setConfigFolder(process.cwd());
     await program.parseAsync(argv);
   } catch (err) {
-    displayError(err, 'startup');
+    displayError(err, 'cli');
     process.exit(1);
   }
 }
 
 async function runServer() {
-  await startServer();
-}
-
-async function startServer() {
-  const { server, sites } = await loadConfig();
-  await startHTTPServer();
-  configEventEmitter.on('server-change', async (before, after) => {
-    try {
-      if (before && after) {
-        if (!isEqual(before.listen, after.listen)) {
-          await stopHTTPServer();
-          await startHTTPServer();
-        }
-      } else if (!before) {
-        await startHTTPServer();
-      } else if (!after) {
-        await stopHTTPServer();
-      }
-      displayServerInfo(after);
-    } catch (err) {
-      displayError(err, 'config-change');
-    }
-  });
-  await watchConfigFolder();
-  await watchGitRepos();
-  displayServerInfo(server);
-  displaySiteInfo(sites);
-  process.on('SIGTERM', stopServer);
-}
-
-async function stopServer() {
-  try {
-    await Promise.all([
-      unwatchConfigFolder(),
-      unwatchGitRepos(),
-      stopHTTPServer(),
-    ]);
-    process.exit(0);
-  } catch (err) {
-    displayError(err);
-    process.exit(1);
-  }
-}
-
-function displayServerInfo(server) {
-  if (server) {
-    let location;
-    if (typeof(server.listen[0]) === 'number') {
-      const [ port, address = '0.0.0.0' ] = server.listen;
-      location = `address ${address} port ${port}`;
-    } else if (typeof(server.listen[0]) === 'string') {
-      const [ ipc ] = server.listen;
-      location = `IPC chanell "${ipc}"`;
-    } else if (typeof(server.listen[0]) === 'object') {
-      location = JSON.stringify(server.listen[0]);
-    }
-    console.log(`Serving HTTP on ${location}`);
-  } else {
-    console.log('Shutting down HTTP service');
-  }
-}
-
-function displaySiteInfo(sites) {
-  const names = sites.map((s) => {
-    if (s.domains.length > 0) {
-      return `${s.name} (${s.domains[0]})`;
-    } else {
-      return s.name;
-    }
-  });
-  const count = names.length;
-  if (count > 0) {
-    console.log(`Site${count !== 1 ? 's' : ''} available:`);
-    for (let name of names) {
-      console.log(`  - ${name}`);
-    }
-  } else {
-    console.log(`No sites available`);
-  }
+  await import('./daemon.mjs');
 }
 
 async function addSite() {
   const name = await ask('Site identifier: ', {});
 }
 
-async function listSites(cmd) {
+async function listSites() {
   const sites = await loadSiteConfigs();
   const names = sites.map((s) => {
     if (s.domains.length > 0) {
@@ -172,20 +94,81 @@ async function listSites(cmd) {
   }
 }
 
-async function showSiteHistory() {
-
+async function showSiteHistory(name) {
+  const { server, sites } = await loadConfig();
+  const site = getSite(sites, name);
+  const versions = await findPageVersions(site, { useRef: true });
+  for (let version of versions) {
+    const { url, author, email, date, message } = version;
+    const dateObj = new Date(date);
+    const dateStr = dateObj.toLocaleString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit',
+      hourCycle: 'h23'
+    }).replace(/,/g, '') + ' ' + dateObj.toLocaleString(undefined, {
+      year: 'numeric'
+    });
+    const tzOffset = dateObj.getTimezoneOffset(), min = Math.abs(tzOffset);
+    const tzDiff = (tzOffset >= 0 ? '-' : '+') + Math.floor(min / 60).toLocaleString(undefined, {
+      minimumIntegerDigits: 2,
+    }) + (min % 60).toLocaleString(undefined, {
+      minimumIntegerDigits: 2
+    });
+    console.log(brightBlue(url));
+    console.log(`Author: ${author} <${email}>`);
+    console.log(`Date:   ${dateStr} ${tzDiff}`);
+    console.log(``);
+    const lines = message.split('\n');
+    for (let line of lines) {
+      console.log(`    ${line}`);
+    }
+    console.log(``);
+  }
 }
 
 async function removeSite() {
+  const sites = await loadSiteConfigs();
+  const site = getSite(sites, name);
 
+}
+
+function getSite(sites, name) {
+  let site = sites.find((s) => s.name === name);
+  if (!site) {
+    site = sites.find((s) => s.domains.includes(name));
+  }
+  if (!site) {
+    let msg = `Unable to find site "${name}"`;
+    // look for similar name
+    const names = sites.map((s) => s.name);
+    let similar;
+    if (name.indexOf('.') !== -1) {
+      // include domain names
+      for (let site of sites) {
+        for (let domain of site.domains) {
+          names.push(domain);
+        }
+      }
+    }
+    const { bestMatch } = findBestMatch(name, names);
+    if (bestMatch.rating > 0.5) {
+      msg += ` (you mean "${bestMatch.target}", perhaps?)`;
+    }
+    throw new Error(msg);
+  }
+  return site;
 }
 
 async function addToken() {
-
+  const tokens = await loadAccessTokens();
 }
 
 async function removeToken() {
-
+  const tokens = await loadAccessTokens();
 }
 
 async function addService() {
@@ -198,7 +181,6 @@ async function removeService() {
 
 async function ask(prompt, options) {
   const { required } = options;
-  const { createInterface } = await import('readline');
   const rl = createInterface({
     input: process.stdin,
     output: process.stdout,
