@@ -1,4 +1,4 @@
-import Fs frpm 'fs'; const { readdir, open, unlink, stat } = Fs.promises;
+import Fs from 'fs'; const { readdir, open, unlink, stat } = Fs.promises;
 import { join } from 'path';
 import { findServerConfig } from './config-loading.mjs';
 
@@ -21,17 +21,17 @@ class NginxCacheScanner {
     const names = await readdir(path);
     const md5RegExp = /^[0-9a-f]{32}$/;
     for (let name of names) {
-      if (name.charOf(0) === '.') {
+      if (name.charAt(0) === '.') {
         continue;
       }
       try {
         const childPath = join(path, name);
         const child = await stat(childPath);
         if (child.isFile() && md5RegExp.test(name)) {
-          const entry = await loadEntry(childPath, child);
+          const entry = await this.loadEntry(childPath, child);
           this.addEntry(entry);
         } else if (child.isDirectory()) {
-          this.scanFolder(childPath);
+          await this.scanFolder(childPath);
         }
       } catch (err) {
         if (!this.shown.includes(err.message)) {
@@ -60,10 +60,12 @@ class NginxCacheScanner {
       if (slashIndex === -1 || key.charAt(slashIndex - 1) === ':') {
         throw new Error('proxy_cache_key should be $proxy_host$uri$is_args$args');
       }
-      const hostname = key.substr(0, slashIndex);
-      const path = key.substr(slashIndex);
+      const url = {
+        hostname: key.substr(0, slashIndex),
+        path: key.substr(slashIndex)
+      };
       const { mtime, size } = stats;
-      return { hostname, path, status, path, mtime, size };
+      return { url, status, path, mtime, size };
     } finally {
       await fh.close();
     }
@@ -106,7 +108,7 @@ class NginxCacheSweeper extends NginxCacheScanner {
     const criterion = { hostname, predicate };
     this.criteria.push(criterion);
     // run check against list of cache entries already discovered
-    for (let entry of entries) {
+    for (let entry of this.entries) {
       if (this.meetCriterion(entry, criterion)) {
         const index = this.removing.indexOf(entry);
         if (index === -1) {
@@ -138,17 +140,17 @@ class NginxCacheSweeper extends NginxCacheScanner {
 
   meetCriterion(entry, criterion) {
     const { hostname, predicate } = criterion;
-    if (entry.hostname === hostname) {
+    if (entry.url.hostname === hostname) {
       if (predicate === undefined) {
         return true;
       } else if (typeof(predicate) === 'string') {
-        return (predicate === entry.path);
+        return (predicate === entry.url.path);
       } else if (predicate instanceof RegExp) {
-        return predicate.test(entry.path);
+        return predicate.test(entry.url.path);
       } else if (predicate instanceof Function) {
-        return predicate(entry.path);
+        return predicate(entry.url.path);
       } else if (predicate instanceof Array) {
-        return predicate.includes(entry.path);
+        return predicate.includes(entry.url.path);
       }
       return false;
     }
