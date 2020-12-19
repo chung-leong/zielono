@@ -106,6 +106,9 @@ async function loadSiteConfig(name) {
   const config = safeLoad(text);
   try {
     const site = processSiteConfig(name, config);
+    if (!siteConfigs) {
+      siteConfigs = [];
+    }
     const index = sortedIndexBy(siteConfigs, site, 'name');
     const slot = siteConfigs[index];
     if (slot && slot.name === site.name) {
@@ -122,10 +125,6 @@ async function loadSiteConfig(name) {
 }
 
 async function loadSiteConfigs() {
-  if (siteConfigs) {
-    return siteConfigs;
-  }
-  siteConfigs = [];
   const items = await readdir(getConfigFolder());
   const names = [];
   for (let item of items) {

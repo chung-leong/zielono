@@ -1,5 +1,4 @@
 import Chai from 'chai'; const { expect } = Chai;
-import delay from 'delay';
 import { createTempConfig } from './helpers/config-creation.mjs';
 
 import {
