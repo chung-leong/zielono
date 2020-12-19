@@ -4,10 +4,11 @@ import { readFileSync, existsSync } from 'fs';
 import { fileURLToPath } from 'url';
 import { join, resolve, dirname } from 'path';
 import { Command as CommandBase } from 'commander';
-import { createInterface } from 'readline';
+import readline from 'readline';
 import { findBestMatch } from 'string-similarity';
-import Colors from 'colors/safe.js'; const { brightBlue } = Colors;
+import Colors from 'colors/safe.js'; const { brightBlue, gray } = Colors;
 import { setConfigFolder, loadConfig, loadSiteConfigs, loadAccessTokens } from '../lib/config-loading.mjs';
+import { saveServerConfig, saveSiteConfig, saveAccessTokens } from '../lib/config-saving.mjs';
 import { findPageVersions } from '../lib/page-linking.mjs';
 import { displayError } from '../lib/error-handling.mjs';
 
@@ -30,11 +31,11 @@ async function main(argv) {
         .description('list websites')
         .action(listSites)
       .end()
-      .command('log <site-name>')
+      .command('log [<site-id>]')
         .description('show code history')
         .action(showSiteHistory)
       .end()
-      .command('remove <site-name>')
+      .command('remove [<site-id>]')
         .description('remove a site')
         .action(removeSite)
       .end()
@@ -45,7 +46,7 @@ async function main(argv) {
         .description('add or update a personal access token')
         .action(addToken)
       .end()
-      .command('remove <url>')
+      .command('remove [<url>]')
         .description('remove a personal access token')
         .action(removeToken)
       .end()
@@ -77,7 +78,12 @@ async function runServer() {
 }
 
 async function addSite() {
+  const sites = await loadSiteConfigs();
+  const names = sites.map((s) => s.name);
   const name = await ask('Site identifier: ', {});
+  if (!name) {
+    return;
+  }
 }
 
 async function listSites() {
@@ -96,6 +102,15 @@ async function listSites() {
 
 async function showSiteHistory(name) {
   const { server, sites } = await loadConfig();
+  const names = sites.map((s) => s.name);
+  if (name === undefined) {
+    name = await ask('Site identifier', {
+      completer: createBasicCompleter(names)
+    });
+    if(!name) {
+      return;
+    }
+  }
   const site = getSite(sites, name);
   const versions = await findPageVersions(site, { useRef: true });
   for (let version of versions) {
@@ -130,8 +145,17 @@ async function showSiteHistory(name) {
   }
 }
 
-async function removeSite() {
+async function removeSite(name) {
   const sites = await loadSiteConfigs();
+  const names = sites.map((s) => s.name);
+  if (name === undefined) {
+    name = await ask('Site identifier', {
+      completer: createBasicCompleter(names)
+    });
+    if(!name) {
+      return;
+    }
+  }
   const site = getSite(sites, name);
 
 }
@@ -164,11 +188,41 @@ function getSite(sites, name) {
 }
 
 async function addToken() {
-  const tokens = await loadAccessTokens();
+  const entries = await loadAccessTokens();
+  const url = await ask('User or repo URL: ', {});
+  if (!url) {
+    return;
+  }
+  const token = await ask('Personal access token: ', { required: true });
+  const entry = { url, token };
+  const newEntries = entries.slice();
+  const index = newEntries.findIndex((e) => e.url === url);
+  if (index !==  -1) {
+    entries[index] = entry;
+  } else {
+    entries.push(entry);
+  }
+  saveAccessTokens(newEntries);
 }
 
-async function removeToken() {
-  const tokens = await loadAccessTokens();
+async function removeToken(url) {
+  const entries = await loadAccessTokens();
+  const urls = entries.map((e) => e.url);
+  if (url === undefined) {
+    url = await ask('User or repo URL: ', {
+      completer: createBasicCompleter(urls, 'url')
+    });
+    if (!url) {
+      return;
+    }
+  }
+  const newEntries = entries.slice();
+  const index = newEntries.findIndex((e) => e.url === url);
+  if (index === -1) {
+    throw new Error(`No token associated with "${url}"`);
+  }
+  newEntries.splice(index, 1);
+  saveAccessTokens(newEntries);
 }
 
 async function addService() {
@@ -179,18 +233,48 @@ async function removeService() {
 
 }
 
+function createBasicCompleter(completions) {
+  return (line) => {
+    const hits = completions.filter((c) => c.startsWith(line));
+    return [ hits, line ];
+  };
+}
+
 async function ask(prompt, options) {
-  const { required } = options;
-  const rl = createInterface({
+  const { required, completer } = options;
+  const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
-    terminal : true,
+    terminal: true,
+    completer,
   });
+  const printPreview = (result) => {
+    const [ hits, line ] = result;
+    if (hits.length === 0 || rl.line !== line) {
+      return;
+    }
+    const hit = hits[0];
+    const preview = hit.substr(line.length);
+    process.stdout.write(gray(preview));
+    readline.moveCursor(process.stdin, -preview.length, 0);
+  };
+  const keypressHandler = (c, k) => {
+    readline.clearLine(process.stdin, 1);
+    if (completer.length === 1) {
+      const result = completer(rl.line);
+      printPreview(result);
+    } else if (completer.length === 2) {
+      completer(rl.line, (result) => printPreview(result));
+    }
+  };
+  process.stdin.on('keypress', keypressHandler);
   let answer;
-  while (!answer) {
+  do {
     answer = await new Promise((resolve) => rl.question(prompt, resolve));
-  }
+    answer.trim();
+  } while (!answer && required);
   rl.close();
+  process.stdin.off('keypress', keypressHandler);
   return answer;
 }
 
