@@ -1,5 +1,6 @@
 import { join } from 'path';
 import { createHash } from 'crypto';
+import { findServerConfig } from './config-loading.mjs';
 
 function getHash(...args) {
   const hash = createHash('sha1');
@@ -7,6 +8,13 @@ function getHash(...args) {
     hash.update(data);
   }
   return hash.digest('hex');
+}
+
+function getServerContentPath(folder, hash, ext) {
+  const { storage } = findServerConfig();
+  const filename = (ext) ? `${hash}.${ext}` : hash;
+  const path = join(storage.path, folder, filename);
+  return path;
 }
 
 function getSiteContentPath(site, folder, hash, ext) {
@@ -18,5 +26,6 @@ function getSiteContentPath(site, folder, hash, ext) {
 
 export {
   getHash,
+  getServerContentPath,
   getSiteContentPath,
 };

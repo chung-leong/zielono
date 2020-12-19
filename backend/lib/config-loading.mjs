@@ -198,6 +198,11 @@ function processServerConfig(config) {
   const serverDef = object({
     // listen can be specified using a number
     listen: array().coerce(number(), (port) => [ port ]).defaulted([ 8080 ]),
+    storage: object({
+      path: string().optional().coerce(string(), (path) => resolve(folder, path)),
+    }).defaulted({
+      path: resolve(folder, 'zielono')
+    }),
     nginx: object({
       url: string().defaulted(`http://${getIPv4Address()}`),
       cache: object({

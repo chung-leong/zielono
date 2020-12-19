@@ -1,7 +1,18 @@
 import Fs from 'fs'; const { writeFile, stat } = Fs.promises;
 import mkdirp from 'mkdirp';
 import { dirname } from 'path';
-import { getSiteContentPath } from './content-naming.mjs';
+import { getServerContentPath, getSiteContentPath } from './content-naming.mjs';
+
+async function saveServerContent(folder, hash, ext, buffer, options = {}) {
+  const path = getServerContentPath(folder, hash, ext)
+  return saveContent(path, buffer, options);
+}
+
+async function saveServerContentMeta(folder, hash, meta) {
+  const text = JSON.stringify(meta, undefined, 2);
+  const buffer = Buffer.from(text);
+  await saveServerContent(folder, hash, 'meta.json', buffer);
+}
 
 async function saveSiteContent(site, folder, hash, ext, buffer, options = {}) {
   const path = getSiteContentPath(site, folder, hash, ext)
@@ -51,6 +62,8 @@ function findInflightData(path) {
 }
 
 export {
+  saveServerContent,
+  saveServerContentMeta,
   saveSiteContent,
   saveSiteContentMeta,
   findInflightData,

@@ -4,11 +4,13 @@ import { join, dirname, basename } from 'path';
 import fetch from 'cross-fetch';
 import Chokidar from 'chokidar';
 import isEqual from 'lodash/isEqual.js';
-import { getHash } from './content-naming.mjs';
 import { getAgent as agent } from './http-agents.mjs';
 import { HttpError } from './error-handling.mjs';
 import { getHookSecret } from './request-handling-hook.mjs';
 import { findServerConfig, findAccessToken } from './config-loading.mjs';
+import { loadServerContent, loadServerContentMeta, findServerContentMeta } from './content-loading.mjs';
+import { saveServerContent, saveServerContentMeta } from './content-saving.mjs';
+import { getHash } from './content-naming.mjs';
 
 class GitAdapter {
   constructor(name) {
@@ -32,6 +34,31 @@ class GitRemoteAdapter extends GitAdapter {
     const { token, body, method, headers: additionalHeaders } = options;
     const headers = { ...additionalHeaders };
     const timeout = 5000;
+    const cacheable = (!method && !body) || (method.toUpperCase() === 'GET');
+    let cachedResponse;
+    if (cacheable) {
+      const hash = getHash(url);
+      const meta = await findServerContentMeta('git', hash);
+      if (meta) {
+        const { etag, mtime, rtime } = meta;
+        try {
+          const buffer = await loadServerContent('git', hash, 'json');
+          cachedResponse = JSON.parse(buffer);
+        } catch (err) {
+        }
+        if (cachedResponse) {
+          const elapsed = (new Date(rtime)) - (new Date);
+          if (elapsed < 5000) {
+            return cachedResponse;
+          }
+          if (etag) {
+            headers['If-None-Match'] = etag;
+          } else if (mtime) {
+            headers['If-Modified-Since'] = (new Date(mtime)).toUTCString();
+          }
+        }
+      }
+    }
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
@@ -48,8 +75,30 @@ class GitRemoteAdapter extends GitAdapter {
         return null;
       } else {
         const json = await res.json();
+        if (cacheable) {
+          try {
+            const etag = res.headers.get('etag');
+            const lastModified = res.headers.get('last-modified');
+            if (etag || lastModified) {
+              const hash = getHash(url);
+              const meta = {
+                url,
+                etag,
+                mtime: (new Date(lastModified)).toISOString(),
+                rtime: (new Date).toISOString(),
+              };
+              const buffer = Buffer.from(JSON.stringify(json, undefined, 2));
+              await saveServerContentMeta('git', hash, meta);
+              await saveServerContent('git', hash, 'json', buffer);
+            }
+          } catch (err) {
+          }
+        }
         return json;
       }
+    } else if (res.status === 304) {
+      console.log('Cached (304)');
+      return cachedResponse;
     } else {
       let message = await res.text();
       try {

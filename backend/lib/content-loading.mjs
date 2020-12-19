@@ -1,6 +1,24 @@
 import Fs from 'fs'; const { readFile } = Fs.promises;
 import { findInflightData } from './content-saving.mjs';
-import { getSiteContentPath } from './content-naming.mjs';
+import { getServerContentPath, getSiteContentPath } from './content-naming.mjs';
+
+async function loadServerContent(folder, hash, ext) {
+  const path = getServerContentPath(folder, hash, ext);
+  return loadContent(path);
+}
+
+async function loadServerContentMeta(folder, hash) {
+  const buffer = await loadServerContent(folder, hash, 'meta.json');
+  const json = JSON.parse(buffer);
+  return json;
+}
+
+async function findServerContentMeta(site, folder, hash) {
+  try {
+    return await loadServerContentMeta(site, folder, hash)
+  } catch (err){
+  }
+}
 
 async function loadSiteContent(site, folder, hash, ext) {
   const path = getSiteContentPath(site, folder, hash, ext);
@@ -26,6 +44,9 @@ async function loadContent(path) {
 }
 
 export {
+  loadServerContent,
+  loadServerContentMeta,
+  findServerContentMeta,
   loadSiteContent,
   loadSiteContentMeta,
   findSiteContentMeta,
