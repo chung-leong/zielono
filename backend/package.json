@@ -5,6 +5,9 @@
   "author": "Chung Leong <chernyshevsky@hotmail.com>",
   "license": "MIT",
   "main": "index.js",
+  "bin": "cli.js",
+  "repository": "git://github.com/chung-leong/zielono.git",
+  "homepage": "https://github.com/chung-leong/zielono",
   "scripts": {
     "test": "./node_modules/mocha/bin/mocha -- test/*.mjs",
     "test:watch": "./node_modules/mocha/bin/mocha --parallel --watch -- test/*.mjs"

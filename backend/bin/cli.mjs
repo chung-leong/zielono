@@ -1,20 +1,21 @@
 #!/usr/bin/env node
 
-import { readFileSync, existsSync } from 'fs';
+import Fs, { existsSync } from 'fs'; const { writeFile, readFile, readdir } = Fs.promises;
 import { fileURLToPath } from 'url';
-import { join, resolve, dirname } from 'path';
+import { join, resolve, dirname, basename, extname } from 'path';
+import { exec } from 'child_process';
 import { Command as CommandBase } from 'commander';
 import readline from 'readline';
 import { findBestMatch } from 'string-similarity';
 import Colors from 'colors/safe.js'; const { brightBlue, brightRed, gray } = Colors;
-import { setConfigFolder, loadConfig, loadSiteConfigs, loadAccessTokens } from '../lib/config-loading.mjs';
+import { setConfigFolder, getConfigFolder, loadConfig, loadSiteConfigs, loadAccessTokens } from '../lib/config-loading.mjs';
 import { saveServerConfig, saveSiteConfig, saveAccessTokens } from '../lib/config-saving.mjs';
 import { findPageVersions } from '../lib/page-linking.mjs';
 import { displayError } from '../lib/error-handling.mjs';
 
 async function main(argv) {
   const program = new Command;
-  const programInfo = getProgramInfo();
+  const programInfo = await getProgramInfo();
   program
     .name(programInfo.name)
     .description(programInfo.description)
@@ -234,7 +235,85 @@ async function removeToken(url) {
 }
 
 async function addService() {
-
+  const configFolder = getConfigFolder();
+  const systemdFolder = '/etc/systemd/system';
+  if (!existsSync(systemdFolder)) {
+    throw new Error(`The folder "${systemdFolder}" does not exist`);
+  }
+  await loadConfig();
+  const validater = (name) => {
+    const symlinkPath = join(systemdFolder, `zielono.${name}`);
+    if (existsSync(symlinkPath)) {
+      throw new Error(`Identifier "${name}" is already used by another service`);
+    } else if(/[^\w\-\.]/.test(name)) {
+      throw new Error(`Identifer should only contain alphanumeric characters, underscore, dash, and period`)
+    }
+  };
+  let completer;
+  try {
+    const nameDefault = basename(configFolder);
+    validater(nameDefault);
+    completer = createBasicCompleter([ nameDefault ]);
+  } catch (err) {
+  }
+  const name = await ask('Service identifier: ', {
+    completer,
+    validater,
+    prefill: true,
+  });
+  if (!name) {
+    return;
+  }
+  const serviceName = `zielono.${name}`;
+  const unitFileName = `${serviceName}.service`;
+  const info = await getProgramInfo();
+  const nodePath = process.argv[0];
+  const scriptPath = dirname(fileURLToPath(import.meta.url));
+  const daemonPath = join(scriptPath, 'daemon.mjs');
+  const nginxUser = await findNginxUser();
+  const q = (path) => /\s/.test(path) ? `"${path}"` : path;
+  const lines = [
+    `[Unit]`,
+    `Description=${info.description} - ${name}`,
+    `Documentation=${info.homepage}`,
+    `After=network.target`,
+    ``,
+    `[Service]`,
+    `WorkingDirectory=${configFolder}`,
+    `Environment=NODE_ENV=production`,
+    `Environment=PATH=${process.env.PATH}`,
+    `Type=simple`,
+    `User=${nginxUser}`,
+    `ExecStart=${q(nodePath)} ${q(daemonPath)}`,
+    `Restart=on-failure`,
+    ``,
+    `[Install]`,
+    `WantedBy=multi-user.target`
+  ];
+  await writeFile(unitFilePath, lines.join('\n'));
+  const commands = [
+    `sudo ln -s ${q(unitFilePath)} ${q(systemdFolder)}`,
+    `sudo chgrp -R ${nginxUser} .`,
+    `sudo systemctl daemon-reload`
+  ];
+  await new Promise((resolve, reject) => {
+    const cwd = configFolder;
+    exec(commands.join(' && '), { cwd }, (err, stdout, stderr) => {
+      if (!err || stderr.length === 0) {
+        resolve(stdout);
+      } else {
+        err.stderr = stderr;
+        reject(err);
+      }
+    });
+  });
+  console.log(`To enable service:`);
+  console.log(``);
+  console.log(`    sudo systemctl enable ${serviceName}`);
+  console.log(``);
+  console.log(`To start service:`);
+  console.log(``);
+  console.log(`    sudo service ${serviceName} start`);
 }
 
 async function removeService() {
@@ -249,7 +328,7 @@ function createBasicCompleter(completions) {
 }
 
 async function ask(prompt, options) {
-  const { required, completer, validater } = options;
+  const { required, completer, validater, prefill } = options;
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -266,7 +345,7 @@ async function ask(prompt, options) {
     process.stdout.write(gray(preview));
     readline.moveCursor(process.stdin, -preview.length, 0);
   };
-  const keypressHandler = (c, k) => {
+  const keypressHandler = () => {
     if (completer) {
       readline.clearLine(process.stdin, 1);
       if (completer.length === 1) {
@@ -289,7 +368,12 @@ async function ask(prompt, options) {
   let answer, error;
   do {
     error = undefined;
-    answer = await new Promise((resolve) => rl.question(prompt, resolve));
+    answer = await new Promise((resolve) => {
+      rl.question(prompt, resolve);
+      if (prefill) {
+        rl.write(null, { name: 'tab' });
+      }
+    });
     answer = answer.trim();
     if (validater) {
       try {
@@ -306,11 +390,15 @@ async function ask(prompt, options) {
   return answer;
 }
 
-function getProgramInfo() {
+async function getProgramInfo() {
   const scriptPath = dirname(fileURLToPath(import.meta.url));
   const packagePath = resolve(join(scriptPath, '../package.json'));
-  const text = readFileSync(packagePath);
+  const text = await readFile(packagePath);
   return JSON.parse(text);
+}
+
+async function findNginxUser() {
+  return 'www-data';
 }
 
 class Command extends CommandBase {
