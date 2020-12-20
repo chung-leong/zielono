@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 
-import Fs, { existsSync } from 'fs'; const { writeFile, readFile, readdir } = Fs.promises;
+import Fs, { existsSync } from 'fs'; const { writeFile, readFile, readdir, readlink } = Fs.promises;
 import { fileURLToPath } from 'url';
 import { join, resolve, dirname, basename, extname } from 'path';
 import { exec } from 'child_process';
@@ -9,7 +9,7 @@ import readline from 'readline';
 import { findBestMatch } from 'string-similarity';
 import Colors from 'colors/safe.js'; const { brightBlue, brightRed, gray } = Colors;
 import { setConfigFolder, getConfigFolder, loadConfig, loadSiteConfigs, loadAccessTokens } from '../lib/config-loading.mjs';
-import { saveServerConfig, saveSiteConfig, saveAccessTokens } from '../lib/config-saving.mjs';
+import { saveServerConfig, saveSiteConfig, saveAccessTokens, removeSiteConfig } from '../lib/config-saving.mjs';
 import { findPageVersions } from '../lib/page-linking.mjs';
 import { displayError } from '../lib/error-handling.mjs';
 
@@ -158,7 +158,7 @@ async function removeSite(name) {
   const sites = await loadSiteConfigs();
   const names = sites.map((s) => s.name);
   if (name === undefined) {
-    name = await ask('Site identifier', {
+    name = await ask('Site identifier: ', {
       completer: createBasicCompleter(names)
     });
     if(!name) {
@@ -166,7 +166,7 @@ async function removeSite(name) {
     }
   }
   const site = getSite(sites, name);
-
+  await removeSiteConfig(name);
 }
 
 function getSite(sites, name) {
@@ -242,7 +242,7 @@ async function addService() {
   }
   await loadConfig();
   const validater = (name) => {
-    const symlinkPath = join(systemdFolder, `zielono.${name}`);
+    const symlinkPath = join(systemdFolder, `zielono.${name}.service`);
     if (existsSync(symlinkPath)) {
       throw new Error(`Identifier "${name}" is already used by another service`);
     } else if(/[^\w\-\.]/.test(name)) {
@@ -266,6 +266,7 @@ async function addService() {
   }
   const serviceName = `zielono.${name}`;
   const unitFileName = `${serviceName}.service`;
+  const unitFilePath = join(configFolder, unitFileName);
   const info = await getProgramInfo();
   const nodePath = process.argv[0];
   const scriptPath = dirname(fileURLToPath(import.meta.url));
@@ -296,17 +297,7 @@ async function addService() {
     `sudo chgrp -R ${nginxUser} .`,
     `sudo systemctl daemon-reload`
   ];
-  await new Promise((resolve, reject) => {
-    const cwd = configFolder;
-    exec(commands.join(' && '), { cwd }, (err, stdout, stderr) => {
-      if (!err || stderr.length === 0) {
-        resolve(stdout);
-      } else {
-        err.stderr = stderr;
-        reject(err);
-      }
-    });
-  });
+  await execCommands(commands, { cwd: configFolder });
   console.log(`To enable service:`);
   console.log(``);
   console.log(`    sudo systemctl enable ${serviceName}`);
@@ -317,7 +308,42 @@ async function addService() {
 }
 
 async function removeService() {
-
+  const configFolder = getConfigFolder();
+  const systemdFolder = '/etc/systemd/system';
+  if (!existsSync(systemdFolder)) {
+    throw new Error(`The folder "${systemdFolder}" does not exist`);
+  }
+  let unitFileName, serviceName;
+  const names = await readdir(configFolder);
+  for (let name of names) {
+    let m;
+    if (m = /^(zielono\..*)\.service$/.exec(name)) {
+      unitFileName = name;
+      serviceName = m[1];
+      break;
+    }
+  }
+  if (!unitFileName) {
+    throw new Error(`No systemd unit file found in "${configFolder}"`);
+  }
+  const unitFilePath = join(configFolder, unitFileName);
+  const symlinkPath = join(systemdFolder, unitFileName);
+  let symlinkTarget;
+  try {
+    symlinkTarget = await readlink(symlinkPath);
+  } catch (err) {
+    throw new Error(`Unable to read symlink ${symlinkPath}`);
+  }
+  if (symlinkTarget !== unitFilePath) {
+    throw new Error(`Symlink ${symlinkPath} does not point to ${unitFilePath}`);
+  }
+  const q = (path) => /\s/.test(path) ? `"${path}"` : path;
+  const commands = [
+    `sudo service ${serviceName} stop`,
+    `sudo rm ${symlinkPath} ${unitFilePath}`,
+    `sudo systemctl daemon-reload`
+  ];
+  await execCommands(commands);
 }
 
 function createBasicCompleter(completions) {
@@ -356,12 +382,14 @@ async function ask(prompt, options) {
       }
     }
     if (validater) {
+      let { line } = rl;
+      readline.moveCursor(process.stdin, -line.length, 0);
       try {
-        validater(rl.line);
+        validater(line);
       } catch (err) {
-        readline.moveCursor(process.stdin, -rl.line.length, 0);
-        process.stdout.write(brightRed(rl.line));
+        line = brightRed(rl.line);
       }
+      process.stdout.write(line);
     }
   };
   process.stdin.on('keypress', keypressHandler);
@@ -398,7 +426,28 @@ async function getProgramInfo() {
 }
 
 async function findNginxUser() {
+  try {
+    const text = await readFile('/etc/nginx/nginx.conf', 'utf-8');
+    const m = /^\s*user\s*(.*);/m.exec(text);
+    if (m) {
+      return m[1];
+    }
+  } catch (err) {
+  }
   return 'www-data';
+}
+
+async function execCommands(commands, options) {
+  return new Promise((resolve, reject) => {
+    exec(commands.join(' && '), options, (err, stdout, stderr) => {
+      if (!err || stderr.length === 0) {
+        resolve(stdout);
+      } else {
+        err.stderr = stderr;
+        reject(err);
+      }
+    });
+  });
 }
 
 class Command extends CommandBase {
