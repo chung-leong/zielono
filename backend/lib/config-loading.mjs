@@ -146,6 +146,9 @@ async function loadSiteConfigs() {
   if (errors.length > 0) {
     throw new ErrorCollection(errors);
   }
+  if (!siteConfigs) {
+    siteConfigs = [];
+  }
   return siteConfigs;
 }
 

@@ -9,7 +9,7 @@ import { getHash }  from './content-naming.mjs';
 import { HttpError } from './error-handling.mjs';
 
 async function retrieveFromCloud(url, options) {
-  const { etag, mtime } = options;
+  const { etag, mtime, method = 'GET' } = options;
   const fileURL = getDownloadURL(url);
   const timeout = 5000;
   const headers = {};
@@ -18,8 +18,8 @@ async function retrieveFromCloud(url, options) {
   } else if (mtime) {
     headers['If-Modified-Since'] = (new Date(mtime)).toUTCString();
   }
-  const res = await fetch(fileURL, { headers, timeout, agent });
-  if (res.status === 200) {
+  const res = await fetch(fileURL, { headers, timeout, agent, method });
+  if (res.status >= 200 && res.status <= 299) {
     const buffer = await res.buffer();
     buffer.type = res.headers.get('content-type');
     buffer.etag = res.headers.get('etag');

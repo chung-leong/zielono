@@ -6,7 +6,7 @@ import { join, resolve, dirname } from 'path';
 import { Command as CommandBase } from 'commander';
 import readline from 'readline';
 import { findBestMatch } from 'string-similarity';
-import Colors from 'colors/safe.js'; const { brightBlue, gray } = Colors;
+import Colors from 'colors/safe.js'; const { brightBlue, brightRed, gray } = Colors;
 import { setConfigFolder, loadConfig, loadSiteConfigs, loadAccessTokens } from '../lib/config-loading.mjs';
 import { saveServerConfig, saveSiteConfig, saveAccessTokens } from '../lib/config-saving.mjs';
 import { findPageVersions } from '../lib/page-linking.mjs';
@@ -80,7 +80,15 @@ async function runServer() {
 async function addSite() {
   const sites = await loadSiteConfigs();
   const names = sites.map((s) => s.name);
-  const name = await ask('Site identifier: ', {});
+  const name = await ask('Site identifier: ', {
+    validater: (name) => {
+      if (names.includes(name)) {
+        throw new Error(`Identifier "${name}" is already used by another site`);
+      } else if(/[^\w\-\.]/.test(name)) {
+        throw new Error(`Identifer should only contain alphanumeric characters, underscore, dash, and period`)
+      }
+    }
+  });
   if (!name) {
     return;
   }
@@ -241,7 +249,7 @@ function createBasicCompleter(completions) {
 }
 
 async function ask(prompt, options) {
-  const { required, completer } = options;
+  const { required, completer, validater } = options;
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -259,20 +267,40 @@ async function ask(prompt, options) {
     readline.moveCursor(process.stdin, -preview.length, 0);
   };
   const keypressHandler = (c, k) => {
-    readline.clearLine(process.stdin, 1);
-    if (completer.length === 1) {
-      const result = completer(rl.line);
-      printPreview(result);
-    } else if (completer.length === 2) {
-      completer(rl.line, (result) => printPreview(result));
+    if (completer) {
+      readline.clearLine(process.stdin, 1);
+      if (completer.length === 1) {
+        const result = completer(rl.line);
+        printPreview(result);
+      } else if (completer.length === 2) {
+        completer(rl.line, (result) => printPreview(result));
+      }
+    }
+    if (validater) {
+      try {
+        validater(rl.line);
+      } catch (err) {
+        readline.moveCursor(process.stdin, -rl.line.length, 0);
+        process.stdout.write(brightRed(rl.line));
+      }
     }
   };
   process.stdin.on('keypress', keypressHandler);
-  let answer;
+  let answer, error;
   do {
+    error = undefined;
     answer = await new Promise((resolve) => rl.question(prompt, resolve));
-    answer.trim();
-  } while (!answer && required);
+    answer = answer.trim();
+    if (validater) {
+      try {
+        validater(answer);
+      } catch (err) {
+        error = err;
+        answer = undefined;
+        console.log(err.message);
+      }
+    }
+  } while (!answer && (required || error));
   rl.close();
   process.stdin.off('keypress', keypressHandler);
   return answer;

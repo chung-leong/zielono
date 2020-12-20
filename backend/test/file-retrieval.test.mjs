@@ -109,6 +109,13 @@ describe('File retrieval', function() {
       expect(result).to.have.property('filename', 'hello.json');
       expect(JSON.parse(result)).to.eql({ message: 'hello world' });
     })
+    it('should retrieve info about file from Dropbox', async function() {
+      const url = 'https://www.dropbox.com/s/4krscr943y90gd8/hello.json?dl=0';
+      const result = await retrieveFromCloud(url, { method: 'HEAD' });
+      expect(result).to.be.instanceOf(Buffer).with.lengthOf(0);
+      expect(result).to.have.property('etag').that.is.a('string');
+      expect(result).to.have.property('filename', 'hello.json');
+    })
     it('should retrieve file from OneDrive', async function() {
       const url = 'https://1drv.ms/u/s!AvWf91TkbQTjhNZNVr8WG9PL-gdaYQ?e=pLFRfZ';
       const result = await retrieveFromCloud(url, {});
