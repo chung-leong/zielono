@@ -411,7 +411,7 @@ class ExcelConditionalRuleOperatorBased extends ExcelConditionalRule {
 class ExcelConditionalRuleTimeBased extends ExcelConditionalRule {
   constructor(range, ruleDef, options) {
     super(range, ruleDef, options);
-    const { timePeriod } = ruleDef;
+    const { timePeriod, formulae } = ruleDef;
     this.currentTime = getCurrentTime();
     this.timePeriod = timePeriod;
     this.timeRange = getTimePeriod(timePeriod, this.currentTime);
@@ -607,7 +607,7 @@ function setCurrentTime(time) {
 }
 
 function getCurrentTime() {
-  return new Date(currentTime);
+  return (currentTime) ? new Date(currentTime) : new Date;
 }
 
 export {
