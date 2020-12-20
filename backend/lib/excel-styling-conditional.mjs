@@ -23,6 +23,7 @@ class ExcelConditionalStyling {
     }
     this.rules.sort((a, b) => b.priority - a.priority);
     this.worksheet = worksheet;
+    this.expirationDate = null;
   }
 
   check(cell, contents) {
@@ -35,6 +36,11 @@ class ExcelConditionalStyling {
     for (let rule of this.rules) {
       try {
         rule.apply(this.worksheet);
+        if (rule.expirationDate) {
+          if (!this.expirationDate || rule.expirationDate < this.expirationDate) {
+            this.expirationDate = rule.expirationDate;
+          }
+        }
       } catch (err) {
         this.errors.push(err);
       }
@@ -413,20 +419,24 @@ class ExcelConditionalRuleTimeBased extends ExcelConditionalRule {
     super(range, ruleDef, options);
     const { timePeriod, formulae } = ruleDef;
     this.currentTime = getCurrentTime();
-    this.timePeriod = timePeriod;
-    this.timeRange = getTimePeriod(timePeriod, this.currentTime);
-    this.expirationDate = undefined;
+    this.timeRange = getTimePeriod(timePeriod, formulae, range, this.currentTime);
+    this.expirationDate = null;
   }
 
   inTimeRange(date) {
     if (date instanceof Date) {
       const { start, end } = this.timeRange;
-      if (start <= date && date < end) {
-        // see how long the condition will remain true
-        const validUntil = new Date(this.currentTime.getTime() + (end - date));
-        if (!this.expirationDate || this.expirationDate > validUntil) {
-          this.expirationDate = validUntil;
+      // see when the condition will change
+      if (date < start) {
+        if (start > this.currentTime) {
+          this.expirationDate = start;
         }
+      } else if (date < end && !this.expirationDate) {
+        if (end > this.currentTime) {
+          this.expirationDate = end;
+        }
+      }
+      if (start <= date && date < end) {
         return true;
       }
     }
@@ -572,12 +582,32 @@ function reduceFormula(regExp, formula) {
 /**
  * Get time period based on given time
  *
- * @param  {string} period
- * @param  {Date}   now
+ * @param  {string}   period
+ * @param  {string[]} formulae
+ * @param  {Range}    range
+ * @param  {Date}     now
  *
  * @return {object}
  */
-function getTimePeriod(period, now) {
+function getTimePeriod(period, formulae, range, now) {
+  // make sure period is consitent with formulae
+  if (formulae && formulae[0]) {
+    const formula = getTimePeriodFormula(period, range);
+    if (formulae[0] !== formula) {
+      const otherPeriods = [
+        'today', 'yesterday', 'tomorrow', 'last7Days', 'thisWeek', 'lastWeek', 'nextWeek',
+        'thisMonth', 'lastMonth', 'nextMonth'
+      ];
+      for (let otherPeriod of otherPeriods) {
+        if (otherPeriod !== period) {
+          if (formulae[0] === getTimePeriodFormula(otherPeriod, range)) {
+            period = otherPeriod;
+            break;
+          }
+        }
+      }
+    }
+  }
   const y = now.getFullYear();
   const m = now.getMonth();
   const d = now.getDate();
@@ -593,10 +623,33 @@ function getTimePeriod(period, now) {
     case 'thisMonth': return { start: new Date(y, m), end: new Date(y, m + 1) };
     case 'lastMonth': return { start: new Date(y, m - 1), end: new Date(y, m) };
     case 'nextMonth': return { start: new Date(y, m + 1), end: new Date(y, m + 2) };
-    case 'thisYear': return { start: new Date(y, 0), end: new Date(y + 1, 0) };
-    case 'lastYear': return { start: new Date(y - 1, 0), end: new Date(y, 0) };
-    case 'nextYear': return { start: new Date(y + 1, 0), end: new Date(y + 2, 0) };
     default: throw new Error('Invalid time period');
+  }
+}
+
+function getTimePeriodFormula(period, range) {
+  const { tl } = range;
+  switch (period) {
+    case 'thisWeek':
+      return `AND(TODAY()-ROUNDDOWN(${tl},0)<=WEEKDAY(TODAY())-1,ROUNDDOWN(${tl},0)-TODAY()<=7-WEEKDAY(TODAY()))`;
+    case 'lastWeek':
+      return `AND(TODAY()-ROUNDDOWN(${tl},0)>=(WEEKDAY(TODAY())),TODAY()-ROUNDDOWN(${tl},0)<(WEEKDAY(TODAY())+7))`;
+    case 'nextWeek':
+      return `AND(ROUNDDOWN(${tl},0)-TODAY()>(7-WEEKDAY(TODAY())),ROUNDDOWN(${tl},0)-TODAY()<(15-WEEKDAY(TODAY())))`;
+    case 'yesterday':
+      return `FLOOR(${tl},1)=TODAY()-1`;
+    case 'today':
+      return `FLOOR(${tl},1)=TODAY()`;
+    case 'tomorrow':
+      return `FLOOR(${tl},1)=TODAY()+1`;
+    case 'last7Days':
+      return `AND(TODAY()-FLOOR(${tl},1)<=6,FLOOR(${tl},1)<=TODAY())`;
+    case 'lastMonth':
+      return `AND(MONTH(${tl})=MONTH(EDATE(TODAY(),0-1)),YEAR(${tl})=YEAR(EDATE(TODAY(),0-1)))`;
+    case 'thisMonth':
+      return `AND(MONTH(${tl})=MONTH(TODAY()),YEAR(${tl})=YEAR(TODAY()))`;
+    case 'nextMonth':
+      return `AND(MONTH(${tl})=MONTH(EDATE(TODAY(),0+1)),YEAR(${tl})=YEAR(EDATE(TODAY(),0+1)))`;
   }
 }
 

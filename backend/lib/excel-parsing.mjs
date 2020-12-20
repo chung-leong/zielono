@@ -219,6 +219,9 @@ function parseExcelWorksheetSync(worksheet, options) {
       }
     }
   }
+  if (conditionalStyling.expirationDate) {
+    sheet.expiration = conditionalStyling.expirationDate;
+  }
   return sheet;
 }
 
