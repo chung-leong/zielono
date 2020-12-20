@@ -218,6 +218,10 @@ describe('Excel parsing', function() {
       const cellC7 = col3.cells[3];
       expect(cellC7).to.have.property('master').that.eql({ col: 2, row: 1 });
     })
+    it('should reurn data with expiration date', async function() {
+      const json = await loadExcelFile('dates.xlsx');
+      expect(json).to.have.property('expiration').that.is.a('date');
+    })
   })
   describe('parseCSVFile()', function() {
     let sample;
