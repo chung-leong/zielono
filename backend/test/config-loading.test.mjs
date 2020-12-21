@@ -28,6 +28,9 @@ describe('Config loading', function() {
         listen: [ 8080 ],
         nginx: undefined,
         ngrok: undefined,
+        storage: {
+          path: `${tmpFolder}/zielono`
+        }
       });
     })
     it('should throw when required field is missing', function() {

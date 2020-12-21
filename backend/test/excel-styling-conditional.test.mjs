@@ -63,7 +63,7 @@ describe('Excel conditional styling', function() {
   describe('getTimePeriod()', function() {
     it('should return correct time period for today', function() {
       const date = new Date('2020/11/2')
-      const today = getTimePeriod('today', date);
+      const today = getTimePeriod('today', [], {}, date);
       expect(today).to.eql({
         start: new Date('2020/11/2'),
         end: new Date('2020/11/3')
@@ -71,7 +71,7 @@ describe('Excel conditional styling', function() {
     })
     it('should return correct time period for yesterday', function() {
       const date = new Date('2020/11/2')
-      const yesterday = getTimePeriod('yesterday', date);
+      const yesterday = getTimePeriod('yesterday', [], {}, date);
       expect(yesterday).to.eql({
         start: new Date('2020/11/1'),
         end: new Date('2020/11/2')
@@ -79,7 +79,7 @@ describe('Excel conditional styling', function() {
     })
     it('should return correct time period for tomorrow', function() {
       const date = new Date('2020/11/2')
-      const tomorrow = getTimePeriod('tomorrow', date);
+      const tomorrow = getTimePeriod('tomorrow', [], {}, date);
       expect(tomorrow).to.eql({
         start: new Date('2020/11/3'),
         end: new Date('2020/11/4')
@@ -87,7 +87,7 @@ describe('Excel conditional styling', function() {
     })
     it('should return correct time period for last 7 days', function() {
       const date = new Date('2020/11/2')
-      const last7Days = getTimePeriod('last7Days', date);
+      const last7Days = getTimePeriod('last7Days', [], {}, date);
       expect(last7Days).to.eql({
         start: new Date('2020/10/27'),
         end: new Date('2020/11/3')
@@ -95,7 +95,7 @@ describe('Excel conditional styling', function() {
     })
     it('should return correct time period for this week', function() {
       const date = new Date('2020/11/2')
-      const thisWeek = getTimePeriod('thisWeek', date);
+      const thisWeek = getTimePeriod('thisWeek', [], {}, date);
       expect(thisWeek).to.eql({
         start: new Date('2020/11/1'),
         end: new Date('2020/11/8')
@@ -103,7 +103,7 @@ describe('Excel conditional styling', function() {
     })
     it('should return correct time period for last week', function() {
       const date = new Date('2020/11/2')
-      const lastWeek = getTimePeriod('lastWeek', date);
+      const lastWeek = getTimePeriod('lastWeek', [], {}, date);
       expect(lastWeek).to.eql({
         start: new Date('2020/10/25'),
         end: new Date('2020/11/1')
@@ -111,7 +111,7 @@ describe('Excel conditional styling', function() {
     })
     it('should return correct time period for next week', function() {
       const date = new Date('2020/11/2')
-      const nextWeek = getTimePeriod('nextWeek', date);
+      const nextWeek = getTimePeriod('nextWeek', [], {}, date);
       expect(nextWeek).to.eql({
         start: new Date('2020/11/8'),
         end: new Date('2020/11/15')
@@ -119,7 +119,7 @@ describe('Excel conditional styling', function() {
     })
     it('should return correct time period for this month', function() {
       const date = new Date('2020/11/2')
-      const thisMonth = getTimePeriod('thisMonth', date);
+      const thisMonth = getTimePeriod('thisMonth', [], {}, date);
       expect(thisMonth).to.eql({
         start: new Date('2020/11/1'),
         end: new Date('2020/12/1')
@@ -127,7 +127,7 @@ describe('Excel conditional styling', function() {
     })
     it('should return correct time period for last month', function() {
       const date = new Date('2020/11/2')
-      const lastMonth = getTimePeriod('lastMonth', date);
+      const lastMonth = getTimePeriod('lastMonth', [], {}, date);
       expect(lastMonth).to.eql({
         start: new Date('2020/10/1'),
         end: new Date('2020/11/1')
@@ -135,34 +135,19 @@ describe('Excel conditional styling', function() {
     })
     it('should return correct time period for next month', function() {
       const date = new Date('2020/11/2')
-      const nextMonth = getTimePeriod('nextMonth', date);
+      const nextMonth = getTimePeriod('nextMonth', [], {}, date);
       expect(nextMonth).to.eql({
         start: new Date('2020/12/1'),
         end: new Date('2021/1/1')
       });
     })
-    it('should return correct time period for this year', function() {
+    it('should correct for erroneous time period based on formulae provided', function() {
       const date = new Date('2020/11/2')
-      const thisYear = getTimePeriod('thisYear', date);
-      expect(thisYear).to.eql({
-        start: new Date('2020/1/1'),
+      const formula = 'AND(MONTH(A1)=MONTH(EDATE(TODAY(),0+1)),YEAR(A1)=YEAR(EDATE(TODAY(),0+1)))';
+      const nextMonth = getTimePeriod('today', [ formula ], { tl: 'A1' }, date);
+      expect(nextMonth).to.eql({
+        start: new Date('2020/12/1'),
         end: new Date('2021/1/1')
-      });
-    })
-    it('should return correct time period for last year', function() {
-      const date = new Date('2020/11/2')
-      const lastYear = getTimePeriod('lastYear', date);
-      expect(lastYear).to.eql({
-        start: new Date('2019/1/1'),
-        end: new Date('2020/1/1')
-      });
-    })
-    it('should return correct time period for next year', function() {
-      const date = new Date('2020/11/2')
-      const nextYear = getTimePeriod('nextYear', date);
-      expect(nextYear).to.eql({
-        start: new Date('2021/1/1'),
-        end: new Date('2022/1/1')
       });
     })
   })
