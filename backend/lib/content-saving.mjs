@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import mkdirp from 'mkdirp';
 import { dirname } from 'path';
 import { getServerContentPath, getSiteContentPath } from './content-naming.mjs';
+import { findServerConfig } from './config-loading.mjs';
 
 const contentEventEmitter = new EventEmitter;
 
@@ -15,7 +16,8 @@ async function saveServerContentMeta(folder, hash, meta) {
   const text = JSON.stringify(meta, undefined, 2);
   const buffer = Buffer.from(text);
   await saveServerContent(folder, hash, 'meta.json', buffer);
-  contentEventEmitter.emit('server-content-meta', folder, hash, meta);
+  const server = findServerConfig();
+  contentEventEmitter.emit('server-content-meta', { server, folder, hash, meta });
 }
 
 async function saveSiteContent(site, folder, hash, ext, buffer, options = {}) {
@@ -27,7 +29,7 @@ async function saveSiteContentMeta(site, folder, hash, meta) {
   const text = JSON.stringify(meta, undefined, 2);
   const buffer = Buffer.from(text);
   await saveSiteContent(site, folder, hash, 'meta.json', buffer);
-  contentEventEmitter.emit('site-content-meta', site, folder, hash, meta);
+  contentEventEmitter.emit('site-content-meta', { site, folder, hash, meta });
 }
 
 async function removeServerContent(folder, hash, ext, options = {}) {
@@ -36,46 +38,52 @@ async function removeServerContent(folder, hash, ext, options = {}) {
 }
 
 async function removeServerContentMeta(folder, hash) {
-  await removeServerContent(folder, hash, 'meta.json', buffer);
-  contentEventEmitter.emit('server-content-meta', folder, hash);
+  await removeServerContent(folder, hash, 'meta.json');
+  const server = findServerConfig();
+  contentEventEmitter.emit('server-content-meta', { server, folder, hash });
 }
 
 async function removeSiteContent(site, folder, hash, ext, options = {}) {
   const path = getSiteContentPath(site, folder, hash, ext)
-  return removeContent(path, buffer, options);
+  return removeContent(path, options);
 }
 
 async function removeSiteContentMeta(site, folder, hash) {
   await removeSiteContent(site, folder, hash, 'meta.json');
-  contentEventEmitter.emit('site-content-meta', site, folder, hash);
+  contentEventEmitter.emit('site-content-meta', { site, folder, hash });
 }
 
 const writeQueue = [];
 
 async function saveContent(path, buffer, options) {
   const { hashed } = options;
-  // see if the file content itself was used to generate the filename
-  if (hashed === 'content') {
-    // don't bother writing if the same data is on disk already
-    try {
-      const stat = await stat(path);
-      if (stat.size == buffer.length) {
-        return;
-      }
-    } catch (err) {
-    }
-    // see if it's being saved right now
-    if (findInflightData(path)) {
-      return;
-    }
-  }
+  // see if it's being saved right now
+  const inflight = findInflightData(path);
   // save in queue so the loadSiteContent() can find it
   const op = { path, buffer };
   writeQueue.push(op);
-  // ensure folder exists
-  const folderPath = dirname(path);
-  await mkdirp(folderPath);
-  await writeFile(path, buffer);
+  // see if the file content itself was used to generate the filename
+  let bypass = false;
+  if (hashed === 'content') {
+    if (inflight && inflight.length === buffer.length) {
+      bypass = true;
+    } else {
+      // don't bother writing if the same data is on disk already
+      try {
+        const file = await stat(path);
+        if (file.size == buffer.length) {
+          bypass = true;
+        }
+      } catch (err) {
+      }
+    }
+  }
+  if (!bypass) {
+    // ensure folder exists
+    const folderPath = dirname(path);
+    await mkdirp(folderPath);
+    await writeFile(path, buffer);
+  }
   // pop it back out
   const index = writeQueue.indexOf(op);
   writeQueue.splice(index, 1);
@@ -93,8 +101,12 @@ async function removeContent(path, options) {
 }
 
 function findInflightData(path) {
-  const op = writeQueue.find((op) => op.path === path);
-  return (op) ? op.buffer : null;
+  for (let i = writeQueue.length - 1; i >= 0; i--) {
+    const op = writeQueue[i];
+    if (op.path === path) {
+      return op.buffer;
+    }
+  }
 }
 
 export {

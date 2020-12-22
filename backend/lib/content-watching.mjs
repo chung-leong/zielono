@@ -44,7 +44,7 @@ function removeDataExpirationJobs() {
   dataExpirationWatches.splice(0);
 }
 
-async function handleSiteContentMeta(site, folder, hash, meta) {
+async function handleSiteContentMeta({ site, folder, hash, meta }) {
   if (folder === 'data') {
     const watch = dataExpirationWatches.find((w) => w.siteName === site.name && w.hash === hash);
     if (watch) {

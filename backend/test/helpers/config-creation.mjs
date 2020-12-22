@@ -19,6 +19,12 @@ async function createTempConfig(load = true) {
       { name: 'sushi', url: 'https://www.dropbox.com/scl/fi/v6rp5jdiliyjjwp4l4chi/sushi.xlsx?dl=0&rlkey=30zvrg53g5ovu9k8pr63f25io' },
     ]
   });
+  await saveYAML(tmpFolder, 'site3', {
+    domains: [ 'goose.test', 'www.goose.test' ],
+    files: [
+      { name: 'sushi', url: 'https://www.dropbox.com/scl/fi/v6rp5jdiliyjjwp4l4chi/sushi.xlsx?dl=0&rlkey=30zvrg53g5ovu9k8pr63f25io' },
+    ]
+  });
   const ngrokURL = getServiceURL('ngrok');
   await saveYAML(tmpFolder, 'zielono', {
     listen: 8080,
