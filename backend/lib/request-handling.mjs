@@ -58,7 +58,7 @@ function addHandlers(app) {
   app.use(createCORSHandler(exposedHeaders));
   // compress responses here so compressed file are stored in the cache
   app.use(createCompressionHandler());
-  // validate signatures in hook requests are correct 
+  // validate signatures in hook requests are correct
   app.use(handleHookRequestValidation);
   app.use(createJSONParser());
   app.post('/-/hook/:hash', handleHookRequest);
@@ -111,7 +111,7 @@ function handleSiteAssociation(req, res, next) {
         const first = sites[0];
         if (first) {
           if (first.domains[0]) {
-            const host = attachServerPort(site.domains[0], server);
+            const host = attachServerPort(first.domains[0], server);
             res.redirect(`//${host}`);
           } else {
             res.redirect(`/${first.name}`);
@@ -185,8 +185,13 @@ function handleError(err, req, res, next) {
   if (res.headersSent) {
     return next(err)
   }
-  const { message, status = 400 } = err;
-  res.type('text').status(status).send(message);
+  if (process.env.NODE_ENV === 'production') {
+    const { message, status = 400 } = err;
+    res.type('text').status(status).send(message);
+  } else {
+    const { stack, status = 400 } = err;
+    res.type('text').status(status).send(stack);
+  }
 }
 
 /**

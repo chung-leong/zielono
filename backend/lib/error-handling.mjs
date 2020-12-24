@@ -111,8 +111,12 @@ function displayError(error, context) {
   } else {
     msg = error.message;
   }
-  if (msg) {
-    console.error(msg);
+  if (process.env.NODE_ENV === 'production') {
+    if (msg) {
+      console.error(msg);
+    }
+  } else {
+    console.error(error);
   }
 }
 

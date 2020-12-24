@@ -36,6 +36,8 @@ async function handleImageRequest(req, res, next) {
     if (meta.format !== format || operations.length > 0) {
       buffer = await transformImage(buffer, operations, format);
     }
+    const maxAge = 365 * 24 * 60 * 60;
+    res.set('Cache-control', `public, max-age=${maxAge}, immutable`);
     res.type(`image/${format}`);
     res.send(buffer);
   } catch (err) {
