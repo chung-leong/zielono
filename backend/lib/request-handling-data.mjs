@@ -70,7 +70,7 @@ async function handleDataRequest(req, res, next) {
         // load the content
         content = await loadSiteContent(site, 'data', hash, 'json');
         etag = meta.etag;
-        mtime = new Date(meta.mtime);
+        mtime = (meta.mtime) ? new Date() : null;
       }
     } else {
       // parse source file
@@ -106,6 +106,7 @@ async function handleDataRequest(req, res, next) {
       const text = JSON.stringify(json, undefined, 2);
       content = Buffer.from(text);
     }
+    res.set('Cache-control', `max-age=${file.maxAge}`);
     if (etag) {
       res.set('ETag', etag);
     }

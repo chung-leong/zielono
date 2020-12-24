@@ -22,6 +22,7 @@ async function handlePageRequest(req, res, next) {
     // TODO: this isn't right--locale should be specific to the request
     const { locale } = site;
     const { url, path } = site.page.code;
+    const { maxAge } = site.page;
     const repo = { url, path };
     const token = (url) ? await findAccessToken(url) : undefined;
     let buffer, type, etag;
@@ -45,11 +46,14 @@ async function handlePageRequest(req, res, next) {
         res.status(304).end();
         return;
       }
+      res.set('Cache-control', `max-age=${maxAge}`);
       res.set('ETag', etag);
     }
     res.type(type).send(buffer);
   } catch (err) {
     if(filename === 'favicon.ico') {
+      const maxAge = 24 * 60 * 60;
+      res.set('Cache-control', `max-age=${maxAge}`);
       res.status(204).end();
       return;
     }

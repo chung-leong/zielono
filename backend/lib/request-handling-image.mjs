@@ -38,6 +38,7 @@ async function handleImageRequest(req, res, next) {
     }
     const maxAge = 365 * 24 * 60 * 60;
     res.set('Cache-control', `public, max-age=${maxAge}, immutable`);
+    res.set('ETag', hash);
     res.type(`image/${format}`);
     res.send(buffer);
   } catch (err) {
