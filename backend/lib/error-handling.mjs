@@ -101,7 +101,11 @@ function displayError(error, context) {
         }
       }
     }
-    msg = `Error encounter in ${filename} (line ${lineno}): ${reason}`;
+    if (filename && lineno) {
+      msg = `Error encounter in ${filename} (line ${lineno}): ${reason}`;
+    } else {
+      msg = `Error encounter: ${reason}`;
+    }
   } else if (error instanceof ExpectedError) {
     return;
   } else {

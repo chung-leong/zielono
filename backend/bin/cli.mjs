@@ -7,10 +7,13 @@ import { exec } from 'child_process';
 import { Command as CommandBase } from 'commander';
 import readline from 'readline';
 import { findBestMatch } from 'string-similarity';
-import Colors from 'colors/safe.js'; const { brightBlue, brightRed, gray } = Colors;
+import kebabCase from 'lodash/kebabCase.js';
+import Colors from 'colors/safe.js'; const { brightBlue, brightRed, brightYellow, gray } = Colors;
 import { setConfigFolder, getConfigFolder, loadConfig, loadSiteConfigs, loadAccessTokens } from '../lib/config-loading.mjs';
 import { saveServerConfig, saveSiteConfig, saveAccessTokens, removeSiteConfig } from '../lib/config-saving.mjs';
 import { findPageVersions } from '../lib/page-linking.mjs';
+import { retrieveFromCloud } from '../lib/file-retrieval.mjs';
+import { findGitAdapter } from '../lib/git-adapters.mjs';
 import { displayError } from '../lib/error-handling.mjs';
 
 async function main(argv) {
@@ -75,24 +78,151 @@ async function main(argv) {
 }
 
 async function runServer() {
+  const folder = getConfigFolder();
+  const names = await readdir(folder);
+  if (!names.includes('zielono.yaml')) {
+    const msg = `Server configuration file not found in ${folder}`;
+    if (names.length > 0) {
+      throw new Error(msg);
+    }
+    console.log(msg);
+    if (await confirm(`Do you wish to create it?`, { default: false })) {
+      await addServer(true);
+    } else {
+      throw new Error;
+    }
+  }
   await import('./daemon.mjs');
 }
 
-async function addSite() {
+async function addServer() {
+  const port = await ask('Server port number: ', {
+    completer: createBasicCompleter([ '8080', '8000' ]),
+    validater: (text) => {
+      if (!/^(\d+)$/.test(text)) {
+        throw new Error('Invalid number');
+      }
+    },
+    prefilled: true
+  });
+  if (!port) {
+    return;
+  }
+  const config = {
+    listen: parseInt(port)
+  };
+  await saveServerConfig(config);
+  if (await confirm(`Do you wish to add a site?`, { default: true })) {
+    await addSite();
+  }
+}
+
+async function addSite(cmd) {
+  const genericSiteURL = 'https://github.com/chung-leong/zielono-generic-site';
+  const instruction = !cmd;
   const sites = await loadSiteConfigs();
+  print(instruction,
+    `Please provide an identifier for the new site. `
+  + `It will be used as the name of the site's config file. `
+  + `It will also appear in the site's URL--if no domain name is assigned to it.`
+  );
   const names = sites.map((s) => s.name);
   const name = await ask('Site identifier: ', {
-    validater: (name) => {
-      if (names.includes(name)) {
-        throw new Error(`Identifier "${name}" is already used by another site`);
-      } else if(/[^\w\-\.]/.test(name)) {
-        throw new Error(`Identifer should only contain alphanumeric characters, underscore, dash, and period`)
-      }
-    }
+    validater: createNameValidater(names, 'site')
   });
   if (!name) {
     return;
   }
+  const config = {};
+  print(instruction,
+    `One or more domain names can be assigned to a site. `
+  + `Separate multiple domain names with a space or comma. `
+  + `Leave this blank if you wish to add them later.`
+  );
+  const domains = await ask('Domain names: ', {});
+  if (domains) {
+    config.domains = domains.split(/,\s*|\s+/);
+  }
+  print(instruction,
+    `Excel files will be used as data sources for the site. `
+  + `They can reside on a local drive or in the Cloud.`
+  );
+  if (await confirm('Do you wish to attach an Excel file to the site?', { default: true })) {
+    print(instruction,
+      `To use a file on Dropbox or OneDrive, `
+    + `make it viewable by the public using the "Share" functionality `
+    + `then copy the URL here.`
+    );
+    const path = await ask('Local path or URL: ', {});
+    if (path) {
+      const file = {};
+      const normalizeName = (name) => {
+        const ext = extname(name);
+        return kebabCase(name.substr(0, name.length - ext.length));
+      };
+      let completer;
+      if (/^https?:/.test(path)) {
+        file.url = path;
+        let buffer;
+        completer = async (line, callback) => {
+          const completions = [];
+          if (!buffer) {
+            try {
+              buffer = await retrieveFromCloud(path, { method: 'HEAD' });
+            } catch (err) {
+            }
+          }
+          if (buffer && buffer.filename) {
+            completions.push(normalizeName(buffer.filename));
+          }
+          const hits = completions.filter((c) => c.startsWith(line));
+          callback(null, [ hits, line ]);
+        };
+      } else {
+        file.path = path;
+        const fileId = normalizeName(basename(path));
+        completer = createBasicCompleter([ fileId ]);
+      }
+      file.name = await ask('File identifier: ', {
+        required: true,
+        prefilled: true,
+        completer,
+        validater: createNameValidater([], 'file')
+      });
+      config.files = [ file ];
+    }
+  }
+  print(instruction,
+    `Zielono can render HTML pages using code stored in a Git repository. `
+  + `The repository can reside either locally or at GitHub. `
+  + `See ${genericSiteURL} for an example of the expected file structure. `
+  );
+  if (await confirm('Do you wish to attach a Git reposity to the site?', { default: true })) {
+    const paths = [];
+    for (let site of sites) {
+      if (site.page) {
+        const { code } = site.page;
+        paths.push(code.url || code.path);
+      }
+    }
+    const path = await ask('Path to working folder or URL: ', {
+      completer: createBasicCompleter(paths)
+    });
+    if (path) {
+      const code = {};
+      const key = /^https?:/.test(path) ? 'url' : 'path';
+      code[key] = path;
+      config.page = { code };
+      const adapter = findGitAdapter(code);
+      if (adapter && adapter.name === 'github') {
+        print(instruction,
+          `You will need to add a GitHub personal access token if the repository is private. `
+        + `Accessing GitHub with an access token will also reduce the likihood of being rate-limited. `
+        );
+      }
+    }
+  }
+  await saveSiteConfig(name, config);
 }
 
 async function listSites() {
@@ -238,7 +368,7 @@ async function addService() {
   const configFolder = getConfigFolder();
   const systemdFolder = '/etc/systemd/system';
   if (!existsSync(systemdFolder)) {
-    throw new Error(`The folder "${systemdFolder}" does not exist`);
+    throw new Error(`The folder ${systemdFolder} does not exist`);
   }
   await loadConfig();
   const validater = (name) => {
@@ -259,7 +389,7 @@ async function addService() {
   const name = await ask('Service identifier: ', {
     completer,
     validater,
-    prefill: true,
+    prefilled: true,
   });
   if (!name) {
     return;
@@ -311,7 +441,7 @@ async function removeService() {
   const configFolder = getConfigFolder();
   const systemdFolder = '/etc/systemd/system';
   if (!existsSync(systemdFolder)) {
-    throw new Error(`The folder "${systemdFolder}" does not exist`);
+    throw new Error(`The folder ${systemdFolder} does not exist`);
   }
   let unitFileName, serviceName;
   const names = await readdir(configFolder);
@@ -324,7 +454,7 @@ async function removeService() {
     }
   }
   if (!unitFileName) {
-    throw new Error(`No systemd unit file found in "${configFolder}"`);
+    throw new Error(`No systemd unit file found in ${configFolder}`);
   }
   const unitFilePath = join(configFolder, unitFileName);
   const symlinkPath = join(systemdFolder, unitFileName);
@@ -347,14 +477,30 @@ async function removeService() {
 }
 
 function createBasicCompleter(completions) {
+  const unique = [];
+  for (let completion of completions) {
+    if (!unique.includes(completion)) {
+      unique.push(completion);
+    }
+  }
   return (line) => {
-    const hits = completions.filter((c) => c.startsWith(line));
+    const hits = unique.filter((c) => c.startsWith(line));
     return [ hits, line ];
   };
 }
 
+function createNameValidater(names, type) {
+  return (name) => {
+    if (names.includes(name)) {
+      throw new Error(`Identifier "${name}" is already used by another ${type}`);
+    } else if(/[^\w\-\.]/.test(name)) {
+      throw new Error(`Identifer should only contain alphanumeric characters, underscore, dash, and period`);
+    }
+  };
+}
+
 async function ask(prompt, options) {
-  const { required, completer, validater, prefill } = options;
+  const { required, completer, validater, prefilled } = options;
   const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout,
@@ -378,7 +524,7 @@ async function ask(prompt, options) {
         const result = completer(rl.line);
         printPreview(result);
       } else if (completer.length === 2) {
-        completer(rl.line, (result) => printPreview(result));
+        completer(rl.line, (err, result) => printPreview(result));
       }
     }
     if (validater) {
@@ -398,7 +544,7 @@ async function ask(prompt, options) {
     error = undefined;
     answer = await new Promise((resolve) => {
       rl.question(prompt, resolve);
-      if (prefill) {
+      if (prefilled) {
         rl.write(null, { name: 'tab' });
       }
     });
@@ -415,6 +561,40 @@ async function ask(prompt, options) {
   } while (!answer && (required || error));
   rl.close();
   process.stdin.off('keypress', keypressHandler);
+  return answer;
+}
+
+async function confirm(prompt, options) {
+  const { default: defValue  } = options;
+  const rl = readline.createInterface({
+    input: process.stdin,
+    output: process.stdout,
+    terminal: true,
+  });
+  if (defValue === true) {
+    prompt +=  ' [Y/n] ';
+  } else if (defValue === false) {
+    prompt +=  ' [y/N] ';
+  } else {
+    prompt +=  ' [y/n] ';
+  }
+  let answer;
+  do {
+    answer = await new Promise((resolve) => {
+      rl.question(prompt, resolve);
+    });
+    answer = answer.trim();
+    if (/^(y|yes)$/i.test(answer)) {
+      answer = true;
+    } else if (/^(n|no)$/i.test(answer)) {
+      answer = false;
+    } else if (!answer) {
+      answer = defValue;
+    } else {
+      answer = undefined;
+    }
+  } while (answer === undefined);
+  rl.close();
   return answer;
 }
 
@@ -448,6 +628,13 @@ async function execCommands(commands, options) {
       }
     });
   });
+}
+
+function print(show, text) {
+  if (!show) {
+    return;
+  }
+  console.log(brightYellow(text));
 }
 
 class Command extends CommandBase {
