@@ -1,4 +1,4 @@
-import Chai from 'chai'; const { expect } = Chai;
+import Chai from 'chai'; const { expect, AssertionError } = Chai;
 import { createTempConfig } from './helpers/config-creation.mjs';
 import { setConfigFolder, loadServerConfig, loadSiteConfig, loadAccessTokens } from '../lib/config-loading.mjs';
 
@@ -30,9 +30,9 @@ describe('Config saving', function() {
       };
       try {
         await saveServerConfig(config);
-        this.fail();
+        expect.fail();
       } catch (err) {
-        expect(err).to.be.an('error');
+        expect(err).to.not.be.instanceOf(AssertionError);
       }
     })
   })
@@ -54,9 +54,9 @@ describe('Config saving', function() {
       };
       try {
         await saveSiteConfig('site-1', config);
-        this.fail();
+        expect.fail();
       } catch (err) {
-        expect(err).to.be.an('error');
+        expect(err).to.not.be.instanceOf(AssertionError);
       }
     })
   })
@@ -76,14 +76,13 @@ describe('Config saving', function() {
       const config = [
         {
           url: 'https://github.com/chung-leong/zielono',
-          token: 'abc'
         }
       ];
       try {
         await saveAccessTokens(config);
-        this.fail();
+        expect.fail();
       } catch (err) {
-        expect(err).to.be.an('error');
+        expect(err).to.not.be.instanceOf(AssertionError);
       }
     })
   })

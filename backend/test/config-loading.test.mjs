@@ -29,7 +29,7 @@ describe('Config loading', function() {
         nginx: undefined,
         ngrok: undefined,
         storage: {
-          path: `${tmpFolder}/zielono`
+          path: `${tmpFolder.path}/zielono`
         }
       });
     })
@@ -128,7 +128,7 @@ describe('Config loading', function() {
   describe('loadSiteConfigs()', function() {
     it('shoud load site configs', async function() {
       const sites = await loadSiteConfigs();
-      expect(sites).to.be.an('array').that.have.lengthOf(2);
+      expect(sites).to.be.an('array').that.have.lengthOf(3);
       const [ site1, site2 ] = sites;
       expect(site1).to.have.property('name', 'site1');
       expect(site1).to.have.property('domains').that.is.an('array');
@@ -162,7 +162,7 @@ describe('Config loading', function() {
     it('should load both server and site configs', async function() {
       const { server, sites } = await loadConfig();
       expect(server).to.be.an('object');
-      expect(sites).to.be.an('array').that.have.lengthOf(2);
+      expect(sites).to.be.an('array').that.have.lengthOf(3);
     })
   })
 })

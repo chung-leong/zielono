@@ -1,4 +1,4 @@
-import Chai from 'chai'; const { expect } = Chai;
+import Chai from 'chai'; const { expect, AssertionError } = Chai;
 import { createTempConfig } from './helpers/config-creation.mjs';
 import { loadAsset } from './helpers/file-loading.mjs';
 import { loadConfig, findSiteConfig } from '../lib/config-loading.mjs';
@@ -121,9 +121,9 @@ describe('Content saving', function() {
       await removeServerContent('text', hash, 'txt');
       try {
         await loadServerContent('text', hash, 'txt');
-        this.fail();
+        expect.fail();
       } catch (err) {
-        expect(err).to.be.an('error');
+        expect(err).to.not.be.instanceOf(AssertionError);
       }
     })
     it('should not throw by default', async function() {
@@ -131,9 +131,9 @@ describe('Content saving', function() {
       await removeServerContent('text', hash, 'txt');
       try {
         await loadServerContent('text', hash, 'txt', { ignoreError: false });
-        this.fail();
+        expect.fail();
       } catch (err) {
-        expect(err).to.be.an('error');
+        expect(err).to.not.be.instanceOf(AssertionError);
       }
     })
   })
@@ -148,9 +148,9 @@ describe('Content saving', function() {
       await removeServerContentMeta('text', hash);
       try {
         await loadServerContentMeta('text', hash);
-        this.fail();
+        expect.fail();
       } catch (err) {
-        expect(err).to.be.an('error');
+        expect(err).to.not.be.instanceOf(AssertionError);
       }
     })
   })
@@ -165,9 +165,9 @@ describe('Content saving', function() {
       await removeSiteContent(site, 'text', hash, 'txt');
       try {
         await loadSiteContent(site, 'text', hash, 'txt');
-        this.fail();
+        expect.fail();
       } catch (err) {
-        expect(err).to.be.an('error');
+        expect(err).to.not.be.instanceOf(AssertionError);
       }
     })
   })
@@ -183,9 +183,9 @@ describe('Content saving', function() {
       await removeSiteContentMeta(site, 'text', hash);
       try {
         await loadSiteContentMeta(site, 'text', hash);
-        this.fail();
+        expect.fail();
       } catch (err) {
-        expect(err).to.be.an('error');
+        expect(err).to.not.be.instanceOf(AssertionError);
       }
     })
   })

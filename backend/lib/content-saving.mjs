@@ -1,4 +1,4 @@
-import Fs from 'fs'; const { writeFile, stat } = Fs.promises;
+import Fs from 'fs'; const { writeFile, stat, unlink } = Fs.promises;
 import { EventEmitter } from 'events';
 import mkdirp from 'mkdirp';
 import { dirname } from 'path';
