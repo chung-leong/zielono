@@ -113,6 +113,7 @@ async function handleDataRequest(req, res, next) {
     if (mtime) {
       res.set('Last-modified', mtime.toUTCString());
     }
+    res.set('Content-Length', content.length);
     res.type('text').send(content);
   } catch (err) {
     next(err);

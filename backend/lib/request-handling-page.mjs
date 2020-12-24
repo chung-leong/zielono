@@ -49,6 +49,7 @@ async function handlePageRequest(req, res, next) {
       res.set('Cache-control', `max-age=${maxAge}`);
       res.set('ETag', etag);
     }
+    res.set('Content-Length', buffer.length);
     res.type(type).send(buffer);
   } catch (err) {
     if(filename === 'favicon.ico') {

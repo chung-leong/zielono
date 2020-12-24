@@ -40,6 +40,7 @@ async function handleImageRequest(req, res, next) {
     res.set('Cache-control', `public, max-age=${maxAge}, immutable`);
     res.set('ETag', hash);
     res.type(`image/${format}`);
+    res.set('Content-Length', buffer.length);
     res.send(buffer);
   } catch (err) {
     next(err);
