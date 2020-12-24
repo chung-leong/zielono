@@ -30,7 +30,9 @@ async function unwatchGitRepos() {
 }
 
 async function handleSiteChange(before, after) {
-  if (!before || !after || !isEqual(before.code, after.code)) {
+  const codeBefore = (before && before.page) ? before.page.code : null;
+  const codeAfter = (after && after.page) ? after.page.code : null;
+  if (!isEqual(codeBefore, codeAfter)) {
     try {
       await adjustGitWatches();
     } catch (err) {
@@ -47,8 +49,8 @@ async function adjustGitWatches(shutdown = false, attempts = 0) {
   if (!shutdown) {
     const sites = findSiteConfigs();
     for (let site of sites) {
-      if (site.code) {
-        const { url, path } = site.code;
+      if (site.page) {
+        const { url, path } = site.page.code;
         if (!needed.find((c) => c.url === url && c.path === path)) {
           needed.push({ url, path });
         }
@@ -98,8 +100,11 @@ async function adjustGitWatches(shutdown = false, attempts = 0) {
         try {
           const sites = findSiteConfigs();
           for (let site of sites) {
-            if (site.code.url === url && site.code.path === path) {
-              gitEventEmitter.emit('code-change', before, after, site);
+            if (site.page) {
+              const { code } = site.page;
+              if (code.url === url && code.path === path) {
+                gitEventEmitter.emit('code-change', before, after, site);
+              }
             }
           }
         } catch (err) {

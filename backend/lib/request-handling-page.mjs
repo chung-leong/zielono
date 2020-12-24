@@ -16,12 +16,12 @@ async function handlePageRequest(req, res, next) {
   const { page, filename } = req.params;
   const { site, ref } = req;
   try {
-    if (!site || !site.code) {
+    if (!site || !site.page) {
       throw new HttpError(404);
     }
     // TODO: this isn't right--locale should be specific to the request
     const { locale } = site;
-    const { url, path } = site.code;
+    const { url, path } = site.page.code;
     const repo = { url, path };
     const token = (url) ? await findAccessToken(url) : undefined;
     let buffer, type, etag;

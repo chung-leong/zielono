@@ -25,7 +25,7 @@ describe('Config watching', function() {
             change = { before, after };
           });
         });
-        await saveYAML(tmpFolder, 'site3', {});
+        await saveYAML(tmpFolder, 'site4', {});
         await Promise.race([ event, delay(500) ]);
         expect(change).to.have.property('before', undefined);
         expect(change).to.have.property('after').that.is.an('object');

@@ -17,9 +17,11 @@ describe('Page request handling', function() {
     it('should retrieve file from local git', async function() {
       const site = {
         name: 'tmp',
-        code: {
-          path: '/home/cleong/zielono-generic-site'
-        },
+        page: {
+          code: {
+            path: '/home/cleong/zielono-generic-site'
+          },
+        }
       };
       const req = createRequest({
         ref: undefined,
@@ -35,9 +37,11 @@ describe('Page request handling', function() {
     it('should respond to request for non-existent favicon.ico with 204', async function() {
       const site = {
         name: 'tmp',
-        code: {
-          path: '/home/cleong/zielono-generic-site'
-        },
+        page: {
+          code: {
+            path: '/home/cleong/zielono-generic-site'
+          },
+        }
       };
       const req = createRequest({
         ref: undefined,
@@ -51,9 +55,11 @@ describe('Page request handling', function() {
     it('should generate a HTML page from code in local git', async function() {
       const site = {
         name: 'tmp',
-        code: {
-          path: '/home/cleong/zielono-generic-site'
-        },
+        page: {
+          code: {
+            path: '/home/cleong/zielono-generic-site'
+          },
+        }
       };
       const req = createRequest({
         ref: undefined,

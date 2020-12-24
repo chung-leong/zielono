@@ -239,28 +239,32 @@ function processSiteConfig(name, config) {
         // path resolve against config folder
         path: string().optional().coerce(string(), (path) => resolve(folder, path)),
         url: string().optional(),
+        locale: string().optional(),
         timeZone: define('time zone', checkTimeZone).optional(),
         headers: boolean().defaulted(true),
+        maxAge: number().defaulted(5 * 60),
       }).refine('url-or-path', urlOrPath),
     ).defaulted([]),
-    locale: string().optional(),
     storage: object({
       path: string().optional().coerce(string(), (path) => resolve(folder, path)),
     }).defaulted({
       path: resolve(folder, name)
     }),
-    code: object({
-      path: string().optional().coerce(string(), (path) => resolve(folder, path)),
-      url: string().optional(),
-      ref: string().optional().coerce(string(), (name) => {
-        if (!/^(heads|tags)\b/.test(name)) {
-          if (!/^[a-f0-9]{40}$/.test(name)) {
-            return `heads/${name}`;
+    page: object({
+      code: object({
+        path: string().optional().coerce(string(), (path) => resolve(folder, path)),
+        url: string().optional(),
+        ref: string().optional().coerce(string(), (name) => {
+          if (!/^(heads|tags)\b/.test(name)) {
+            if (!/^[a-f0-9]{40}$/.test(name)) {
+              return `heads/${name}`;
+            }
           }
-        }
-        return name
-      }),
-    }).optional().refine('url-or-path', urlOrPath)
+          return name
+        }),
+      }).refine('url-or-path', urlOrPath),
+      maxAge: number().defaulted(30 * 60),
+    }).optional(),
   });
   return create({ name, ...config }, siteDef);
 }

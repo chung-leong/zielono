@@ -107,7 +107,9 @@ function displayError(error, context) {
   } else {
     msg = error.message;
   }
-  console.error(msg);
+  if (msg) {
+    console.error(msg);
+  }
 }
 
 export {

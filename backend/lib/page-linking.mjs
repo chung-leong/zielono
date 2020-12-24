@@ -6,11 +6,11 @@ import { findServerConfig } from './config-loading.mjs';
 
 async function findPageVersions(site, options) {
   const { useRef } = options;
-  if (!site.code) {
-    throw new Error(`Site "${site.name}" does not have a code section`);
+  if (!site.page) {
+    throw new Error(`Site "${site.name}" is not configured for web-page generation`);
   }
   const folder = ssrRootFolder;
-  const { url, path } = site.code;
+  const { url, path } = site.page.code;
   const repo = { url, path };
   const adapter = findGitAdapter(repo);
   if (!adapter) {
@@ -20,7 +20,7 @@ async function findPageVersions(site, options) {
   const token = (url) ? findAccessToken(url) : undefined;
   const codeVersions = await adapter.retrieveVersions(folder, repo, { token });
   const versionRefs = (useRef) ? await adapter.retrieveVersionRefs(folder, repo, { token }) : {};
-  let defaultRef = site.code.ref;
+  let defaultRef = site.page.code.ref;
   if (useRef && !defaultRef) {
     // need to know the default branch
     defaultRef = await adapter.getDefaultBranch(repo, { token });

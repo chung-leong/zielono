@@ -90,9 +90,11 @@ describe('Page linking', function() {
         }
       });
       await saveYAML(tmpFolder, 'site-1', {
-        code: {
-          path: getGenericCodePath(),
-          ref: 'main'
+        page: {
+          code: {
+            path: getGenericCodePath(),
+            ref: 'main'
+          }
         }
       });
       await loadConfig(tmpFolder.path);
@@ -110,8 +112,10 @@ describe('Page linking', function() {
         }
       });
       await saveYAML(tmpFolder, 'site-1', {
-        code: {
-          path: getGenericCodePath(),
+        page: {
+          code: {
+            path: getGenericCodePath(),
+          }
         }
       });
       await loadConfig(tmpFolder.path);
@@ -129,9 +133,11 @@ describe('Page linking', function() {
         }
       });
       await saveYAML(tmpFolder, 'site-1', {
-        code: {
-          path: getGenericCodePath(),
-          ref: 'v1.0'
+        page: {
+          code: {
+            path: getGenericCodePath(),
+            ref: 'v1.0'
+          }
         }
       });
       await loadConfig(tmpFolder.path);
