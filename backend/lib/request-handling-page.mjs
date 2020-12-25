@@ -1,6 +1,7 @@
 import { retrieveFromGit } from './file-retrieval.mjs';
 import { generatePage } from './page-generation.mjs';
 import { findAccessToken } from './config-loading.mjs';
+import { getSiteURL } from './page-linking.mjs';
 import { getHash }  from './content-naming.mjs';
 import { HttpError } from './error-handling.mjs';
 import { extname } from 'path';
@@ -14,13 +15,11 @@ import { extname } from 'path';
  */
 async function handlePageRequest(req, res, next) {
   const { page, filename } = req.params;
-  const { site, ref } = req;
+  const { site, ref, locale, query } = req;
   try {
     if (!site || !site.page) {
       throw new HttpError(404);
     }
-    // TODO: this isn't right--locale should be specific to the request
-    const { locale } = site;
     const { url, path } = site.page.code;
     const { maxAge } = site.page;
     const repo = { url, path };
@@ -29,7 +28,13 @@ async function handlePageRequest(req, res, next) {
     if (page !== undefined) {
       // a page request--render it on server side
       // the following object will be passed to the SSR code
-      const params = { path: page };
+      const siteURL = getSiteURL(site);
+      const params = {
+        baseURL: siteURL.pathname,
+        path: page,
+        query,
+        locale,
+      };
       const { html, sources } = await generatePage(params, repo, { token, ref, locale });
       buffer = Buffer.from(html);
       type = 'html';

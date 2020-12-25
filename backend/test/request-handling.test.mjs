@@ -14,6 +14,7 @@ import {
   handleSiteAssociation,
   handleRedirection,
   handleRefExtraction,
+  handleLocaleExtraction,
   handleResourceRedirection,
   handleInvalidRequest,
   handleError,
@@ -241,6 +242,134 @@ describe('Request handling', function() {
       handleRefExtraction(req, res, next);
       expect(req.url).to.equal('/somewhere/else/');
       expect(req.ref).to.equal('heads/main');
+    })
+  })
+  describe('handleLocaleExtraction()', function() {
+    it('should extract locale code from URL', function() {
+      const req = createRequest({
+        port: 80,
+        site: {
+          name: 'site1',
+          domains: [],
+          locale: 'en-US',
+          localization: 'language'
+        },
+        url: '/de-de/somewhere/out/there',
+        originalUrl: '/de-de/site1/somewhere/out/there?okay=1',
+        baseUrl: '/site1',
+        query: { okay: '1' },
+        params: {},
+        headers: {
+          'accept-language': 'en-US,en;q=0.9,pl;q=0.8'
+        },
+      });
+      const res = createResponse();
+      handleRedirection(req, res, () => {});
+      handleLocaleExtraction(req, res, next);
+      expect(req).to.have.property('locale', 'de-de');
+      expect(req).to.have.property('url', '/somewhere/out/there');
+      expect(nextCalled).to.be.true;
+    })
+    it('should extract language code from URL', function() {
+      const req = createRequest({
+        port: 80,
+        site: {
+          name: 'site1',
+          domains: [],
+          locale: 'en-US',
+          localization: 'language'
+        },
+        url: '/de/somewhere/out/there',
+        originalUrl: '/de/site1/somewhere/out/there?okay=1',
+        baseUrl: '/site1',
+        query: { okay: '1' },
+        params: {},
+        headers: {
+          'accept-language': 'en-US,en;q=0.9,pl;q=0.8'
+        },
+      });
+      const res = createResponse();
+      handleRedirection(req, res, () => {});
+      handleLocaleExtraction(req, res, next);
+      expect(req).to.have.property('locale', 'de');
+      expect(req).to.have.property('url', '/somewhere/out/there');
+      expect(nextCalled).to.be.true;
+    })
+    it('should redirect to language specific page', function() {
+      const req = createRequest({
+        port: 80,
+        site: {
+          name: 'site1',
+          domains: [],
+          locale: 'de-DE',
+          localization: 'language'
+        },
+        url: '/somewhere/out/there',
+        originalUrl: '/site1/somewhere/out/there?okay=1',
+        baseUrl: '/site1',
+        query: { okay: '1' },
+        params: {},
+        headers: {
+          'accept-language': 'en-US,en;q=0.9,pl;q=0.8'
+        },
+      });
+      const res = createResponse();
+      handleRedirection(req, res, () => {});
+      handleLocaleExtraction(req, res, next);
+      expect(res.statusCode).to.equal(302);
+      expect(res._getRedirectUrl()).to.equal('/site1/en/somewhere/out/there?okay=1');
+      expect(nextCalled).to.be.false;
+    })
+    it('should not redirect when language matches but country does not', function() {
+      const req = createRequest({
+        port: 80,
+        site: {
+          name: 'site1',
+          domains: [],
+          locale: 'en-GB',
+          localization: 'language'
+        },
+        url: '/somewhere/out/there',
+        originalUrl: '/site1/somewhere/out/there?okay=1',
+        baseUrl: '/site1',
+        query: { okay: '1' },
+        params: {},
+        headers: {
+          'accept-language': 'en-US,en;q=0.9,pl;q=0.8'
+        },
+      });
+      const res = createResponse();
+      handleRedirection(req, res, () => {});
+      handleLocaleExtraction(req, res, next);
+      expect(req.locale).to.equal('en-GB');
+      expect(req.url).to.equal('/somewhere/out/there');
+      expect(res.statusCode).to.not.equal(302);
+      expect(nextCalled).to.be.true;
+    })
+    it('should redirect when only language matches when localization = full', function() {
+      const req = createRequest({
+        port: 80,
+        site: {
+          name: 'site1',
+          domains: [],
+          locale: 'en-GB',
+          localization: 'full'
+        },
+        url: '/somewhere/out/there',
+        originalUrl: '/site1/somewhere/out/there?okay=1',
+        baseUrl: '/site1',
+        query: { okay: '1' },
+        params: {},
+        headers: {
+          'accept-language': 'en-US,en;q=0.9,pl;q=0.8'
+        },
+      });
+      const res = createResponse();
+      handleRedirection(req, res, () => {});
+      handleLocaleExtraction(req, res, next);
+      expect(res.statusCode).to.equal(302);
+      expect(res._getRedirectUrl()).to.equal('/site1/en-us/somewhere/out/there?okay=1');
+      expect(nextCalled).to.be.false;
     })
   })
   describe('handleResourceRedirection()', function() {

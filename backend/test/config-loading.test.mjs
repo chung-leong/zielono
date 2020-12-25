@@ -59,6 +59,8 @@ describe('Config loading', function() {
         files: [],
         storage: { path: `${tmpFolder.path}/hello` },
         page: undefined,
+        locale: undefined,
+        localization: 'language',
       });
     })
     it('should throw when required field is missing', function() {

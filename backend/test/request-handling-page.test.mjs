@@ -1,6 +1,7 @@
 import Chai from 'chai'; const { expect } = Chai;
 import HttpMocks from 'node-mocks-http'; const { createRequest, createResponse } = HttpMocks;
 import { createTempFolder } from './helpers/file-saving.mjs'
+import { setServerConfig } from '../lib/config-loading.mjs';
 import './helpers/conditional-testing.mjs';
 
 import {
@@ -9,6 +10,9 @@ import {
 
 describe('Page request handling', function() {
   describe('handlePageRequest()', function() {
+    before(function() {
+      setServerConfig({ listen: [ 8080 ] });
+    })
     const next = (err) => {
       if (err) {
         throw err;
@@ -17,6 +21,7 @@ describe('Page request handling', function() {
     it('should retrieve file from local git', async function() {
       const site = {
         name: 'tmp',
+        domains: [],
         page: {
           code: {
             path: '/home/cleong/zielono-generic-site'
@@ -37,6 +42,7 @@ describe('Page request handling', function() {
     it('should respond to request for non-existent favicon.ico with 204', async function() {
       const site = {
         name: 'tmp',
+        domains: [],
         page: {
           code: {
             path: '/home/cleong/zielono-generic-site'
@@ -55,6 +61,7 @@ describe('Page request handling', function() {
     it('should generate a HTML page from code in local git', async function() {
       const site = {
         name: 'tmp',
+        domains: [],
         page: {
           code: {
             path: '/home/cleong/zielono-generic-site'

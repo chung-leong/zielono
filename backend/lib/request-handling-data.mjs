@@ -75,7 +75,8 @@ async function handleDataRequest(req, res, next) {
       }
     } else {
       // parse source file
-      const { timeZone, locale, headers } = file;
+      const { locale: defLocale } = site;
+      const { timeZone, locale = defLocale, headers } = file;
       const { filename } = sourceFile;
       let json, etime;
       if (/\.json$/i.test(filename)) {

@@ -233,6 +233,8 @@ function processSiteConfig(name, config) {
   const siteDef = object({
     name: string(),
     domains: array(string()).defaulted([]),
+    locale: string().optional(),
+    localization: string().defaulted('language'),
     files: array(
       object({
         name: string(),

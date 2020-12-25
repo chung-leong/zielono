@@ -66,17 +66,25 @@ function addHandlers(app) {
   app.use(handleRedirection);
   app.use(handleSiteAssociation);
   app.use('/zielono', handleAdminRequest);
-  app.use(handleRefExtraction);
   app.use('/:page(*)/:resource(-/*)', handleResourceRedirection);
   app.get('/-/data/:name', handleDataRequest);
   app.get('/-/images/:hash/:filename?', handleImageRequest);
   app.get('/-/*', handleInvalidRequest);
+  app.use(handleRefExtraction);
+  app.use(handleLocaleExtraction);
   app.use('/:page(*)/:resource(*.*)', handleResourceRedirection);
   app.get('/:filename(*.*)', handlePageRequest);
   app.get('/:page(*)', handlePageRequest);
   app.use(handleError);
 }
 
+/**
+ * Attach custom verion of res.redirect()
+ *
+ * @param  {Request}  req
+ * @param  {Response} res
+ * @param  {function} next
+ */
 function handleRedirection(req, res, next) {
   const f = res.redirect;
   res.redirect = function(url, options = {}) {
@@ -158,8 +166,66 @@ function handleRefExtraction(req, res, next) {
   const { url } = req;
   const m = /^\/\(([^\)\s]+)\)/.exec(url);
   if (m) {
-    req.ref= m[1];
+    req.ref = m[1];
     req.url = url.substr(m[0].length);
+  }
+  next();
+}
+
+/**
+ * Extract locale code from URL, redirecting if it's absent and user preference does
+ * not match default site locale
+ *
+ * @param  {Request}  req
+ * @param  {Response} res
+ * @param  {function} next
+ */
+function handleLocaleExtraction(req, res, next) {
+  const { site, url, query } = req;
+  if (site && site.locale && site.localization !== 'off') {
+    const m = /^\/([a-z]{2}(\-[a-z]{2})?)\b/i.exec(url);
+    if (m) {
+      req.locale = m[1];
+      req.url = url.substr(m[0].length);
+    } else {
+      req.locale = site.locale;
+      // see if we should redirect to foreign language version
+      const accepted = req.headers['accept-language'];
+      const locales = [];
+      if (accepted) {
+        for (let token of accepted.split(/\s*,\s*/)) {
+          const m = /([^;]+);q=(.*)/.exec(token);
+          const code = (m) ? m[1] : token;
+          const qFactor = (m) ? parseFloat(m[2]) : 1;
+          const [ language, country ] = code.toLowerCase().split('-');
+          if (site.localization === 'full') {
+            // don't include country-less entry when there's one of that language already
+            if (!country) {
+              if (locales.find((l) => l.language === language)) {
+                continue;
+              }
+            }
+          }
+          locales.push({ language, country, qFactor });
+        }
+      }
+      const [ siteLanguage, siteCountry ] = site.locale.toLowerCase().split('-');
+      const match = locales.find(({ language, country }) => {
+        if (site.localization === 'full' && country && siteCountry) {
+          return (language === siteLanguage && country === siteCountry);
+        } else {
+          return (language === siteLanguage);
+        }
+      });
+      if (!match && locales.length > 0) {
+        locales.sort((a, b) => b.qFactor - a.qFactor);
+        const { language, country } = locales[0];
+        const prefix = (site.localization === 'full' && country) ? `/${language}-${country}` : `/${language}`;
+        const urlParts = getSiteURL(site, prefix + url, query);
+        res.redirect(urlParts);
+        return;
+      }
+    }
   }
   next();
 }
@@ -222,6 +288,7 @@ export {
   handleRedirection,
   handleSiteAssociation,
   handleRefExtraction,
+  handleLocaleExtraction,
   handleResourceRedirection,
   handleInvalidRequest,
   handleError,
