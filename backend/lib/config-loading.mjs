@@ -302,6 +302,10 @@ function findLineNumber(text, path) {
   return 0;
 }
 
+function setServerConfig(config) {
+  serverConfig = config;
+}
+
 export {
   setConfigFolder,
   getConfigFolder,
@@ -321,4 +325,5 @@ export {
   removeServerConfig,
   removeSiteConfig,
   removeAccessTokens,
+  setServerConfig,
 };

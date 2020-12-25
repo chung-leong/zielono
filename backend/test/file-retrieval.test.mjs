@@ -76,7 +76,7 @@ describe('File retrieval', function() {
     it('should pull code from a private repo on GitHub', function() {
       const { hello } = requireGit('./hello.js');
       const result = hello('Sam');
-      expect(result).to.eql('Hello, Sam!');
+      expect(result).to.equal('Hello, Sam!');
     })
     after(function() {
       restoreRequire();
@@ -86,17 +86,17 @@ describe('File retrieval', function() {
     it('should return download URL for file on Dropbox', function() {
       const url = 'https://www.dropbox.com/s/4krscr943y90gd8/hello.json?dl=0';
       const result = getDownloadURL(url);
-      expect(result).to.eql('https://www.dropbox.com/s/4krscr943y90gd8/hello.json?dl=1');
+      expect(result).to.equal('https://www.dropbox.com/s/4krscr943y90gd8/hello.json?dl=1');
     })
     it ('should return download URL for file on OneDrive', function() {
       const url = 'https://1drv.ms/u/s!AvWf91TkbQTjhNZNVr8WG9PL-gdaYQ?e=pLFRfZ';
       const result = getDownloadURL(url);
-      expect(result).to.eql('https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3UvcyFBdldmOTFUa2JRVGpoTlpOVnI4V0c5UEwtZ2RhWVE_ZT1wTEZSZlo/root/content');
+      expect(result).to.equal('https://api.onedrive.com/v1.0/shares/u!aHR0cHM6Ly8xZHJ2Lm1zL3UvcyFBdldmOTFUa2JRVGpoTlpOVnI4V0c5UEwtZ2RhWVE_ZT1wTEZSZlo/root/content');
     })
     it ('should return unrecognized URL as is', function() {
       const url = 'https://somewhere.com';
       const result = getDownloadURL(url);
-      expect(result).to.eql('https://somewhere.com');
+      expect(result).to.equal('https://somewhere.com');
     })
   })
   skip.if.watching.

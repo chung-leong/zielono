@@ -44,15 +44,15 @@ describe('Excel data formatting', function() {
         return formatter.format(number);
       };
       it('should handle fixed denominator', function() {
-        expect(f(1.95, '?/100', {})).to.eql('95/100');
-        expect(f(1.24, '?/4', {})).to.eql('1/4');
-        expect(f(1.10, '?/4', {})).to.eql('   ');
-        expect(f(1.30, '?/3', {})).to.eql('1/3');
+        expect(f(1.95, '?/100', {})).to.equal('95/100');
+        expect(f(1.24, '?/4', {})).to.equal('1/4');
+        expect(f(1.10, '?/4', {})).to.equal('   ');
+        expect(f(1.30, '?/3', {})).to.equal('1/3');
       })
       it('should handle variable denominator', function() {
-        expect(f(1.95, '?/?', {})).to.eql('   ');
-        expect(f(1.95, '??/??', {})).to.eql('19/20');
-        expect(f(1.272, '??/???', {})).to.eql('34/125');
+        expect(f(1.95, '?/?', {})).to.equal('   ');
+        expect(f(1.95, '??/??', {})).to.equal('19/20');
+        expect(f(1.272, '??/???', {})).to.equal('34/125');
       })
     })
   })
@@ -63,55 +63,55 @@ describe('Excel data formatting', function() {
         return formatter.format(number);
       };
       it('should handle patterns with no decimal point', function() {
-        expect(f(0.123, '0', { locale: 'en-us', signDisplay: 'auto' })).to.eql('0');
-        expect(f(100.123, '0', { locale: 'en-us', signDisplay: 'auto' })).to.eql('100');
-        expect(f(1.59, '0', { locale: 'en-us', signDisplay: 'auto' })).to.eql('2');
+        expect(f(0.123, '0', { locale: 'en-us', signDisplay: 'auto' })).to.equal('0');
+        expect(f(100.123, '0', { locale: 'en-us', signDisplay: 'auto' })).to.equal('100');
+        expect(f(1.59, '0', { locale: 'en-us', signDisplay: 'auto' })).to.equal('2');
       })
       it('should handle patterns with decimal digits', function() {
-        expect(f(0.123, '0.00', { locale: 'en-us', signDisplay: 'auto' })).to.eql('0.12');
-        expect(f(100.123, '0.00##', { locale: 'en-us', signDisplay: 'auto' })).to.eql('100.123');
-        expect(f(1.59, '0.0', { locale: 'en-us', signDisplay: 'auto' })).to.eql('1.6');
+        expect(f(0.123, '0.00', { locale: 'en-us', signDisplay: 'auto' })).to.equal('0.12');
+        expect(f(100.123, '0.00##', { locale: 'en-us', signDisplay: 'auto' })).to.equal('100.123');
+        expect(f(1.59, '0.0', { locale: 'en-us', signDisplay: 'auto' })).to.equal('1.6');
       })
       it('should add leading zeros', function() {
-        expect(f(0.123, '0000.00', { locale: 'en-us', signDisplay: 'auto' })).to.eql('0000.12');
-        expect(f(100.123, '0000.00#', { locale: 'en-us', signDisplay: 'auto' })).to.eql('0100.123');
-        expect(f(-1.59, '0000', { locale: 'en-us', signDisplay: 'auto' })).to.eql('-0002');
+        expect(f(0.123, '0000.00', { locale: 'en-us', signDisplay: 'auto' })).to.equal('0000.12');
+        expect(f(100.123, '0000.00#', { locale: 'en-us', signDisplay: 'auto' })).to.equal('0100.123');
+        expect(f(-1.59, '0000', { locale: 'en-us', signDisplay: 'auto' })).to.equal('-0002');
       })
       it('should omit sign when directed', function() {
-        expect(f(-1.59, '0000', { locale: 'en-us', signDisplay: 'never' })).to.eql('0002');
+        expect(f(-1.59, '0000', { locale: 'en-us', signDisplay: 'never' })).to.equal('0002');
       })
       it('should handle zero integer digit pattern', function() {
-        expect(f(0.123, '#.00', { locale: 'en-us', signDisplay: 'auto' })).to.eql('.12');
-        expect(f(-0.123, '#.00', { locale: 'en-us', signDisplay: 'auto' })).to.eql('-.12');
-        expect(f(0.123, '#', { locale: 'en-us', signDisplay: 'auto' })).to.eql('');
-        expect(f(-0.123, '#', { locale: 'en-us', signDisplay: 'auto' })).to.eql('');
+        expect(f(0.123, '#.00', { locale: 'en-us', signDisplay: 'auto' })).to.equal('.12');
+        expect(f(-0.123, '#.00', { locale: 'en-us', signDisplay: 'auto' })).to.equal('-.12');
+        expect(f(0.123, '#', { locale: 'en-us', signDisplay: 'auto' })).to.equal('');
+        expect(f(-0.123, '#', { locale: 'en-us', signDisplay: 'auto' })).to.equal('');
       })
       it('should handle pattern with digit grouping', function() {
-        expect(f(1000000, '#,##0', { locale: 'en-us', signDisplay: 'auto' })).to.eql('1,000,000');
-        expect(f(1000000, '#,##0', { locale: 'pl-pl', signDisplay: 'auto' })).to.eql('1\u00a0000\u00a0000');
-        expect(f(1000000, '#,##0', { locale: 'de-de', signDisplay: 'auto' })).to.eql('1.000.000');
-        expect(f(1000000, '#,##0', { locale: 'fr-fr', signDisplay: 'auto' })).to.eql('1\u202f000\u202f000');
+        expect(f(1000000, '#,##0', { locale: 'en-us', signDisplay: 'auto' })).to.equal('1,000,000');
+        expect(f(1000000, '#,##0', { locale: 'pl-pl', signDisplay: 'auto' })).to.equal('1\u00a0000\u00a0000');
+        expect(f(1000000, '#,##0', { locale: 'de-de', signDisplay: 'auto' })).to.equal('1.000.000');
+        expect(f(1000000, '#,##0', { locale: 'fr-fr', signDisplay: 'auto' })).to.equal('1\u202f000\u202f000');
       })
       it('should handle scientific notation', function() {
-        expect(f(1500000, '0.00E+0', { locale: 'en-us', signDisplay: 'auto' })).to.eql('1.50E+6');
-        expect(f(1500000, '0.00E+00', { locale: 'en-us', signDisplay: 'auto' })).to.eql('1.50E+06');
-        expect(f(1500000, '0.00e+0', { locale: 'en-us', signDisplay: 'auto' })).to.eql('1.50e+6');
-        expect(f(1500000, '0.00e+00', { locale: 'en-us', signDisplay: 'auto' })).to.eql('1.50e+06');
+        expect(f(1500000, '0.00E+0', { locale: 'en-us', signDisplay: 'auto' })).to.equal('1.50E+6');
+        expect(f(1500000, '0.00E+00', { locale: 'en-us', signDisplay: 'auto' })).to.equal('1.50E+06');
+        expect(f(1500000, '0.00e+0', { locale: 'en-us', signDisplay: 'auto' })).to.equal('1.50e+6');
+        expect(f(1500000, '0.00e+00', { locale: 'en-us', signDisplay: 'auto' })).to.equal('1.50e+06');
       })
       it('should handle scientific notation', function() {
-        expect(f(150000, '##0.0E+0', { locale: 'en-us', signDisplay: 'auto' })).to.eql('150.0E+3');
-        expect(f(150000, '##0.00E+00', { locale: 'en-us', signDisplay: 'auto' })).to.eql('150.00E+03');
+        expect(f(150000, '##0.0E+0', { locale: 'en-us', signDisplay: 'auto' })).to.equal('150.0E+3');
+        expect(f(150000, '##0.00E+00', { locale: 'en-us', signDisplay: 'auto' })).to.equal('150.00E+03');
       })
       it('should handle irregular patterns', function() {
-        expect(f(123456789, '000-000-000', { locale: 'en-us', signDisplay: 'auto' })).to.eql('123-456-789');
-        expect(f(789123456789, '000-000-000', { locale: 'en-us', signDisplay: 'auto' })).to.eql('789123-456-789');
-        expect(f(-789123456789, '000-000-000', { locale: 'en-us', signDisplay: 'auto' })).to.eql('-789123-456-789');
-        expect(f(1234567890.123, '000.000.000.000', { locale: 'en-us', signDisplay: 'auto' })).to.eql('1234567890.123.000.000');
-        expect(f(789, '000-000-000', { locale: 'en-us', signDisplay: 'auto' })).to.eql('000-000-789');
-        expect(f(789, '###-###-000', { locale: 'en-us', signDisplay: 'auto' })).to.eql('--789');
-        expect(f(12.3456, '0.00 h 000', { locale: 'en-us', signDisplay: 'auto' })).to.eql('12.34 h 560');
-        expect(f(150000, '##0.0   E+0', { locale: 'en-us', signDisplay: 'auto' })).to.eql('150.0   E+3');
-        expect(f(150000, '##0.00   E+00', { locale: 'en-us', signDisplay: 'auto' })).to.eql('150.00   E+03');
+        expect(f(123456789, '000-000-000', { locale: 'en-us', signDisplay: 'auto' })).to.equal('123-456-789');
+        expect(f(789123456789, '000-000-000', { locale: 'en-us', signDisplay: 'auto' })).to.equal('789123-456-789');
+        expect(f(-789123456789, '000-000-000', { locale: 'en-us', signDisplay: 'auto' })).to.equal('-789123-456-789');
+        expect(f(1234567890.123, '000.000.000.000', { locale: 'en-us', signDisplay: 'auto' })).to.equal('1234567890.123.000.000');
+        expect(f(789, '000-000-000', { locale: 'en-us', signDisplay: 'auto' })).to.equal('000-000-789');
+        expect(f(789, '###-###-000', { locale: 'en-us', signDisplay: 'auto' })).to.equal('--789');
+        expect(f(12.3456, '0.00 h 000', { locale: 'en-us', signDisplay: 'auto' })).to.equal('12.34 h 560');
+        expect(f(150000, '##0.0   E+0', { locale: 'en-us', signDisplay: 'auto' })).to.equal('150.0   E+3');
+        expect(f(150000, '##0.00   E+00', { locale: 'en-us', signDisplay: 'auto' })).to.equal('150.00   E+03');
       });
     })
   });

@@ -46,30 +46,30 @@ describe('Excel parsing', function() {
       sushi = await loadExcelFile('sushi.xlsx');
     })
     it('should correctly extract metadata', function() {
-      expect(sample.title).to.eql('This is a title');
-      expect(sample.subject).to.eql('This is the subject');
-      expect(sample.description).to.eql('This is a description!');
-      expect(sample.keywords).to.eql('chicken duck morons');
-      expect(sample.category).to.eql('Category');
-      expect(sample.status).to.eql('ready');
+      expect(sample.title).to.equal('This is a title');
+      expect(sample.subject).to.equal('This is the subject');
+      expect(sample.description).to.equal('This is a description!');
+      expect(sample.keywords).to.equal('chicken duck morons');
+      expect(sample.category).to.equal('Category');
+      expect(sample.status).to.equal('ready');
     })
     it('should ignore empty and hidden sheets', function() {
       expect(sample.sheets).to.have.lengthOf(5);
     })
     it('should extract flags from sheet names', function() {
       const sheet1 = sample.sheets[0];
-      expect(sheet1.name).to.eql('Text');
+      expect(sheet1.name).to.equal('Text');
       expect(sheet1.flags).to.eql([ 'with styles' ]);
     })
     it('should extract flags from column names', function() {
       const sheet1 = sushi.sheets[0];
       const [ col1, col2, col3, col4 ] = sheet1.columns;
-      expect(col1.name).to.eql('Name');
-      expect(col2.name).to.eql('Description');
+      expect(col1.name).to.equal('Name');
+      expect(col2.name).to.equal('Description');
       expect(col2.flags).to.eql([ 'en' ]);
-      expect(col3.name).to.eql('Description');
+      expect(col3.name).to.equal('Description');
       expect(col3.flags).to.eql([ 'pl' ]);
-      expect(col4.name).to.eql('Picture');
+      expect(col4.name).to.equal('Picture');
     })
     it('should extract plain text from cells', function() {
       const sheet1 = sample.sheets[0];
@@ -151,8 +151,8 @@ describe('Excel parsing', function() {
       const hash1 = getHash(cellD2.image.buffer);
       const hash2 = getHash(cellD3.image.buffer);
       // values from sha1sum
-      expect(hash1).to.eql('1a1e9e305b5a132560e861531430f9b881b35cd1');
-      expect(hash2).to.eql('32e4106d369959addd2abed33f59f78ea92c0c28');
+      expect(hash1).to.equal('1a1e9e305b5a132560e861531430f9b881b35cd1');
+      expect(hash2).to.equal('32e4106d369959addd2abed33f59f78ea92c0c28');
     })
     it('should preserve styling on cells used as column headers', function() {
       const [ sheet1 ] = sushi.sheets;

@@ -6,6 +6,8 @@ import { createTempFolder } from './helpers/file-saving.mjs';
 import { getAssetPath  } from './helpers/path-finding.mjs';
 import { findSiteContentMeta, loadSiteContent } from '../lib/content-loading.mjs';
 import { getHash } from '../lib/content-naming.mjs';
+import { setServerConfig } from '../lib/config-loading.mjs';
+import { handleRedirection } from '../lib/request-handling.mjs';
 import './helpers/conditional-testing.mjs';
 
 import {
@@ -20,6 +22,7 @@ describe('Data request handling', function() {
       const json = await loadExcelFile('sushi.xlsx');
       const site = {
         name: 'tmp',
+        domains: [],
         storage: tmpFolder
       };
       const list = await saveEmbeddedMedia(site, json);
@@ -44,6 +47,7 @@ describe('Data request handling', function() {
       const tmpFolder = await createTempFolder();
       const site = {
         name: 'tmp',
+        domains: [],
         storage: tmpFolder,
         files: [
           {
@@ -98,6 +102,7 @@ describe('Data request handling', function() {
       const tmpFolder = await createTempFolder();
       const site = {
         name: 'tmp',
+        domains: [],
         storage: tmpFolder,
         files: [
           {
@@ -113,7 +118,7 @@ describe('Data request handling', function() {
       req1.site = site;
       req1.server = {};
       await handleDataRequest(req1, res1, next);
-      expect(res1.statusCode).to.eql(200);
+      expect(res1.statusCode).to.equal(200);
       const headers = res1._getHeaders();
       expect(headers).to.have.property('etag').that.is.a('string');
       const req2 = createRequest({
@@ -124,8 +129,8 @@ describe('Data request handling', function() {
       req2.site = site;
       req2.server = {};
       await handleDataRequest(req2, res2, next);
-      expect(res2.statusCode).to.eql(304);
-      expect(res2._getData()).to.eql('');
+      expect(res2.statusCode).to.equal(304);
+      expect(res2._getData()).to.equal('');
       const req3 = createRequest({
         headers: { 'if-none-match': 'dingo' },
         params: { name: 'sushi' }
@@ -134,13 +139,14 @@ describe('Data request handling', function() {
       req3.site = site;
       req3.server = {};
       await handleDataRequest(req3, res3, next);
-      expect(res3.statusCode).to.eql(200);
+      expect(res3.statusCode).to.equal(200);
     })
     skip.if.watching.
     it('should return data from an Excel file at Dropbox', async function() {
       const tmpFolder = await createTempFolder();
       const site = {
         name: 'tmp',
+        domains: [],
         storage: tmpFolder,
         files: [
           {
@@ -166,6 +172,7 @@ describe('Data request handling', function() {
     it('should raise 404 error if file is not listed in config', async function() {
       const site = {
         name: 'tmp',
+        domains: [],
         storage: {},
         files: []
       };
@@ -187,6 +194,7 @@ describe('Data request handling', function() {
       const tmpFolder = await createTempFolder();
       const site = {
         name: 'tmp',
+        domains: [],
         storage: tmpFolder,
         files: [
           {
@@ -212,6 +220,7 @@ describe('Data request handling', function() {
       const tmpFolder = await createTempFolder();
       const site = {
         name: 'tmp',
+        domains: [],
         storage: tmpFolder,
         files: [
           {
@@ -227,7 +236,7 @@ describe('Data request handling', function() {
       req1.site = site;
       req1.server = {};
       await handleDataRequest(req1, res1, next);
-      expect(res1.statusCode).to.eql(200);
+      expect(res1.statusCode).to.equal(200);
       // rename file temporarily
       const file = site.files.find((f) => f.name === 'sushi');
       const oldPath = file.path, newPath = file.path + '.bak';
@@ -243,7 +252,7 @@ describe('Data request handling', function() {
       req2.site = site;
       req2.server = {};
       await handleDataRequest(req1, res1, next);
-      expect(res1.statusCode).to.eql(200);
+      expect(res1.statusCode).to.equal(200);
       const hash = getHash(file.path);
       const meta = await findSiteContentMeta(site, 'data', hash);
       expect(meta).to.be.an('object');
@@ -255,6 +264,7 @@ describe('Data request handling', function() {
       const tmpFolder = await createTempFolder();
       const site = {
         name: 'tmp',
+        domains: [],
         storage: tmpFolder,
         files: [
           {
@@ -282,6 +292,7 @@ describe('Data request handling', function() {
       const tmpFolder = await createTempFolder();
       const site = {
         name: 'tmp',
+        domains: [],
         storage: tmpFolder,
         files: [
           {
@@ -300,11 +311,13 @@ describe('Data request handling', function() {
         params: { name: '1' },
       });
       const res = createResponse();
+      setServerConfig({ listen: [ 8080 ] });
       req.site = site;
       req.server = {};
+      handleRedirection(req, res, () => {});
       await handleDataRequest(req, res, next);
-      expect(res.statusCode).to.eql(302);
-      expect(res._getRedirectUrl()).to.eql('/tmp/-/data/sample');
+      expect(res.statusCode).to.equal(302);
+      expect(res._getRedirectUrl()).to.equal('/tmp/-/data/sample');
     })
   })
 })

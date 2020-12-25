@@ -75,7 +75,7 @@ describe('Git adapters', function() {
           ref: 'heads/main',
         };
         const result  = adapter.getURL('repos/:owner/:repo/git/ref/:ref', repo, vars);
-        expect(result).to.eql('https://api.github.com/repos/chung-leong/zielono/git/ref/heads/main');
+        expect(result).to.equal('https://api.github.com/repos/chung-leong/zielono/git/ref/heads/main');
       });
     })
     skip.if.watching.or.no.github.

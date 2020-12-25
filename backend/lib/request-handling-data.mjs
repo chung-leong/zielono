@@ -4,6 +4,7 @@ import { loadSiteContent, loadSiteContentMeta, findSiteContentMeta } from './con
 import { saveSiteContent, saveSiteContentMeta } from './content-saving.mjs';
 import { getHash } from './content-naming.mjs';
 import { getImageMeta } from './request-handling-image.mjs';
+import { getSiteURL } from './page-linking.mjs';
 import { HttpError } from './error-handling.mjs';
 
 /**
@@ -21,8 +22,8 @@ async function handleDataRequest(req, res, next) {
     if (fileIndex >= 0) {
       const file = site.files[fileIndex];
       if (file) {
-        const url = req.originalUrl.replace(`/data/${name}`, `/data/${file.name}`);
-        res.redirect(url);
+        const urlParts = getSiteURL(site, `/-/data/${file.name}`);
+        res.redirect(urlParts);
         return;
       }
     }

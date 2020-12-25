@@ -20,11 +20,11 @@ describe('Excel styling', function() {
   describe('stringifyARGB()', function() {
     it('should return color in basic hex representation when the color is opaque', function () {
       const color = stringifyARGB({ a:0xff, r: 0xff, g: 0x01, b: 0x01 });
-      expect(color).to.eql('#ff0101');
+      expect(color).to.equal('#ff0101');
     })
     it('should return color in rgba() notation when the color is transparent', function () {
       const color = stringifyARGB({ a:0xf0, r: 0xff, g: 0x01, b: 0x01 });
-      expect(color).to.eql('rgba(255, 1, 1, 0.94)');
+      expect(color).to.equal('rgba(255, 1, 1, 0.94)');
     })
   })
   describe('getNamedColor()', function() {

@@ -11,7 +11,7 @@ describe('Admin request handling', function() {
       const req = createRequest()
       const res = createResponse();
       handleAdminRequest(req, res, () => {});
-      expect(res._getData()).to.eql('Under construction');
+      expect(res._getData()).to.equal('Under construction');
     })
   })
 })

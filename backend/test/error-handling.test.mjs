@@ -7,14 +7,18 @@ import {
 
 describe('Error handling', function() {
   describe('displayError()', function() {
+    let nodeEnvBefore;
     let consoleErrorBefore;
     let consoleErrorArgs;
     before(function() {
+      nodeEnvBefore = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
       consoleErrorBefore = console.error;
       console.error = (...args) => { consoleErrorArgs = args };
       setConfigFolder('./');
     })
     after(function() {
+      process.env.NODE_ENV = nodeEnvBefore;
       console.error = consoleErrorBefore;
       consoleErrorArgs = undefined;
     })

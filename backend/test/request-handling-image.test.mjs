@@ -106,7 +106,7 @@ describe('Image request handling', function() {
       expect(data).to.be.instanceOf(Buffer);
       expect(res._getHeaders()).to.have.property('content-type', 'image/png');
       const meta = await getImageMeta(data, 'png');
-      expect(meta.format).to.eql('png');
+      expect(meta.format).to.equal('png');
     })
     it('should resize image on the fly', async function () {
       const req = createRequest({
@@ -122,9 +122,9 @@ describe('Image request handling', function() {
       expect(data).to.be.instanceOf(Buffer);
       expect(res._getHeaders()).to.have.property('content-type', 'image/jpeg');
       const meta = await getImageMeta(data, 'jpeg');
-      expect(meta.format).to.eql('jpeg');
-      expect(meta.width).to.eql(50);
-      expect(meta.height).to.eql(50);
+      expect(meta.format).to.equal('jpeg');
+      expect(meta.width).to.equal(50);
+      expect(meta.height).to.equal(50);
     })
   })
 })

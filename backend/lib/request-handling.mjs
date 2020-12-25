@@ -2,6 +2,7 @@ import createApp, { json as createJSONParser } from 'express';
 import createCORSHandler from 'cors';
 import createCompressionHandler from 'compression';
 import { findSiteConfigs, findServerConfig } from './config-loading.mjs';
+import { getServerURL, getSiteURL, atSiteURL } from './page-linking.mjs';
 import { handleImageRequest } from './request-handling-image.mjs';
 import { handleDataRequest } from './request-handling-data.mjs';
 import { handlePageRequest } from './request-handling-page.mjs';
@@ -62,6 +63,7 @@ function addHandlers(app) {
   app.use(handleHookRequestValidation);
   app.use(createJSONParser());
   app.post('/-/hook/:hash', handleHookRequest);
+  app.use(handleRedirection);
   app.use(handleSiteAssociation);
   app.use('/zielono', handleAdminRequest);
   app.use(handleRefExtraction);
@@ -75,6 +77,30 @@ function addHandlers(app) {
   app.use(handleError);
 }
 
+function handleRedirection(req, res, next) {
+  const f = res.redirect;
+  res.redirect = function(url, options = {}) {
+    const { permanent = false, internal = false } = options;
+    const status = (permanent) ? 301 : 302;
+    if (url instanceof URL) {
+      const serverURL = getServerURL();
+      if (url.host === serverURL.host) {
+        url = url.href.substr(url.origin.length);
+      } else {
+        // exclude protocol
+        url = url.href.substr(url.protocol.length);
+      }
+    }
+    if (internal) {
+      res.set('X-Accel-Redirect', url);
+      res.end();
+    } else {
+      f.call(this, status, url);
+    }
+  };
+  next();
+}
+
 /**
  * Attach site configuration to request object when domain name or folder name
  * matches
@@ -85,7 +111,7 @@ function addHandlers(app) {
  */
 function handleSiteAssociation(req, res, next) {
   try {
-    const { hostname, originalUrl, url } = req;
+    const { hostname, query, url } = req;
     const server = findServerConfig();
     const sites = findSiteConfigs();
     let baseUrl = '';
@@ -95,29 +121,20 @@ function handleSiteAssociation(req, res, next) {
       if (domainIndex > 0) {
         // redirect to canonical domain name to improve caching
         if (server.nginx) {
-          const host = attachServerPort(site.domains[0], server);
-          const url = `//${host}${originalUrl}`;
-          res.set({ 'X-Accel-Redirect': url });
-          res.end();
+          const urlParts = getSiteURL(site, url, query);
+          res.redirect(urlParts, { internal: true });
           return;
         }
       }
     } else {
       // see if the URL starts with the name of a site
-      site = sites.find((s) => atBaseURL(url, `/${s.name}`));
+      site = sites.find((s) => atSiteURL(url, s));
       if (site) {
         baseUrl = `/${site.name}`;
       } else if (url === '/') {
-        const first = sites[0];
-        if (first) {
-          if (first.domains[0]) {
-            const host = attachServerPort(first.domains[0], server);
-            res.redirect(`//${host}`);
-          } else {
-            res.redirect(`/${first.name}`);
-          }
-          return;
-        }
+        const urlParts = getServerURL('/zielono/');
+        res.redirect(urlParts);
+        return;
       }
     }
     req.url = url.substr(baseUrl.length);
@@ -156,10 +173,14 @@ function handleRefExtraction(req, res, next) {
  * @param  {function} next
  */
 function handleResourceRedirection(req, res, next) {
-  const { originalUrl, baseUrl } = req;
-  const { page } = req.params;
-  const newUrl = baseUrl + originalUrl.substr(baseUrl.length + 1 + page.length);
-  res.redirect(301, newUrl);
+  const { site, query } = req;
+  const { page, resource } = req.params;
+  if (site) {
+    const urlParts = getSiteURL(site, resource, query);
+    res.redirect(urlParts, { permanent: true });
+    return;
+  }
+  next();
 }
 
 /**
@@ -194,40 +215,11 @@ function handleError(err, req, res, next) {
   }
 }
 
-/**
- * Check if url is based on another
- *
- * @param  {string} url
- * @param  {string} baseURL
- *
- * @return {boolean}
- */
-function atBaseURL(url, baseURL) {
-  if (url.startsWith(baseURL)) {
-    if (baseURL.length === url.length || url.charAt(baseURL.length) === '/') {
-      return true;
-    }
-  }
-  return false;
-}
-
-function attachServerPort(domain, server) {
-  let port = 80;
-  if (server.nginx && server.nginx.url) {
-    const urlParts = new URL(server.nginx.url);
-    if (urlParts.port) {
-      port = parseInt(urlParts.port);
-    }
-  } else if (typeof(server.listen[0]) === 'number') {
-    port = server.listen[0];
-  }
-  return (port === 80 || port === 443) ? domain : `${domain}:${port}`;
-}
-
 export {
   startHTTPServer,
   stopHTTPServer,
   addHandlers,
+  handleRedirection,
   handleSiteAssociation,
   handleRefExtraction,
   handleResourceRedirection,

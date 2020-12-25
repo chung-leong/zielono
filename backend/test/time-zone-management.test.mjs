@@ -24,7 +24,7 @@ describe('Time zone management', function() {
       setTimeZone('Pacific/Honolulu');
       const date = new Date(0);
       const str = date.toLocaleTimeString('eu-US', { hour12: true });
-      expect(str).to.eql('2:00:00 PM');
+      expect(str).to.equal('2:00:00 PM');
       restoreTimeZone();
     })
     it('should throw when called a second time', function() {
@@ -36,7 +36,7 @@ describe('Time zone management', function() {
       setTimeZone('Europe/Pcim');
       const date = new Date(0);
       const str = date.toLocaleTimeString('eu-US', { hour12: true });
-      expect(str).to.eql('0:00:00 AM');
+      expect(str).to.equal('0:00:00 AM');
       restoreTimeZone();
     })
   })
@@ -48,8 +48,8 @@ describe('Time zone management', function() {
       const str2 = date.toLocaleTimeString('eu-US', { hour12: true });
       restoreTimeZone();
       const str3 = date.toLocaleTimeString('eu-US', { hour12: true });
-      expect(str1).to.not.eql(str2);
-      expect(str3).to.eql(str1);
+      expect(str1).to.not.equal(str2);
+      expect(str3).to.equal(str1);
     })
   })
   describe('reinterpretDate()', function() {

@@ -34,6 +34,17 @@ describe('Page linking', function() {
       const result = getServerURL();
       expect(result.href).to.match(/http:\/\/\d+\.\d+\.\d+\.\d+:8080/);
     })
+    it('should use the path of the Nginx URL', async function() {
+      const tmpFolder = await createTempFolder();
+      await saveYAML(tmpFolder, 'zielono', {
+        nginx: {
+          url: 'https://somewhere.net/zielono'
+        }
+      });
+      await loadConfig(tmpFolder.path);
+      const result = getServerURL();
+      expect(result.href).to.equal('https://somewhere.net/zielono/');
+    })
   })
   describe('getSiteURL()', function() {
     it('should return the URL using the first domain of the site', async function() {
@@ -65,6 +76,21 @@ describe('Page linking', function() {
       const site = findSiteConfig('site-1');
       const result = getSiteURL(site);
       expect(result.href).to.equal('https://donut.test:8080/');
+    })
+    it('should use the path of the Nginx URL', async function() {
+      const tmpFolder = await createTempFolder();
+      await saveYAML(tmpFolder, 'zielono', {
+        nginx: {
+          url: 'https://somewhere.net/zielono'
+        }
+      });
+      await saveYAML(tmpFolder, 'site-1', {
+        domains: [ 'donut.test', 'bigos.pl' ]
+      });
+      await loadConfig(tmpFolder.path);
+      const site = findSiteConfig('site-1');
+      const result = getSiteURL(site);
+      expect(result.href).to.equal('https://donut.test/zielono/');
     })
     it('should append site name to server URL when site has no domain names', async function() {
       const tmpFolder = await createTempFolder();

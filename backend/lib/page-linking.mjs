@@ -1,9 +1,20 @@
+import { join } from 'path';
+import QueryString from 'querystring';
 import { findGitAdapter } from './git-adapters.mjs';
 import { ssrRootFolder } from './page-generation.mjs';
 import { findAccessToken } from './config-loading.mjs';
 import { getIPv4Address } from './network-handling.mjs';
 import { findServerConfig } from './config-loading.mjs';
 
+/**
+ * Find different versions of a site's web-page, based on git log
+ *
+ * @param  {object} site
+ * @param  {object} options
+ * @param  {boolean} options.useRef
+ *
+ * @return {object[]}
+ */
 async function findPageVersions(site, options) {
   const { useRef } = options;
   if (!site.page) {
@@ -47,28 +58,78 @@ async function findPageVersions(site, options) {
   return versions;
 }
 
-function getSiteURL(site) {
+/**
+ * Get the URL of a resource at a site
+ *
+ * @param  {object} site
+ * @param  {string|undefined} subpath
+ *
+ * @return {URL}
+ */
+function getSiteURL(site, subpath, query) {
   const url = getServerURL();
+  const path = (subpath) ? join('/', subpath) : '/';
   if (site.domains.length > 0) {
     url.hostname = site.domains[0];
+    url.pathname += path.substr(1);
   } else {
-    url.pathname += `${site.name}/`;
+    url.pathname += join(site.name, path);
+  }
+  if (query) {
+    url.search = '?' + QueryString.encode(query);
   }
   return url;
 }
 
-function getServerURL() {
+/**
+ * Get the URL of a resource at the server
+ *
+ * @param  {string|undefined} subpath
+ *
+ * @return {URL}
+ */
+function getServerURL(subpath, query) {
   const server = findServerConfig();
+  const path = (subpath) ? join('/', subpath) : '/';
+  let url;
   if (server.nginx) {
-    return new URL(server.nginx.url);
+    url = new URL(server.nginx.url);
   } else {
     const port = server.listen[0];
-    return new URL(`http://${getIPv4Address()}:${port}`);
+    url = new URL(`http://${getIPv4Address()}:${port}`);
   }
+  if (url.pathname.endsWith('/')) {
+    url.pathname += path.substr(1);
+  } else {
+    url.pathname += path;
+  }
+  if (query) {
+    url.search = '?' + QueryString.encode(query);
+  }
+  return url;
+}
+
+/**
+ * Check if the given URL points to a resource at a site
+ *
+ * @param  {string} url
+ * @param  {object} site
+ *
+ * @return {boolean}
+ */
+function atSiteURL(url, site) {
+  const baseURL = `/${site.name}`;
+  if (url.startsWith(baseURL)) {
+    if (baseURL.length === url.length || url.charAt(baseURL.length) === '/') {
+      return true;
+    }
+  }
+  return false;
 }
 
 export {
   findPageVersions,
   getSiteURL,
   getServerURL,
+  atSiteURL,
 };

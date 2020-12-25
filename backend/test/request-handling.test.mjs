@@ -4,28 +4,20 @@ import Layer from 'express/lib/router/layer.js';
 import { createTempFolder, saveYAML, removeYAML } from './helpers/file-saving.mjs';
 import { getAssetPath  } from './helpers/path-finding.mjs';
 import { loadConfig, setConfigFolder } from '../lib/config-loading.mjs';
+import { handlePageRequest } from '../lib/request-handling-page.mjs';
+import { handleImageRequest } from '../lib/request-handling-image.mjs';
+import { handleDataRequest } from '../lib/request-handling-data.mjs';
+import { handleAdminRequest } from '../lib/request-handling-admin.mjs';
 
 import {
   addHandlers,
   handleSiteAssociation,
+  handleRedirection,
   handleRefExtraction,
   handleResourceRedirection,
   handleInvalidRequest,
   handleError,
 } from '../lib/request-handling.mjs';
-import {
-  handlePageRequest,
-} from '../lib/request-handling-page.mjs';
-import {
-  handleImageRequest,
-} from '../lib/request-handling-image.mjs';
-import {
-  handleDataRequest,
-} from '../lib/request-handling-data.mjs';
-import {
-  handleAdminRequest,
-} from '../lib/request-handling-admin.mjs';
-
 
 describe('Request handling', function() {
   let tmpFolder;
@@ -155,13 +147,21 @@ describe('Request handling', function() {
     };
   })
   describe('handleError()', function() {
+    let nodeEnv = process.env.NODE_ENV;
+    before(function() {
+      nodeEnv = process.env.NODE_ENV;
+      process.env.NODE_ENV = 'production';
+    })
+    after(function() {
+      process.env.NODE_ENV = nodeEnv;
+    })
     it('should send the error message as text', function() {
       const err = new Error('Hello world');
       const req = createRequest()
       const res = createResponse();
       handleError(err, req, res, next);
-      expect(res._getData()).to.eql(err.message);
-      expect(res.statusCode).to.eql(400);
+      expect(res._getData()).to.equal(err.message);
+      expect(res.statusCode).to.equal(400);
     })
     it('should set status code if error object has one', function() {
       const err = new Error('Hello world');
@@ -169,8 +169,8 @@ describe('Request handling', function() {
       const req = createRequest();
       const res = createResponse();
       handleError(err, req, res, next);
-      expect(res._getData()).to.eql(err.message);
-      expect(res.statusCode).to.eql(err.status);
+      expect(res._getData()).to.equal(err.message);
+      expect(res.statusCode).to.equal(err.status);
     })
     it('should not do anything when headers are sent', function() {
       const err = new Error('Hello world');
@@ -178,7 +178,7 @@ describe('Request handling', function() {
       const res = createResponse();
       res.end();
       expect(() => { handleError(err, req, res, next) }).to.throw();
-      expect(res._getData()).to.eql('');
+      expect(res._getData()).to.equal('');
       expect(nextCalled).to.be.true;
     })
   })
@@ -208,6 +208,7 @@ describe('Request handling', function() {
       });
       const redirect = '//duck.test/somewhere/?lang=en';
       const res = createResponse();
+      handleRedirection(req, res, () => {});
       await handleSiteAssociation(req, res, next);
       expect(res._getHeaders()).to.have.property('x-accel-redirect', redirect);
       expect(res.headersSent).to.be.true;
@@ -221,11 +222,12 @@ describe('Request handling', function() {
         query: { lang: 'en' }
       });
       const res = createResponse();
+      handleRedirection(req, res, () => {});
       await handleSiteAssociation(req, res, next);
-      expect(req.url).to.eql('/somewhere/');
+      expect(req.url).to.equal('/somewhere/');
       expect(req).to.have.property('site').that.is.an('object');
       expect(req.site).to.have.property('name', 'site1');
-      expect(req.baseUrl).to.eql('/site1');
+      expect(req.baseUrl).to.equal('/site1');
     })
   })
   describe('handleRefExtraction', function() {
@@ -237,41 +239,43 @@ describe('Request handling', function() {
       });
       const res = createResponse();
       handleRefExtraction(req, res, next);
-      expect(req.url).to.eql('/somewhere/else/');
-      expect(req.ref).to.eql('heads/main');
+      expect(req.url).to.equal('/somewhere/else/');
+      expect(req.ref).to.equal('heads/main');
     })
   })
   describe('handleResourceRedirection()', function() {
     it('should redirect addresses relative to page URL (/-/*)', function() {
       const req = createRequest({
         port: 80,
+        site: { name: 'site1', domains: [] },
         url: '/somewhere/else/-/data/sushi',
         originalUrl: '/site1/somewhere/else/-/data/sushi?style=0',
         baseUrl: '/site1',
-        query: { style: 'en' },
-        params: { page: 'somewhere/else', resource: '-/data/sushi?style=0' }
+        query: { style: '0' },
+        params: { page: 'somewhere/else', resource: '-/data/sushi' }
       });
       const res = createResponse();
-      const redirect = '/site1/-/data/sushi?style=0';
+      handleRedirection(req, res, () => {});
       handleResourceRedirection(req, res, next);
-      expect(res.statusCode).to.eql(301);
-      expect(res._getRedirectUrl()).to.eql(redirect);
+      expect(res.statusCode).to.equal(301);
+      expect(res._getRedirectUrl()).to.equal('/site1/-/data/sushi?style=0');
       expect(nextCalled).to.be.false;
     })
     it('should redirect addresses relative to page URL (*.*)', function() {
       const req = createRequest({
         port: 80,
+        site: { name: 'site1', domains: [] },
         url: '/somewhere/else/index.js',
-        originalUrl: '/site1/somewhere/else/index.js',
+        originalUrl: '/site1/somewhere/else/index.js?lang=en',
         baseUrl: '/site1',
-        query: { style: 'en' },
+        query: { lang: 'en' },
         params: { page: 'somewhere/else', resource: 'index.js' }
       });
       const res = createResponse();
-      const redirect = '/site1/index.js';
+      handleRedirection(req, res, () => {});
       handleResourceRedirection(req, res, next);
-      expect(res.statusCode).to.eql(301);
-      expect(res._getRedirectUrl()).to.eql(redirect);
+      expect(res.statusCode).to.equal(301);
+      expect(res._getRedirectUrl()).to.equal('/site1/index.js?lang=en');
       expect(nextCalled).to.be.false;
     })
   })
