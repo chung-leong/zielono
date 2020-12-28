@@ -218,9 +218,20 @@ describe('Excel parsing', function() {
       const cellC7 = col3.cells[3];
       expect(cellC7).to.have.property('master').that.eql({ col: 2, row: 1 });
     })
-    it('should reurn data with expiration date', async function() {
+    it('should attach expiration date to data', async function() {
       const json = await loadExcelFile('dates.xlsx');
       expect(json).to.have.property('expiration').that.is.a('date');
+    })
+    it('should normalize unicode string', async function() {
+      const unicode = await loadExcelFile('unicode.xlsx');
+      const [ sheet1 ] = unicode.sheets;
+      const [ col1, col2 ] = sheet1.columns;
+      const cellA2 = col1.cells[0];
+      const cellB2 = col2.cells[0];
+      expect(cellA2).to.have.property('value').with.lengthOf(10);
+      expect(cellB2).to.have.property('value').with.lengthOf(13);
+      expect(cellA2).to.not.have.property('text');
+      expect(cellB2).to.have.property('text').with.lengthOf(10);
     })
   })
   describe('parseCSVFile()', function() {

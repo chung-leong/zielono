@@ -14,8 +14,16 @@ const { floor, round, abs } = Math;
  * @return {object|undefined}
  */
 function formatValue(value, formatString, options) {
+  const originalValue = value;
+  if (typeof(value) === 'string') {
+    value = value.normalize('NFC');
+  }
   if (!formatString || formatString === '@' || formatString === 'General') {
-    return;
+    if (value !== originalValue) {
+      return { text: value };
+    } else {
+      return;
+    }
   }
   const formatter = ExcelValueFormatter.get(formatString, options);
   return formatter.format(value);
